@@ -873,58 +873,10 @@ export class Parser {
     this.skipNewlines();
     this.expect(TokenType.LBRACE, 'Expected { after js');
     
-    // Read raw JavaScript code until matching closing brace
-    // We need to track brace depth to handle nested braces in JS
-    let braceDepth = 1;
+    // Get the raw JS content from the JS_CONTENT token
     let jsCode = '';
-    const startPos = this.pos;
-    const consoleTokens = []; // Track console tokens for error reporting
-    
-    // Get the position in source after the opening brace
-    const openBraceToken = this.tokens[this.pos - 1];
-    let sourcePos = 0;
-    
-    // Find the position in source code
-    for (let i = 0; i < this.pos; i++) {
-      // Skip to after the opening brace in source
-    }
-    
-    // Read tokens until we find the matching closing brace
-    while (braceDepth > 0 && !this.check(TokenType.EOF)) {
-      const token = this.peek();
-      
-      if (token.type === TokenType.LBRACE) {
-        braceDepth++;
-        jsCode += '{ ';
-        this.advance();
-      } else if (token.type === TokenType.RBRACE) {
-        braceDepth--;
-        if (braceDepth > 0) {
-          jsCode += '} ';
-          this.advance();
-        }
-      } else if (token.type === TokenType.NEWLINE) {
-        jsCode += '\n';
-        this.advance();
-      } else if (token.type === TokenType.EQ && this.peek(1).type === TokenType.ASSIGN) {
-        // Handle === (tokenized as == followed by =)
-        jsCode += '=== ';
-        this.advance();
-        this.advance();
-      } else if (token.type === TokenType.NEQ && this.peek(1).type === TokenType.ASSIGN) {
-        // Handle !== (tokenized as != followed by =)
-        jsCode += '!== ';
-        this.advance();
-        this.advance();
-      } else {
-        // Track console tokens for error reporting
-        if (token.type === TokenType.IDENTIFIER && token.value === 'console') {
-          consoleTokens.push(token);
-        }
-        // Reconstruct the token as source
-        jsCode += this.tokenToSource(token) + ' ';
-        this.advance();
-      }
+    if (this.check(TokenType.JS_CONTENT)) {
+      jsCode = this.advance().value;
     }
     
     this.expect(TokenType.RBRACE, 'Expected } to close js block');
@@ -1117,44 +1069,10 @@ export class Parser {
     this.skipNewlines();
     this.expect(TokenType.LBRACE, 'Expected { after js');
     
-    let braceDepth = 1;
+    // Get the raw JS content from the JS_CONTENT token
     let jsCode = '';
-    const consoleTokens = []; // Track console tokens for error reporting
-    
-    while (braceDepth > 0 && !this.check(TokenType.EOF)) {
-      const token = this.peek();
-      
-      if (token.type === TokenType.LBRACE) {
-        braceDepth++;
-        jsCode += '{ ';
-        this.advance();
-      } else if (token.type === TokenType.RBRACE) {
-        braceDepth--;
-        if (braceDepth > 0) {
-          jsCode += '} ';
-          this.advance();
-        }
-      } else if (token.type === TokenType.NEWLINE) {
-        jsCode += '\n';
-        this.advance();
-      } else if (token.type === TokenType.EQ && this.peek(1).type === TokenType.ASSIGN) {
-        // Handle === (tokenized as == followed by =)
-        jsCode += '=== ';
-        this.advance();
-        this.advance();
-      } else if (token.type === TokenType.NEQ && this.peek(1).type === TokenType.ASSIGN) {
-        // Handle !== (tokenized as != followed by =)
-        jsCode += '!== ';
-        this.advance();
-        this.advance();
-      } else {
-        // Track console tokens for error reporting
-        if (token.type === TokenType.IDENTIFIER && token.value === 'console') {
-          consoleTokens.push(token);
-        }
-        jsCode += this.tokenToSource(token) + ' ';
-        this.advance();
-      }
+    if (this.check(TokenType.JS_CONTENT)) {
+      jsCode = this.advance().value;
     }
     
     this.expect(TokenType.RBRACE, 'Expected } to close js block');

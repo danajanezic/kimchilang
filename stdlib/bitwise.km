@@ -1,24 +1,24 @@
 // KimchiLang Bitwise Operations
-// Usage: as bitwise dep stdlib.bitwise
+// Usage: as bit dep stdlib.bitwise
 // Provides wrapper functions for JavaScript bitwise operators
 
 // Bitwise AND: a & b
-expose fn and(a, b) {
+expose fn band(a, b) {
   return js(a, b) { return a & b; }
 }
 
 // Bitwise OR: a | b
-expose fn or(a, b) {
+expose fn bor(a, b) {
   return js(a, b) { return a | b; }
 }
 
 // Bitwise XOR: a ^ b
-expose fn xor(a, b) {
+expose fn bxor(a, b) {
   return js(a, b) { return a ^ b; }
 }
 
 // Bitwise NOT: ~a
-expose fn not(a) {
+expose fn bnot(a) {
   return js(a) { return ~a; }
 }
 

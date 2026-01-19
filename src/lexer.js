@@ -37,6 +37,7 @@ export const TokenType = {
   IS: 'IS',
   ENUM: 'ENUM',
   JS: 'JS',
+  JS_CONTENT: 'JS_CONTENT',
   SHELL: 'SHELL',
   SHELL_CONTENT: 'SHELL_CONTENT',
   TEST: 'TEST',
@@ -423,6 +424,86 @@ export class Lexer {
     }
     
     const type = KEYWORDS[value] || TokenType.IDENTIFIER;
+    
+    // Special handling for js keyword - read raw content after {
+    if (type === TokenType.JS) {
+      this.tokens.push(new Token(type, value, startLine, startColumn));
+      this.skipWhitespace();
+      
+      // Check for optional (inputs)
+      if (this.peek() === '(') {
+        this.tokens.push(new Token(TokenType.LPAREN, '(', this.line, this.column));
+        this.advance();
+        // Read input identifiers
+        while (this.peek() !== ')' && this.peek() !== '\0') {
+          this.skipWhitespace();
+          if (this.peek() === ',') {
+            this.tokens.push(new Token(TokenType.COMMA, ',', this.line, this.column));
+            this.advance();
+            continue;
+          }
+          if (/[a-zA-Z_$]/.test(this.peek())) {
+            const idStart = this.line;
+            const idCol = this.column;
+            let id = '';
+            while (/[a-zA-Z0-9_$]/.test(this.peek())) {
+              id += this.advance();
+            }
+            this.tokens.push(new Token(TokenType.IDENTIFIER, id, idStart, idCol));
+          } else {
+            break;
+          }
+        }
+        if (this.peek() === ')') {
+          this.tokens.push(new Token(TokenType.RPAREN, ')', this.line, this.column));
+          this.advance();
+        }
+        this.skipWhitespace();
+      }
+      
+      // Skip newlines before {
+      while (this.peek() === '\n') {
+        this.advance();
+      }
+      this.skipWhitespace();
+      
+      // Now read the { and raw content until }
+      if (this.peek() === '{') {
+        this.tokens.push(new Token(TokenType.LBRACE, '{', this.line, this.column));
+        this.advance();
+        
+        // Read raw JS content until matching }
+        const contentStart = this.line;
+        const contentCol = this.column;
+        let content = '';
+        let braceDepth = 1;
+        
+        while (braceDepth > 0 && this.peek() !== '\0') {
+          if (this.peek() === '{') {
+            braceDepth++;
+            content += this.advance();
+          } else if (this.peek() === '}') {
+            braceDepth--;
+            if (braceDepth > 0) {
+              content += this.advance();
+            }
+          } else {
+            content += this.advance();
+          }
+        }
+        
+        // Add the raw JS content as a single token
+        this.tokens.push(new Token(TokenType.JS_CONTENT, content.trim(), contentStart, contentCol));
+        
+        // Add closing brace
+        if (this.peek() === '}') {
+          this.tokens.push(new Token(TokenType.RBRACE, '}', this.line, this.column));
+          this.advance();
+        }
+        
+        return null; // Already added tokens
+      }
+    }
     
     // Special handling for shell keyword - read raw content after {
     if (type === TokenType.SHELL) {

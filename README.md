@@ -1283,29 +1283,29 @@ Bitwise operations are provided as functions rather than operators.
 **Import:**
 
 ```kimchi
-as bitwise dep stdlib.bitwise
+as bit dep stdlib.bitwise
 ```
 
 **Functions:**
 
 ```kimchi
-bitwise.and(a, b)     // a & b
-bitwise.or(a, b)      // a | b
-bitwise.xor(a, b)     // a ^ b
-bitwise.not(a)        // ~a
-bitwise.lshift(a, b)  // a << b
-bitwise.rshift(a, b)  // a >> b (sign-propagating)
-bitwise.urshift(a, b) // a >>> b (unsigned)
+bit.band(a, b)     // a & b (bitwise AND)
+bit.bor(a, b)      // a | b (bitwise OR)
+bit.bxor(a, b)     // a ^ b (bitwise XOR)
+bit.bnot(a)        // ~a (bitwise NOT)
+bit.lshift(a, b)   // a << b (left shift)
+bit.rshift(a, b)   // a >> b (right shift, sign-propagating)
+bit.urshift(a, b)  // a >>> b (unsigned right shift)
 ```
 
 **Examples:**
 
 ```kimchi
-as bitwise dep stdlib.bitwise
+as bit dep stdlib.bitwise
 
-dec flags = bitwise.or(0x01, 0x04)     // 5
-dec masked = bitwise.and(flags, 0x01)  // 1
-dec shifted = bitwise.rshift(16, 2)    // 4
+dec flags = bit.bor(0x01, 0x04)      // 5
+dec masked = bit.band(flags, 0x01)   // 1
+dec shifted = bit.rshift(16, 2)      // 4
 ```
 
 ## Running Tests
