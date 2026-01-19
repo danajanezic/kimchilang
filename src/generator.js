@@ -145,6 +145,38 @@ export class CodeGenerator {
     this.emitLine('}');
     this.emitLine();
     
+    // Async-aware pipe helper - awaits each step in the chain
+    this.emitLine('async function _pipe(value, ...fns) {');
+    this.pushIndent();
+    this.emitLine('let result = value;');
+    this.emitLine('for (const fn of fns) {');
+    this.pushIndent();
+    this.emitLine('result = await fn(result);');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('return result;');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine();
+    
+    // Async-aware flow helper - creates an async composed function
+    this.emitLine('function _flow(...fns) {');
+    this.pushIndent();
+    this.emitLine('return async (...args) => {');
+    this.pushIndent();
+    this.emitLine('let result = await fns[0](...args);');
+    this.emitLine('for (let i = 1; i < fns.length; i++) {');
+    this.pushIndent();
+    this.emitLine('result = await fns[i](result);');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('return result;');
+    this.popIndent();
+    this.emitLine('};');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine();
+    
     // Shell execution helper (async)
     this.emitLine('async function _shell(command, inputs = {}) {');
     this.pushIndent();
@@ -1014,32 +1046,35 @@ export class CodeGenerator {
 
   visitFlowExpression(node) {
     // Flow: composedFn >> fn1 fn2 fn3
-    // Generates: const composedFn = (...args) => fn3(fn2(fn1(...args)));
+    // Generates: const composedFn = _flow(fn1, fn2, fn3);
+    // This creates an async composed function that awaits each step
     const { name, functions } = node;
     
     if (functions.length === 0) {
       return `const ${name} = (x) => x`;
     }
     
-    // Build nested function calls from first to last
-    // The composed function takes args and passes them to the first function
-    let result = `${functions[0]}(..._args)`;
-    
-    for (let i = 1; i < functions.length; i++) {
-      result = `${functions[i]}(${result})`;
-    }
-    
-    return `const ${name} = (..._args) => ${result}`;
+    // Use the _flow helper which handles async functions
+    return `const ${name} = _flow(${functions.join(', ')})`;
   }
 
   visitPipeExpression(node) {
     // Pipe: value ~> fn1 ~> fn2
-    // Generates: fn2(fn1(value))
-    const left = this.visitExpression(node.left);
-    const right = this.visitExpression(node.right);
+    // Collect all pipe steps and use _pipe helper for async support
+    const steps = [];
+    let current = node;
     
-    // The right side is a function that receives the left side as argument
-    return `${right}(${left})`;
+    // Walk the pipe chain to collect all steps
+    while (current.type === NodeType.PipeExpression) {
+      steps.unshift(this.visitExpression(current.right));
+      current = current.left;
+    }
+    
+    // current is now the initial value
+    const initial = this.visitExpression(current);
+    
+    // Use _pipe helper which awaits each step
+    return `_pipe(${initial}, ${steps.join(', ')})`;
   }
 
   visitTemplateLiteral(node) {

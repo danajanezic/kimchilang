@@ -12,6 +12,11 @@ AppConfig {
   version = "1.0.0"
   debug = true
   maxRetries = 3
+  testing = {
+    enabled = true
+    retries = 2
+    timeout = 5000
+  }
 }
 
 HttpStatus `STATUS_OK = 200, STATUS_NOT_FOUND = 404, STATUS_ERROR = 500`

@@ -393,14 +393,32 @@ fn square(x) { return x * x }
 transform >> addOne double square
 
 // Call it later
-dec result = transform(5)  // square(double(addOne(5))) = 144
+dec result = await transform(5)  // square(double(addOne(5))) = 144
 ```
 
 The flow syntax `name >> fn1 fn2 fn3` creates a new function `name` that composes `fn1`, `fn2`, and `fn3`. When called, arguments are passed to `fn1`, then the result flows through `fn2`, then `fn3`.
 
+**Async Support:**
+
+Flow-composed functions are async and handle both sync and async functions:
+
+```kimchi
+async fn fetchUser(id) { return { id: id, name: "User" + id } }
+async fn enrichUser(user) { return { ...user, role: "admin" } }
+fn formatUser(user) { return "${user.name} (${user.role})" }
+
+// Create an async pipeline
+processUser >> fetchUser enrichUser formatUser
+
+async fn main() {
+  dec result = await processUser(1)  // "User1 (admin)"
+  print result
+}
+```
+
 **Difference from pipe operator:**
-- `~>` (pipe): Immediately executes — `5 ~> double ~> addOne` returns `11`
-- `>>` (flow): Creates a reusable function — `transform >> double addOne` creates a function you call later
+- `~>` (pipe): Immediately executes — `5 ~> double ~> addOne` returns a Promise
+- `>>` (flow): Creates a reusable async function — `transform >> double addOne` creates a function you call later
 
 ### Pattern Matching
 
@@ -501,6 +519,21 @@ dec processed = numbers
 ```
 
 The pipe operator passes the left-hand value as the argument to the right-hand function: `a ~> f` becomes `f(a)`.
+
+**Async Support:**
+
+The pipe operator seamlessly handles async functions - each step is awaited automatically:
+
+```kimchi
+async fn fetchUser(id) { return { id: id, name: "User" + id } }
+async fn enrichUser(user) { return { ...user, email: user.name + "@example.com" } }
+
+async fn main() {
+  // Pipe through async functions - use await on the result
+  dec user = await (1 ~> fetchUser ~> enrichUser)
+  print user.email  // "User1@example.com"
+}
+```
 
 ### Memoized Functions
 

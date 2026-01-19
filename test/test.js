@@ -165,7 +165,12 @@ test('Generate arrow function', () => {
 
 test('Generate flow expression', () => {
   const js = compile('transform >> addOne double');
-  assertContains(js, 'const transform = (..._args) => double(addOne(..._args))');
+  assertContains(js, 'const transform = _flow(addOne, double)');
+});
+
+test('Generate pipe expression with _pipe helper', () => {
+  const js = compile('dec result = 5 ~> double ~> addOne');
+  assertContains(js, '_pipe(5, double, addOne)');
 });
 
 test('Generate range expression', () => {

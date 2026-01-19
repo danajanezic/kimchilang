@@ -1,0 +1,58 @@
+// Example: Async pipe (~>) and flow (>>) operators
+// These operators now support async functions seamlessly
+
+// Sync functions work as before
+fn double(x) { return x * 2 }
+fn addOne(x) { return x + 1 }
+fn square(x) { return x * x }
+
+// Async functions - simulate API calls with delays
+async fn fetchUser(id) {
+  // Simulate async operation
+  return { id: id, name: "User" + id }
+}
+
+async fn enrichUser(user) {
+  // Simulate enriching user data
+  return { ...user, email: user.name + "@example.com" }
+}
+
+async fn formatUser(user) {
+  return "Name: " + user.name + ", Email: " + user.email
+}
+
+// Main async function to demonstrate the operators
+async fn main() {
+  print "=== Async Pipe Operator (~>) ==="
+  
+  // Pipe with async functions - each step is awaited
+  dec userInfo = await (1 ~> fetchUser ~> enrichUser ~> formatUser)
+  print userInfo
+  
+  // Mixed sync and async in pipe chain
+  dec result = await (5 ~> double ~> addOne)
+  print "5 ~> double ~> addOne = ${result}"
+  
+  print ""
+  print "=== Async Flow Operator (>>) ==="
+  
+  // Flow creates a reusable async composed function
+  processUser >> fetchUser enrichUser formatUser
+  
+  // Call the composed function - it's async so we await it
+  dec user1 = await processUser(1)
+  dec user2 = await processUser(2)
+  print "User 1: ${user1}"
+  print "User 2: ${user2}"
+  
+  // Flow with sync functions also works
+  transform >> double addOne square
+  dec transformed = await transform(5)
+  print "transform(5) = ${transformed}"
+  
+  print ""
+  print "Done!"
+}
+
+// Run the main function
+main()
