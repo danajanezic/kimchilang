@@ -26,6 +26,7 @@ export const NodeType = {
   PrintStatement: 'PrintStatement',
   DepStatement: 'DepStatement',
   ArgDeclaration: 'ArgDeclaration',
+  EnvDeclaration: 'EnvDeclaration',
   
   // Expressions
   Identifier: 'Identifier',
@@ -148,10 +149,18 @@ export class Parser {
       exposed = true;
     }
     
+    // Check for secret modifier
+    let secret = false;
+    if (this.check(TokenType.SECRET)) {
+      this.advance();
+      secret = true;
+    }
+    
     // Declarations
     if (this.check(TokenType.DEC)) {
       const decl = this.parseDecDeclaration();
       decl.exposed = exposed;
+      decl.secret = secret;
       return decl;
     }
     
@@ -190,9 +199,28 @@ export class Parser {
       return decl;
     }
     
+    // Env declaration: env <name>, !env <name>, secret env <name>
+    if (this.check(TokenType.ENV) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ENV)) {
+      const decl = this.parseEnvDeclaration();
+      decl.secret = secret;
+      return decl;
+    }
+    
+    // Arg declaration: arg <name>, !arg <name>, arg <name> = <default>, secret arg <name>
+    if (this.check(TokenType.ARG) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ARG)) {
+      const decl = this.parseArgDeclaration();
+      decl.secret = secret;
+      return decl;
+    }
+    
     // If expose was used but not followed by a valid declaration
     if (exposed) {
       this.error('expose must be followed by dec, fn, memo, or enum');
+    }
+    
+    // If secret was used but not followed by dec, env, or arg
+    if (secret) {
+      this.error('secret must be followed by dec, env, or arg');
     }
     
     // Control flow
@@ -243,11 +271,6 @@ export class Parser {
     // Dependency declaration: as <alias> dep <path>
     if (this.check(TokenType.AS)) {
       return this.parseDepStatement();
-    }
-    
-    // Arg declaration: arg <name>, !arg <name>, arg <name> = <default>
-    if (this.check(TokenType.ARG) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ARG)) {
-      return this.parseArgDeclaration();
     }
     
     // JS interop block: js { ... } or js(args) { ... }
@@ -740,6 +763,32 @@ export class Parser {
     
     return {
       type: NodeType.ArgDeclaration,
+      name,
+      required,
+      defaultValue,
+    };
+  }
+
+  parseEnvDeclaration() {
+    // Syntax: env <name>           - optional env var (undefined if not set)
+    //         !env <name>          - required env var (throws if not set)
+    //         env <name> = <value> - optional env var with default
+    let required = false;
+    
+    if (this.match(TokenType.NOT)) {
+      required = true;
+    }
+    
+    this.expect(TokenType.ENV, 'Expected env');
+    const name = this.expect(TokenType.IDENTIFIER, 'Expected environment variable name').value;
+    
+    let defaultValue = null;
+    if (this.match(TokenType.ASSIGN)) {
+      defaultValue = this.parseExpression();
+    }
+    
+    return {
+      type: NodeType.EnvDeclaration,
       name,
       required,
       defaultValue,

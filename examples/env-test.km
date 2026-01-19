@@ -1,0 +1,37 @@
+// Test file for env, arg, and secret keywords
+// Demonstrates: env, !env, arg, secret
+
+// Arguments
+arg name = "World"
+secret arg password = "default-pass"
+
+// Environment variables
+env HOME
+env DEBUG = "false"
+
+// Secret env var - will be masked when printed
+secret env API_TOKEN = "default-token-123"
+
+// Secret dec - will be masked when printed
+secret dec apiKey = "sk-12345-secret-key"
+
+// Normal dec for comparison
+dec normalValue = "visible-value"
+
+print "=== Arguments ==="
+print "Name: ${name}"
+print "Password: ${password}"
+
+print ""
+print "=== Environment Variables ==="
+print "HOME: ${HOME}"
+print "DEBUG: ${DEBUG}"
+
+print ""
+print "=== Secret Values (should be masked) ==="
+print "API Token: ${API_TOKEN}"
+print "API Key: ${apiKey}"
+
+print ""
+print "=== Normal Values (should be visible) ==="
+print "Normal: ${normalValue}"

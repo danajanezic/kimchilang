@@ -1,0 +1,26 @@
+// Simple Greeter CLI
+// Usage: kimchi cli-framework.greeter --name Alice
+//        kimchi cli-framework.greeter --name Bob --greeting "Hey there"
+
+// Module description (shown in `kimchi help`)
+expose fn _describe() {
+  return "A simple greeter CLI tool"
+}
+
+// Arguments
+!arg name
+arg greeting
+arg times
+
+// Main logic
+dec actualGreeting = greeting ? greeting : "Hello"
+dec actualTimes = times ? times : 1
+
+fn greet() {
+  for i in 0..actualTimes {
+    print "${actualGreeting}, ${name}!"
+  }
+}
+
+// Run on module load
+greet()

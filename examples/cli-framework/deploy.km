@@ -1,0 +1,131 @@
+// Deploy CLI - Multi-Action Tool
+// Usage: kimchi cli-framework.deploy --action build
+//        kimchi cli-framework.deploy --action test
+//        kimchi cli-framework.deploy --action publish --targetEnv production
+
+expose fn _describe() {
+  return "A deployment tool with multiple actions (build, test, publish)"
+}
+
+// Arguments
+!arg action
+arg targetEnv
+arg verbose
+arg dryRun
+
+// Handle defaults
+dec targetEnvironment = targetEnv ? targetEnv : "development"
+dec isVerbose = verbose == "true" || verbose == true
+dec isDryRun = dryRun == "true" || dryRun == true
+
+// Configuration based on environment
+dec config = {
+  development: {
+    url: "http://localhost:3000",
+    minify: false,
+    sourceMaps: true
+  },
+  staging: {
+    url: "https://staging.example.com",
+    minify: true,
+    sourceMaps: true
+  },
+  production: {
+    url: "https://example.com",
+    minify: true,
+    sourceMaps: false
+  }
+}
+
+dec envConfig = config[targetEnvironment]
+
+// Action handlers
+fn handleBuild() {
+  print "🔨 Building for ${targetEnvironment}..."
+  if isVerbose {
+    print "  Minify: ${envConfig.minify}"
+    print "  Source maps: ${envConfig.sourceMaps}"
+  }
+  
+  if isDryRun {
+    print "  [DRY RUN] Would compile source files"
+    print "  [DRY RUN] Would bundle assets"
+  } else {
+    // Simulate build steps
+    print "  ✓ Compiled source files"
+    print "  ✓ Bundled assets"
+    print "  ✓ Generated output"
+  }
+  
+  print "✅ Build complete!"
+}
+
+fn handleTest() {
+  print "🧪 Running tests..."
+  
+  if isDryRun {
+    print "  [DRY RUN] Would run unit tests"
+    print "  [DRY RUN] Would run integration tests"
+  } else {
+    // Simulate test execution
+    print "  ✓ Unit tests: 42 passed"
+    print "  ✓ Integration tests: 15 passed"
+  }
+  
+  print "✅ All tests passed!"
+}
+
+fn handlePublish() {
+  print "🚀 Publishing to ${targetEnvironment}..."
+  print "  Target: ${envConfig.url}"
+  
+  if targetEnvironment == "production" {
+    print "  ⚠️  WARNING: Publishing to PRODUCTION!"
+  }
+  
+  if isDryRun {
+    print "  [DRY RUN] Would upload build artifacts"
+    print "  [DRY RUN] Would invalidate cache"
+    print "  [DRY RUN] Would notify team"
+  } else {
+    print "  ✓ Uploaded build artifacts"
+    print "  ✓ Invalidated CDN cache"
+    print "  ✓ Notified team via Slack"
+  }
+  
+  print "✅ Published successfully!"
+}
+
+fn showHelp() {
+  print "Unknown action: ${action}"
+  print ""
+  print "Available actions:"
+  print "  build   - Compile and bundle the application"
+  print "  test    - Run the test suite"
+  print "  publish - Deploy to the target environment"
+  print ""
+  print "Examples:"
+  print "  kimchi cli-framework.deploy --action build"
+  print "  kimchi cli-framework.deploy --action publish --target-env production"
+}
+
+// Main dispatch
+print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+print "  Deploy Tool v1.0"
+print "  Environment: ${targetEnvironment}"
+if isDryRun {
+  print "  Mode: DRY RUN"
+}
+print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+print ""
+
+// Dispatch action
+if action == "build" {
+  handleBuild()
+} elif action == "test" {
+  handleTest()
+} elif action == "publish" {
+  handlePublish()
+} else {
+  showHelp()
+}

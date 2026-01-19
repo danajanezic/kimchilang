@@ -1,0 +1,67 @@
+// Calculator CLI
+// Usage: kimchi cli-framework.calculator --op add --a 5 --b 3
+//        kimchi cli-framework.calculator --op multiply --a 7 --b 6
+
+expose fn _describe() {
+  return "A simple calculator CLI with basic operations"
+}
+
+// Arguments
+!arg op
+!arg a
+!arg b
+
+// Convert string args to numbers
+dec numA = Number(a)
+dec numB = Number(b)
+
+// Operations
+fn doAdd() {
+  dec result = numA + numB
+  print "${numA} + ${numB} = ${result}"
+}
+
+fn doSubtract() {
+  dec result = numA - numB
+  print "${numA} - ${numB} = ${result}"
+}
+
+fn doMultiply() {
+  dec result = numA * numB
+  print "${numA} × ${numB} = ${result}"
+}
+
+fn doDivide() {
+  if numB == 0 {
+    print "Error: Cannot divide by zero"
+    return null
+  }
+  dec result = numA / numB
+  print "${numA} ÷ ${numB} = ${result}"
+}
+
+fn showHelp() {
+  print "Unknown operation: ${op}"
+  print ""
+  print "Available operations:"
+  print "  add      - Add two numbers"
+  print "  subtract - Subtract b from a"
+  print "  multiply - Multiply two numbers"
+  print "  divide   - Divide a by b"
+  print ""
+  print "Example:"
+  print "  kimchi cli-framework.calculator --op add --a 10 --b 5"
+}
+
+// Dispatch
+if op == "add" {
+  doAdd()
+} elif op == "subtract" {
+  doSubtract()
+} elif op == "multiply" {
+  doMultiply()
+} elif op == "divide" {
+  doDivide()
+} else {
+  showHelp()
+}

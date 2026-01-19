@@ -99,6 +99,19 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('};');
     this.emitLine();
+    
+    // Secret wrapper class - masks value when converted to string
+    this.emitLine('class _Secret {');
+    this.pushIndent();
+    this.emitLine('constructor(value) { this._value = value; }');
+    this.emitLine('toString() { return "********"; }');
+    this.emitLine('valueOf() { return this._value; }');
+    this.emitLine('get value() { return this._value; }');
+    this.emitLine('[Symbol.toPrimitive](hint) { return hint === "string" ? "********" : this._value; }');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('function _secret(value) { return new _Secret(value); }');
+    this.emitLine();
   }
 
   visit(node) {
@@ -113,12 +126,13 @@ export class CodeGenerator {
   }
 
   visitProgram(node) {
-    // Separate deps, args, dec declarations, and other statements
+    // Separate deps, args, env, dec declarations, and other statements
     const depStatements = node.body.filter(stmt => stmt.type === NodeType.DepStatement);
     const argDeclarations = node.body.filter(stmt => stmt.type === NodeType.ArgDeclaration);
+    const envDeclarations = node.body.filter(stmt => stmt.type === NodeType.EnvDeclaration);
     const decDeclarations = node.body.filter(stmt => stmt.type === NodeType.DecDeclaration);
     const otherStatements = node.body.filter(stmt => 
-      stmt.type !== NodeType.DepStatement && stmt.type !== NodeType.ArgDeclaration
+      stmt.type !== NodeType.DepStatement && stmt.type !== NodeType.ArgDeclaration && stmt.type !== NodeType.EnvDeclaration
     );
     
     // Build list of dep paths for distinguishing deps from args in _opts
@@ -166,14 +180,40 @@ export class CodeGenerator {
     
     // Extract args from _opts with defaults
     for (const arg of argDeclarations) {
+      const secretWrap = arg.secret ? '_secret(' : '';
+      const secretClose = arg.secret ? ')' : '';
       if (arg.defaultValue) {
         const defaultCode = this.visitExpression(arg.defaultValue);
-        this.emitLine(`const ${arg.name} = _opts["${arg.name}"] !== undefined ? _opts["${arg.name}"] : ${defaultCode};`);
+        this.emitLine(`const ${arg.name} = ${secretWrap}_opts["${arg.name}"] !== undefined ? _opts["${arg.name}"] : ${defaultCode}${secretClose};`);
       } else {
-        this.emitLine(`const ${arg.name} = _opts["${arg.name}"];`);
+        this.emitLine(`const ${arg.name} = ${secretWrap}_opts["${arg.name}"]${secretClose};`);
       }
     }
     if (argDeclarations.length > 0) {
+      this.emitLine();
+    }
+    
+    // Extract env vars from process.env
+    for (const env of envDeclarations) {
+      if (env.required) {
+        this.emitLine(`if (process.env["${env.name}"] === undefined) throw new Error("Required environment variable '${env.name}' not set");`);
+      }
+    }
+    if (envDeclarations.some(e => e.required)) {
+      this.emitLine();
+    }
+    
+    for (const env of envDeclarations) {
+      const secretWrap = env.secret ? '_secret(' : '';
+      const secretClose = env.secret ? ')' : '';
+      if (env.defaultValue) {
+        const defaultCode = this.visitExpression(env.defaultValue);
+        this.emitLine(`const ${env.name} = ${secretWrap}process.env["${env.name}"] !== undefined ? process.env["${env.name}"] : ${defaultCode}${secretClose};`);
+      } else {
+        this.emitLine(`const ${env.name} = ${secretWrap}process.env["${env.name}"]${secretClose};`);
+      }
+    }
+    if (envDeclarations.length > 0) {
       this.emitLine();
     }
     
@@ -269,6 +309,9 @@ export class CodeGenerator {
       case NodeType.ArgDeclaration:
         // Args are handled in visitProgram, not individually
         break;
+      case NodeType.EnvDeclaration:
+        // Env vars are handled in visitProgram, not individually
+        break;
       case NodeType.JSBlock:
         this.visitJSBlock(node);
         break;
@@ -285,7 +328,12 @@ export class CodeGenerator {
 
   visitDecDeclaration(node) {
     // dec creates deeply immutable variables using Object.freeze recursively
-    const init = this.visitExpression(node.init);
+    let init = this.visitExpression(node.init);
+    
+    // Wrap with _secret() if marked as secret
+    if (node.secret) {
+      init = `_secret(${init})`;
+    }
     
     if (node.destructuring) {
       // Handle destructuring patterns
