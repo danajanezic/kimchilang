@@ -1,6 +1,6 @@
 {
   "name": "install-kimchilang",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Install KimchiLang globally",
   "bin": {
     "install-kimchilang": "index.js"
