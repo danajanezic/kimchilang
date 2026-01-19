@@ -86,6 +86,8 @@ function parseArgs(args) {
 
     if (arg === '-h' || arg === '--help') {
       result.help = true;
+    } else if (arg === '--version') {
+      result.command = 'version';
     } else if (arg === '-d' || arg === '--debug') {
       result.debug = true;
     } else if (arg === '--no-lint') {
@@ -1212,6 +1214,12 @@ async function main() {
       cleanDependencies('.');
       break;
     }
+
+    case 'version':
+    case '-v':
+    case '--version':
+      console.log(`KimchiLang v${VERSION}`);
+      break;
 
     default:
       // Check if it's a file to run directly
