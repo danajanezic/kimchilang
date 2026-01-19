@@ -2,6 +2,52 @@
 
 A modern, expressive programming language that transpiles to JavaScript.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Language Guide](#language-guide)
+  - [Scope and Design Philosophy](#scope-and-design-philosophy)
+  - [Variables](#variables)
+  - [Type Inference](#type-inference)
+  - [Module Visibility (expose)](#module-visibility-expose)
+  - [Secrets](#secrets)
+  - [Functions](#functions)
+  - [Enums](#enums)
+  - [Anonymous Functions (Arrow Functions)](#anonymous-functions-arrow-functions)
+  - [Control Flow](#control-flow)
+  - [Flow Operator](#flow-operator)
+  - [Pattern Matching](#pattern-matching)
+  - [Arrays & Objects](#arrays--objects)
+  - [Safe Member Access](#safe-member-access)
+  - [String Interpolation](#string-interpolation)
+  - [Pipe Operator](#pipe-operator)
+  - [Memoized Functions](#memoized-functions)
+  - [Error Handling](#error-handling)
+  - [JavaScript Interop](#javascript-interop)
+  - [Shell Interop](#shell-interop)
+  - [Static Files](#static-files)
+  - [Dependency Injection System](#dependency-injection-system)
+  - [Module Arguments](#module-arguments)
+- [CLI Commands](#cli-commands)
+  - [Module Execution](#module-execution)
+  - [Basic Commands](#basic-commands)
+  - [Reverse Transpiler](#reverse-transpiler-javascript-to-kimchilang)
+  - [NPM Integration](#npm-integration)
+- [Editor Extensions](#editor-extensions)
+  - [Windsurf](#windsurf)
+  - [VS Code](#vs-code)
+  - [Other Editors](#other-editors)
+- [Standard Library](#standard-library)
+  - [Logger](#logger)
+  - [Bitwise](#bitwise)
+- [Running Tests](#running-tests)
+- [File Extensions](#file-extensions)
+- [How It Works](#how-it-works)
+- [Examples](#examples)
+- [License](#license)
+
 ## Features
 
 - **Clean Syntax** - Python-inspired readability with JavaScript power
