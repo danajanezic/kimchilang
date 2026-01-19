@@ -398,6 +398,23 @@ export class TypeChecker {
     
     // Define parameters in scope
     for (const param of node.params) {
+      // Handle destructuring patterns
+      if (param.destructuring === 'object' && param.pattern) {
+        for (const prop of param.pattern.properties) {
+          this.defineVariable(prop.key, this.createType(Type.Any));
+        }
+        continue;
+      }
+      
+      if (param.destructuring === 'array' && param.pattern) {
+        for (const elem of param.pattern.elements) {
+          if (elem && elem.type === 'Identifier') {
+            this.defineVariable(elem.name, this.createType(Type.Any));
+          }
+        }
+        continue;
+      }
+      
       const name = param.name || param.argument;
       let paramType = this.createType(Type.Any);
       

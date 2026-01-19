@@ -544,6 +544,28 @@ export class Parser {
           break;
         }
         
+        // Check for object destructuring pattern: { a, b }
+        if (this.check(TokenType.LBRACE)) {
+          const pattern = this.parseObjectPattern();
+          let defaultValue = null;
+          if (this.match(TokenType.ASSIGN)) {
+            defaultValue = this.parseExpression();
+          }
+          params.push({ pattern, defaultValue, destructuring: 'object' });
+          continue;
+        }
+        
+        // Check for array destructuring pattern: [a, b]
+        if (this.check(TokenType.LBRACKET)) {
+          const pattern = this.parseArrayPattern();
+          let defaultValue = null;
+          if (this.match(TokenType.ASSIGN)) {
+            defaultValue = this.parseExpression();
+          }
+          params.push({ pattern, defaultValue, destructuring: 'array' });
+          continue;
+        }
+        
         const name = this.expect(TokenType.IDENTIFIER, 'Expected parameter name').value;
         let defaultValue = null;
         

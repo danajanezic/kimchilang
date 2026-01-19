@@ -334,6 +334,20 @@ sum(1, 2, 3, 4, 5)  // 15
 fn log(prefix, separator = ": ", ...messages) {
   return prefix + separator + messages.join(", ")
 }
+
+// Parameter destructuring - objects
+fn greetPerson({ name, age }) {
+  print "Hello, " + name + "! You are " + age
+}
+
+greetPerson({ name: "Alice", age: 30 })
+
+// Parameter destructuring - arrays
+fn swap([a, b]) {
+  return [b, a]
+}
+
+swap([1, 2])  // [2, 1]
 ```
 
 ### Enums

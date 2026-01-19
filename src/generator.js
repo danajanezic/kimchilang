@@ -700,6 +700,30 @@ export class CodeGenerator {
       if (p.type === 'RestElement') {
         return `...${p.argument}`;
       }
+      
+      // Handle destructuring patterns
+      if (p.destructuring === 'object') {
+        const props = p.pattern.properties.map(prop => prop.key).join(', ');
+        const pattern = `{ ${props} }`;
+        if (p.defaultValue) {
+          return `${pattern} = ${this.visitExpression(p.defaultValue)}`;
+        }
+        return pattern;
+      }
+      
+      if (p.destructuring === 'array') {
+        const elems = p.pattern.elements.map(elem => {
+          if (elem === null) return '';
+          if (elem.type === 'Identifier') return elem.name;
+          return this.visitExpression(elem);
+        }).join(', ');
+        const pattern = `[${elems}]`;
+        if (p.defaultValue) {
+          return `${pattern} = ${this.visitExpression(p.defaultValue)}`;
+        }
+        return pattern;
+      }
+      
       if (p.defaultValue) {
         return `${p.name} = ${this.visitExpression(p.defaultValue)}`;
       }
