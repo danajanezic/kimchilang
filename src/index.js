@@ -46,9 +46,18 @@ export class KimchiCompiler {
       KimchiCompiler.registerModule(modulePath, requiredArgs);
     }
     
-    // Step 2.6: Validate dep calls against registered modules
+    // Step 2.6: Validate dep calls against registered modules and detect static files
     const depStatements = ast.body.filter(stmt => stmt.type === 'DepStatement');
     for (const dep of depStatements) {
+      // Check if this dependency is a static file
+      // Static files have .static extension and are detected by the staticFileResolver option
+      if (this.options.staticFileResolver) {
+        dep.isStatic = this.options.staticFileResolver(dep.path);
+      }
+      
+      // Skip validation for static files (they don't have factory functions)
+      if (dep.isStatic) continue;
+      
       const depRequiredArgs = KimchiCompiler.getModuleRequiredArgs(dep.path);
       if (depRequiredArgs.length > 0) {
         // Check if all required args are provided in the overrides

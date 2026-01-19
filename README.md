@@ -681,6 +681,138 @@ This ensures:
 - **Explicit data flow** - Inputs must be declared, making dependencies clear
 - **Return values** - Use `return` to pass data back to KimchiLang
 
+### Shell Interop
+
+Execute shell commands using `shell { }` blocks. Shell blocks are inherently async and functions containing them are automatically made async at compile time.
+
+**Basic shell command:**
+
+```kimchi
+fn listFiles() {
+  dec result = shell { ls -la }
+  print result.stdout
+}
+
+listFiles()  // Function is automatically async
+```
+
+**Shell block with inputs:**
+
+Pass KimchiLang variables into the shell command using `$variable` syntax:
+
+```kimchi
+fn findFiles(pattern) {
+  dec result = shell(pattern) { find . -name "$pattern" }
+  return result.stdout
+}
+
+dec files = findFiles("*.km")
+```
+
+**Return value:**
+
+Shell blocks return an object with:
+- **`stdout`** - Standard output (trimmed)
+- **`stderr`** - Standard error (trimmed)
+- **`exitCode`** - Exit code (0 for success)
+
+```kimchi
+fn checkGit() {
+  dec result = shell { git status }
+  
+  if result.exitCode == 0 {
+    print result.stdout
+  } else {
+    print "Error: ${result.stderr}"
+  }
+}
+```
+
+**Multi-line commands:**
+
+```kimchi
+fn deploy() {
+  dec result = shell {
+    npm run build
+    npm run test
+    npm publish
+  }
+  return result
+}
+```
+
+**How it works:**
+
+1. Shell blocks are captured as raw text (not tokenized)
+2. Functions containing shell blocks are automatically made `async`
+3. The shell command is executed using Node.js `child_process.exec`
+4. Variables passed as inputs are interpolated into the command string
+
+### Static Files
+
+Static files (`.static` extension) are data-only files for configuration, constants, and enums. They are imported like modules but contain no executable code.
+
+**File extension:** `.static`
+
+**Syntax:**
+
+```
+// Arrays: Name [value1, value2, ...]
+Colors ["red", "green", "blue"]
+
+// Objects: Name { key = value, key = value }
+AppConfig {
+  name = "MyApp"
+  version = "1.0.0"
+  debug = true
+}
+
+// Enums: Name `MEMBER1 = value, MEMBER2 = value`
+HttpStatus `OK = 200, NOT_FOUND = 404, ERROR = 500`
+```
+
+**Multi-line declarations don't need commas:**
+
+```
+Endpoints {
+  api = "https://api.example.com"
+  auth = "https://auth.example.com"
+  cdn = "https://cdn.example.com"
+}
+```
+
+**Importing static files:**
+
+```kimchi
+as config dep myapp.config
+
+fn main() {
+  print config.AppConfig.name
+  print config.Colors
+  print config.HttpStatus.OK
+}
+```
+
+**Key differences from modules:**
+- Everything is exported by default (no `expose` keyword)
+- No factory function wrapper (cannot be overridden)
+- Only data declarations allowed (no functions or executable code)
+- Compiles to plain JavaScript exports
+
+**Cross-file references:**
+
+Static files can reference data from other static files using dotted paths:
+
+```
+// In shared.static
+BaseUrl "https://api.example.com"
+
+// In config.static
+Endpoints {
+  api = shared.BaseUrl
+}
+```
+
 ### Dependency Injection System
 
 KimchiLang has a built-in dependency injection system using the `dep` keyword. Every module is automatically wrapped as a factory function that can accept dependency overrides.
@@ -972,6 +1104,69 @@ dec result = lodash.map([1, 2, 3], x => x * 2)
 5. Saves to `pantry/<package>/index.km`
 
 **Note:** Complex packages with advanced JavaScript features may not convert perfectly. The pantry is best for simple utility libraries.
+
+## Editor Extensions
+
+KimchiLang provides syntax highlighting extensions for popular editors. Extensions are located in the `editors/` directory.
+
+### Windsurf
+
+The VS Code extension is fully compatible with Windsurf.
+
+**Option 1: Install from VSIX (Recommended)**
+
+A pre-built VSIX file is included in the repository:
+
+```bash
+# The extension is already packaged at:
+# editors/vscode/kimchilang-1.0.0.vsix
+
+# To install in Windsurf:
+# 1. Open Windsurf
+# 2. Press Cmd+Shift+P (Mac) or Ctrl+Shift+P (Windows/Linux)
+# 3. Type "Extensions: Install from VSIX..."
+# 4. Navigate to editors/vscode/kimchilang-1.0.0.vsix
+# 5. Click Install
+# 6. Reload Windsurf when prompted
+```
+
+**Option 2: Copy to extensions folder**
+
+```bash
+# Copy the extension directly to Windsurf's extensions directory
+cp -r editors/vscode ~/.windsurf/extensions/kimchilang
+
+# Restart Windsurf to activate the extension
+```
+
+**Option 3: Build and install fresh VSIX**
+
+```bash
+cd editors/vscode
+npm install -g @vscode/vsce
+vsce package
+# Then install the generated .vsix file using Option 1 steps
+```
+
+After installation, KimchiLang syntax highlighting will automatically activate for `.km`, `.kimchi`, and `.kc` files.
+
+### VS Code
+
+Follow the same steps as Windsurf, but use the VS Code extensions directory:
+
+```bash
+# Option 1: Install from VSIX (same as Windsurf)
+
+# Option 2: Copy to extensions folder
+cp -r editors/vscode ~/.vscode/extensions/kimchilang
+```
+
+### Other Editors
+
+See `editors/README.md` for installation instructions for:
+- **Sublime Text** - Syntax definition in `editors/sublime/`
+- **Vim/Neovim** - Syntax file and configuration
+- **Emacs** - Major mode configuration
 
 ## Running Tests
 

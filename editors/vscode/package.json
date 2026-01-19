@@ -15,7 +15,7 @@
       {
         "id": "kimchi",
         "aliases": ["KimchiLang", "kimchi"],
-        "extensions": [".km", ".kimchi", ".kc"],
+        "extensions": [".km", ".kimchi", ".kc", ".static"],
         "configuration": "./language-configuration.json"
       }
     ],

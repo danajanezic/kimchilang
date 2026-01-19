@@ -10,6 +10,7 @@ import { compile } from './index.js';
 import { convertJS } from './js2km.js';
 import { Linter, Severity } from './linter.js';
 import { tokenize, parse } from './index.js';
+import { parseStaticFile, generateStaticCode } from './static-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -123,8 +124,8 @@ function modulePathToFilePath(modulePath) {
   const parts = modulePath.split('.');
   const filePath = './' + parts.join('/');
   
-  // Try different extensions
-  const extensions = ['.km', '.kimchi', '.kc'];
+  // Try different extensions (including .static for static data files)
+  const extensions = ['.km', '.kimchi', '.kc', '.static'];
   for (const ext of extensions) {
     const fullPath = resolve(filePath + ext);
     if (existsSync(fullPath)) {
@@ -558,15 +559,47 @@ function compileFile(filePath, options = {}) {
 
   const source = readFileSync(filePath, 'utf-8');
   
+  // Static file resolver - checks if a module path resolves to a .static file
+  const staticFileResolver = (modulePath) => {
+    const parts = modulePath.split('.');
+    const baseFilePath = './' + parts.join('/');
+    const staticPath = resolve(baseFilePath + '.static');
+    return existsSync(staticPath);
+  };
+  
   try {
     const javascript = compile(source, { 
       debug: options.debug,
       skipLint: options.skipLint,
       showLintWarnings: true,
+      staticFileResolver,
+      basePath: options.basePath,
     });
     return javascript;
   } catch (error) {
     console.error(`Compilation Error in ${filePath}:`);
+    console.error(error.message);
+    if (options.debug) {
+      console.error(error.stack);
+    }
+    process.exit(1);
+  }
+}
+
+function compileStaticFile(filePath, options = {}) {
+  if (!existsSync(filePath)) {
+    console.error(`Error: File not found: ${filePath}`);
+    process.exit(1);
+  }
+
+  const source = readFileSync(filePath, 'utf-8');
+  
+  try {
+    const declarations = parseStaticFile(source, filePath);
+    const javascript = generateStaticCode(declarations, filePath);
+    return javascript;
+  } catch (error) {
+    console.error(`Static File Compilation Error in ${filePath}:`);
     console.error(error.message);
     if (options.debug) {
       console.error(error.stack);
@@ -671,7 +704,8 @@ await _runTests();
 }
 
 async function runFile(filePath, options = {}) {
-  const javascript = compileFile(filePath, options);
+  // Pass basePath for absolute path resolution of static files
+  const javascript = compileFile(filePath, { ...options, basePath: dirname(resolve(filePath)) });
   
   if (options.debug) {
     console.log('\n--- Generated JavaScript ---\n');
@@ -969,15 +1003,28 @@ async function main() {
       }
 
       const filePath = resolve(options.file);
-      const javascript = compileFile(filePath, options);
-
-      if (options.output) {
-        writeFileSync(options.output, javascript);
-        console.log(`Compiled: ${options.file} -> ${options.output}`);
+      
+      // Check if it's a static file
+      if (filePath.endsWith('.static')) {
+        const javascript = compileStaticFile(filePath, options);
+        if (options.output) {
+          writeFileSync(options.output, javascript);
+          console.log(`Compiled: ${options.file} -> ${options.output}`);
+        } else {
+          const outputPath = filePath.replace(/\.static$/, '.static.js');
+          writeFileSync(outputPath, javascript);
+          console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
+        }
       } else {
-        const outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
-        writeFileSync(outputPath, javascript);
-        console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
+        const javascript = compileFile(filePath, options);
+        if (options.output) {
+          writeFileSync(options.output, javascript);
+          console.log(`Compiled: ${options.file} -> ${options.output}`);
+        } else {
+          const outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
+          writeFileSync(outputPath, javascript);
+          console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
+        }
       }
       break;
     }

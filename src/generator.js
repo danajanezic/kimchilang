@@ -2,11 +2,33 @@
 
 import { NodeType } from './parser.js';
 
+// Helper to check if a node or its children contain shell blocks
+function containsShellBlock(node) {
+  if (!node) return false;
+  if (node.type === NodeType.ShellBlock) return true;
+  
+  // Check all properties that could contain child nodes
+  for (const key of Object.keys(node)) {
+    const value = node[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object' && containsShellBlock(item)) {
+          return true;
+        }
+      }
+    } else if (value && typeof value === 'object' && value.type) {
+      if (containsShellBlock(value)) return true;
+    }
+  }
+  return false;
+}
+
 export class CodeGenerator {
   constructor(options = {}) {
     this.indent = 0;
     this.indentStr = options.indentStr || '  ';
     this.output = '';
+    this.options = options;
   }
 
   generate(ast) {
@@ -123,6 +145,33 @@ export class CodeGenerator {
     this.emitLine('}');
     this.emitLine();
     
+    // Shell execution helper (async)
+    this.emitLine('async function _shell(command, inputs = {}) {');
+    this.pushIndent();
+    this.emitLine('const { exec } = await import("child_process");');
+    this.emitLine('const { promisify } = await import("util");');
+    this.emitLine('const execAsync = promisify(exec);');
+    this.emitLine('// Interpolate inputs into command');
+    this.emitLine('let cmd = command;');
+    this.emitLine('for (const [key, value] of Object.entries(inputs)) {');
+    this.pushIndent();
+    this.emitLine('cmd = cmd.replace(new RegExp("\\\\$" + key + "\\\\b", "g"), String(value));');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('try {');
+    this.pushIndent();
+    this.emitLine('const { stdout, stderr } = await execAsync(cmd);');
+    this.emitLine('return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 };');
+    this.popIndent();
+    this.emitLine('} catch (error) {');
+    this.pushIndent();
+    this.emitLine('return { stdout: error.stdout?.trim() || "", stderr: error.stderr?.trim() || error.message, exitCode: error.code || 1 };');
+    this.popIndent();
+    this.emitLine('}');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine();
+    
     // Testing framework runtime
     this.emitLine('// Testing framework');
     this.emitLine('const _tests = [];');
@@ -216,10 +265,22 @@ export class CodeGenerator {
     const argNames = argDeclarations.map(arg => arg.name);
     
     // First, emit the raw imports for all dependencies
+    // Static files (.static) are imported directly, regular modules use factory pattern
     for (const dep of depStatements) {
-      const filePath = './' + dep.pathParts.join('/') + '.km';
       const moduleVar = `_dep_${dep.alias}`;
-      this.emitLine(`import ${moduleVar} from '${filePath}';`);
+      if (dep.isStatic) {
+        // Static files export all declarations directly, no factory function
+        // Use absolute path if basePath is provided (for run command)
+        const relativePath = './' + dep.pathParts.join('/') + '.static.js';
+        // For absolute paths, go up from basePath to project root, then use full path
+        const filePath = this.options.basePath 
+          ? `file://${this.options.basePath}/../${dep.pathParts.join('/')}.static.js`
+          : relativePath;
+        this.emitLine(`import * as ${moduleVar} from '${filePath}';`);
+      } else {
+        const filePath = './' + dep.pathParts.join('/') + '.km';
+        this.emitLine(`import ${moduleVar} from '${filePath}';`);
+      }
     }
     if (depStatements.length > 0) {
       this.emitLine();
@@ -284,7 +345,10 @@ export class CodeGenerator {
     // Resolve each dependency, checking _opts first (for injection)
     for (const dep of depStatements) {
       const moduleVar = `_dep_${dep.alias}`;
-      if (dep.overrides) {
+      if (dep.isStatic) {
+        // Static files are imported directly, no factory function, no overrides
+        this.emitLine(`const ${dep.alias} = ${moduleVar};`);
+      } else if (dep.overrides) {
         const overridesCode = this.visitExpression(dep.overrides);
         this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || ${moduleVar}(${overridesCode});`);
       } else {
@@ -379,6 +443,9 @@ export class CodeGenerator {
       case NodeType.JSBlock:
         this.visitJSBlock(node);
         break;
+      case NodeType.ShellBlock:
+        this.visitShellBlock(node);
+        break;
       case NodeType.TestBlock:
         this.visitTestBlock(node);
         break;
@@ -436,7 +503,9 @@ export class CodeGenerator {
   }
 
   visitFunctionDeclaration(node) {
-    const async = node.async ? 'async ' : '';
+    // Auto-make functions async if they contain shell blocks
+    const hasShellBlock = containsShellBlock(node.body);
+    const async = (node.async || hasShellBlock) ? 'async ' : '';
     const params = this.generateParams(node.params);
     
     if (node.memoized) {
@@ -556,6 +625,36 @@ export class CodeGenerator {
     } else {
       const params = node.inputs.join(', ');
       return `((${params}) => { ${lines} })(${params})`;
+    }
+  }
+
+  visitShellBlock(node) {
+    // Shell interop block - executes shell command asynchronously
+    // Syntax: shell { command }         -> await _shell("command");
+    //         shell(a, b) { command }   -> await _shell("command", { a, b });
+    
+    const command = JSON.stringify(node.command);
+    
+    if (node.inputs.length === 0) {
+      this.emitLine(`await _shell(${command});`);
+    } else {
+      const inputsObj = `{ ${node.inputs.join(', ')} }`;
+      this.emitLine(`await _shell(${command}, ${inputsObj});`);
+    }
+  }
+
+  visitShellBlockExpression(node) {
+    // Shell block as expression - returns the shell result
+    // Syntax: dec result = shell { ls -la }
+    // Generates: await _shell("ls -la")
+    
+    const command = JSON.stringify(node.command);
+    
+    if (node.inputs.length === 0) {
+      return `await _shell(${command})`;
+    } else {
+      const inputsObj = `{ ${node.inputs.join(', ')} }`;
+      return `await _shell(${command}, ${inputsObj})`;
     }
   }
 
@@ -767,6 +866,8 @@ export class CodeGenerator {
         return this.visitTemplateLiteral(node);
       case NodeType.JSBlock:
         return this.visitJSBlockExpression(node);
+      case NodeType.ShellBlock:
+        return this.visitShellBlockExpression(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
@@ -876,6 +977,10 @@ export class CodeGenerator {
       ? node.params[0].name 
       : `(${params})`;
     
+    // Auto-make arrow functions async if they contain shell blocks
+    const hasShellBlock = containsShellBlock(node.body);
+    const asyncPrefix = hasShellBlock ? 'async ' : '';
+    
     if (node.body.type === NodeType.BlockStatement) {
       const bodyLines = [];
       const savedOutput = this.output;
@@ -887,11 +992,11 @@ export class CodeGenerator {
       this.popIndent();
       const bodyContent = this.output;
       this.output = savedOutput;
-      return `${paramsStr} => {\n${bodyContent}${this.getIndent()}}`;
+      return `${asyncPrefix}${paramsStr} => {\n${bodyContent}${this.getIndent()}}`;
     }
     
     const body = this.visitExpression(node.body);
-    return `${paramsStr} => ${body}`;
+    return `${asyncPrefix}${paramsStr} => ${body}`;
   }
 
   visitConditionalExpression(node) {

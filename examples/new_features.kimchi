@@ -40,7 +40,7 @@ print message
 
 // ===== Flow Operator (>>) =====
 // Creates a composed function that can be called later
-transform >> double addOne square
+dec transform >> double addOne square
 
 // Now call the composed function
 dec flowResult = transform(5)

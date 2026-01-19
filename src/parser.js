@@ -56,6 +56,7 @@ export const NodeType = {
   
   // Interop
   JSBlock: 'JSBlock',
+  ShellBlock: 'ShellBlock',
   
   // Testing
   TestBlock: 'TestBlock',
@@ -293,6 +294,11 @@ export class Parser {
     // JS interop block: js { ... } or js(args) { ... }
     if (this.check(TokenType.JS)) {
       return this.parseJSBlock();
+    }
+    
+    // Shell interop block: shell { ... } or shell(args) { ... }
+    if (this.check(TokenType.SHELL)) {
+      return this.parseShellBlock();
     }
     
     // Test block: test "name" { ... }
@@ -919,6 +925,74 @@ export class Parser {
       type: NodeType.JSBlock,
       inputs,
       code: jsCode.trim(),
+    };
+  }
+
+  parseShellBlock() {
+    // Syntax: shell { ... }           - raw shell block
+    //         shell(a, b) { ... }     - shell block with inputs from kimchi scope
+    // Note: The lexer handles shell specially - it captures raw content as SHELL_CONTENT token
+    this.expect(TokenType.SHELL, 'Expected shell');
+    
+    const inputs = [];
+    
+    // Check for optional input parameters
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+    
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after shell');
+    
+    // The lexer provides raw shell content as a single SHELL_CONTENT token
+    const contentToken = this.expect(TokenType.SHELL_CONTENT, 'Expected shell command');
+    const shellCode = contentToken.value;
+    
+    this.expect(TokenType.RBRACE, 'Expected } to close shell block');
+    
+    return {
+      type: NodeType.ShellBlock,
+      inputs,
+      command: shellCode,
+    };
+  }
+
+  parseShellBlockExpression() {
+    // Same as parseShellBlock but returns as an expression node
+    this.expect(TokenType.SHELL, 'Expected shell');
+    
+    const inputs = [];
+    
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+    
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after shell');
+    
+    // The lexer provides raw shell content as a single SHELL_CONTENT token
+    const contentToken = this.expect(TokenType.SHELL_CONTENT, 'Expected shell command');
+    const shellCode = contentToken.value;
+    
+    this.expect(TokenType.RBRACE, 'Expected } to close shell block');
+    
+    return {
+      type: NodeType.ShellBlock,
+      inputs,
+      command: shellCode,
+      isExpression: true,
     };
   }
 
@@ -1629,6 +1703,11 @@ export class Parser {
     // JS block as expression: dec result = js(a, b) { return a + b; }
     if (this.check(TokenType.JS)) {
       return this.parseJSBlockExpression();
+    }
+    
+    // Shell block as expression: dec result = shell { ls -la }
+    if (this.check(TokenType.SHELL)) {
+      return this.parseShellBlockExpression();
     }
     
     // Arrow function with single param (no parens) - check before identifier

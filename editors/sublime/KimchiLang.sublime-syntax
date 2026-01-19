@@ -5,6 +5,7 @@ file_extensions:
   - km
   - kimchi
   - kc
+  - static
 scope: source.kimchi
 
 contexts:
@@ -76,9 +77,9 @@ contexts:
       scope: constant.numeric.integer.kimchi
 
   keywords:
-    - match: \b(if|else|for|while|return|try|catch|throw|in|await|async)\b
+    - match: \b(if|else|for|while|return|try|catch|throw|in|await|async|break|continue)\b
       scope: keyword.control.kimchi
-    - match: \b(dep|arg|expose|print|new)\b
+    - match: \b(dep|arg|expose|print|new|shell|js|test|describe|expect|assert|secret|env|enum|is)\b
       scope: keyword.other.kimchi
     - match: \b(and|or|not)\b
       scope: keyword.operator.logical.kimchi
@@ -86,7 +87,7 @@ contexts:
   storage:
     - match: \b(fn|memo)\b
       scope: storage.type.function.kimchi
-    - match: \b(dec)\b
+    - match: \b(dec|var)\b
       scope: storage.type.kimchi
     - match: \b(as)\b
       scope: storage.type.kimchi

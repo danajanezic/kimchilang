@@ -90,11 +90,11 @@
       "patterns": [
         {
           "name": "keyword.control.kimchi",
-          "match": "\\b(if|else|for|while|return|try|catch|throw|in|await|async)\\b"
+          "match": "\\b(if|else|for|while|return|try|catch|throw|in|await|async|break|continue)\\b"
         },
         {
           "name": "keyword.other.kimchi",
-          "match": "\\b(dep|arg|expose|print|new)\\b"
+          "match": "\\b(dep|arg|expose|print|new|shell|js|test|describe|expect|assert|secret|env|enum|is)\\b"
         },
         {
           "name": "keyword.operator.logical.kimchi",
@@ -106,7 +106,7 @@
       "patterns": [
         {
           "name": "storage.type.kimchi",
-          "match": "\\b(fn|memo|dec|as)\\b"
+          "match": "\\b(fn|memo|dec|as|var)\\b"
         },
         {
           "name": "storage.modifier.kimchi",

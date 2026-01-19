@@ -1,0 +1,13 @@
+// Example of using a static file in KimchiLang
+
+as config dep examples.config
+
+fn main() {
+  print "App Name: ${config.AppConfig.name}"
+  print "Version: ${config.AppConfig.version}"
+  print "Colors: ${config.Colors}"
+  print "HTTP OK Status: ${config.HttpStatus.STATUS_OK}"
+  print "API Endpoint: ${config.Endpoints.api}"
+}
+
+main()

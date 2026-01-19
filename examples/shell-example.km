@@ -1,0 +1,19 @@
+// Example of shell interop in KimchiLang
+
+fn listFiles() {
+  dec result = shell { ls -la }
+  print result.stdout
+}
+
+fn getDate() {
+  dec result = shell { date }
+  return result.stdout
+}
+
+// Shell with inputs
+fn findFiles(pattern) {
+  dec result = shell(pattern) { find . -name "$pattern" }
+  return result.stdout
+}
+
+listFiles()
