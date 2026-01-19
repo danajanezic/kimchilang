@@ -1,10 +1,10 @@
 {
   "name": "kimchilang",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A modern programming language that transpiles to JavaScript",
   "main": "src/index.js",
   "bin": {
-    "kimchi": "./src/cli.js"
+    "kimchi": "src/cli.js"
   },
   "scripts": {
     "build": "node src/cli.js build",
@@ -17,13 +17,7 @@
     "javascript",
     "compiler"
   ],
-  "author": "KimchiLang Team",
+  "author": "Dana Janezic",
   "license": "MIT",
-  "type": "module",
-  "dependencies": {
-    "acorn": "^8.15.0"
-  },
-  "devDependencies": {
-    "is-odd": "^3.0.1"
-  }
+  "type": "module"
 }

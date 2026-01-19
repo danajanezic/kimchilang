@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "description": "Install KimchiLang globally",
   "bin": {
-    "install-kimchilang": "./index.js"
+    "install-kimchilang": "index.js"
   },
   "type": "module",
   "keywords": [
@@ -16,6 +16,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/danajanezic/kimchilang"
+    "url": "git+https://github.com/danajanezic/kimchilang.git"
   }
 }
