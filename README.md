@@ -16,6 +16,7 @@ A modern, expressive programming language that transpiles to JavaScript.
 - **Safe Member Access** - All property access is null-safe by default
 - **Memoization** - Built-in `memo` keyword for memoized functions
 - **Type Inference** - Compile-time type checking without annotations
+- **JavaScript Interop** - Embed raw JavaScript with `js { }` blocks
 
 ## Installation
 
@@ -537,6 +538,77 @@ fn handleError(e) {
 ```
 
 The `is` keyword compares the `.name` property of both sides, so `e is NotFoundError` compiles to `e?.name === NotFoundError?.name`.
+
+### JavaScript Interop
+
+Embed raw JavaScript code using `js { }` blocks. This provides an escape hatch for advanced JavaScript features or library usage.
+
+**Basic JS block (no inputs):**
+
+```kimchi
+js {
+  console.log("Hello from raw JavaScript!");
+}
+```
+
+**JS block with inputs from KimchiLang scope:**
+
+Pass KimchiLang variables into the JS block explicitly:
+
+```kimchi
+dec name = "Alice"
+dec count = 5
+
+js(name, count) {
+  const greeting = `Hello, ${name}! Count: ${count}`;
+  console.log(greeting);
+}
+```
+
+**JS block as expression (returns a value):**
+
+```kimchi
+dec numbers = [1, 2, 3, 4, 5]
+
+dec sum = js(numbers) {
+  return numbers.reduce((a, b) => a + b, 0);
+}
+
+print "Sum: ${sum}"  // Sum: 15
+```
+
+**Accessing JavaScript libraries:**
+
+```kimchi
+dec timestamp = js {
+  return Date.now();
+}
+
+dec uuid = js {
+  return crypto.randomUUID();
+}
+```
+
+**How it works:**
+
+JS blocks are compiled to IIFEs (Immediately Invoked Function Expressions):
+
+```kimchi
+// KimchiLang
+dec result = js(x, y) {
+  return x + y;
+}
+
+// Compiles to JavaScript
+const result = ((x, y) => {
+  return x + y;
+})(x, y);
+```
+
+This ensures:
+- **Isolated scope** - JS code can't accidentally modify KimchiLang variables
+- **Explicit data flow** - Inputs must be declared, making dependencies clear
+- **Return values** - Use `return` to pass data back to KimchiLang
 
 ### Dependency Injection System
 

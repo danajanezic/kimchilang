@@ -52,6 +52,9 @@ export const NodeType = {
   ObjectPattern: 'ObjectPattern',
   ArrayPattern: 'ArrayPattern',
   EnumDeclaration: 'EnumDeclaration',
+  
+  // Interop
+  JSBlock: 'JSBlock',
 };
 
 class ParseError extends Error {
@@ -245,6 +248,11 @@ export class Parser {
     // Arg declaration: arg <name>, !arg <name>, arg <name> = <default>
     if (this.check(TokenType.ARG) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ARG)) {
       return this.parseArgDeclaration();
+    }
+    
+    // JS interop block: js { ... } or js(args) { ... }
+    if (this.check(TokenType.JS)) {
+      return this.parseJSBlock();
     }
     
     // Expression statement
@@ -735,6 +743,210 @@ export class Parser {
       name,
       required,
       defaultValue,
+    };
+  }
+
+  parseJSBlock() {
+    // Syntax: js { ... }           - raw JS block
+    //         js(a, b) { ... }     - JS block with inputs from kimchi scope
+    this.expect(TokenType.JS, 'Expected js');
+    
+    const inputs = [];
+    
+    // Check for optional input parameters
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+    
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after js');
+    
+    // Read raw JavaScript code until matching closing brace
+    // We need to track brace depth to handle nested braces in JS
+    let braceDepth = 1;
+    let jsCode = '';
+    const startPos = this.pos;
+    
+    // Get the position in source after the opening brace
+    const openBraceToken = this.tokens[this.pos - 1];
+    let sourcePos = 0;
+    
+    // Find the position in source code
+    for (let i = 0; i < this.pos; i++) {
+      // Skip to after the opening brace in source
+    }
+    
+    // Read tokens until we find the matching closing brace
+    while (braceDepth > 0 && !this.check(TokenType.EOF)) {
+      const token = this.peek();
+      
+      if (token.type === TokenType.LBRACE) {
+        braceDepth++;
+        jsCode += '{ ';
+        this.advance();
+      } else if (token.type === TokenType.RBRACE) {
+        braceDepth--;
+        if (braceDepth > 0) {
+          jsCode += '} ';
+          this.advance();
+        }
+      } else if (token.type === TokenType.NEWLINE) {
+        jsCode += '\n';
+        this.advance();
+      } else {
+        // Reconstruct the token as source
+        jsCode += this.tokenToSource(token) + ' ';
+        this.advance();
+      }
+    }
+    
+    this.expect(TokenType.RBRACE, 'Expected } to close js block');
+    
+    return {
+      type: NodeType.JSBlock,
+      inputs,
+      code: jsCode.trim(),
+    };
+  }
+
+  tokenToSource(token) {
+    // Convert a token back to source code representation
+    switch (token.type) {
+      case TokenType.STRING:
+        // Check if it's a backtick string (starts with backtick)
+        if (token.value.startsWith('`')) {
+          return token.value;  // Already includes backticks
+        }
+        return `"${token.value}"`;
+      case TokenType.TEMPLATE_STRING:
+        // Reconstruct the template string, converting interpolation markers back to ${...}
+        let templateValue = token.value;
+        templateValue = templateValue.replace(/\x00INTERP_START\x00/g, '${');
+        templateValue = templateValue.replace(/\x00INTERP_END\x00/g, '}');
+        return `\`${templateValue}\``;
+      case TokenType.NUMBER:
+      case TokenType.IDENTIFIER:
+      case TokenType.BOOLEAN:
+        return String(token.value);
+      case TokenType.NULL:
+        return 'null';
+      case TokenType.PLUS:
+        return '+';
+      case TokenType.MINUS:
+        return '-';
+      case TokenType.STAR:
+        return '*';
+      case TokenType.SLASH:
+        return '/';
+      case TokenType.PERCENT:
+        return '%';
+      case TokenType.ASSIGN:
+        return '=';
+      case TokenType.EQ:
+        return '===';
+      case TokenType.NEQ:
+        return '!==';
+      case TokenType.LT:
+        return '<';
+      case TokenType.GT:
+        return '>';
+      case TokenType.LTE:
+        return '<=';
+      case TokenType.GTE:
+        return '>=';
+      case TokenType.AND:
+        return '&&';
+      case TokenType.OR:
+        return '||';
+      case TokenType.NOT:
+        return '!';
+      case TokenType.LPAREN:
+        return '(';
+      case TokenType.RPAREN:
+        return ')';
+      case TokenType.LBRACKET:
+        return '[';
+      case TokenType.RBRACKET:
+        return ']';
+      case TokenType.COMMA:
+        return ',';
+      case TokenType.DOT:
+        return '.';
+      case TokenType.COLON:
+        return ':';
+      case TokenType.SEMICOLON:
+        return ';';
+      case TokenType.ARROW:
+        return '->';
+      case TokenType.FAT_ARROW:
+        return '=>';
+      case TokenType.QUESTION:
+        return '?';
+      case TokenType.SPREAD:
+        return '...';
+      default:
+        return token.value !== undefined ? String(token.value) : '';
+    }
+  }
+
+  parseJSBlockExpression() {
+    // Same as parseJSBlock but returns as an expression node
+    // Used for: dec result = js(a, b) { return a + b; }
+    this.expect(TokenType.JS, 'Expected js');
+    
+    const inputs = [];
+    
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+    
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after js');
+    
+    let braceDepth = 1;
+    let jsCode = '';
+    
+    while (braceDepth > 0 && !this.check(TokenType.EOF)) {
+      const token = this.peek();
+      
+      if (token.type === TokenType.LBRACE) {
+        braceDepth++;
+        jsCode += '{ ';
+        this.advance();
+      } else if (token.type === TokenType.RBRACE) {
+        braceDepth--;
+        if (braceDepth > 0) {
+          jsCode += '} ';
+          this.advance();
+        }
+      } else if (token.type === TokenType.NEWLINE) {
+        jsCode += '\n';
+        this.advance();
+      } else {
+        jsCode += this.tokenToSource(token) + ' ';
+        this.advance();
+      }
+    }
+    
+    this.expect(TokenType.RBRACE, 'Expected } to close js block');
+    
+    return {
+      type: NodeType.JSBlock,
+      inputs,
+      code: jsCode.trim(),
+      isExpression: true,
     };
   }
 
@@ -1251,6 +1463,11 @@ export class Parser {
         value: null,
         raw: 'null',
       };
+    }
+    
+    // JS block as expression: dec result = js(a, b) { return a + b; }
+    if (this.check(TokenType.JS)) {
+      return this.parseJSBlockExpression();
     }
     
     // Arrow function with single param (no parens) - check before identifier

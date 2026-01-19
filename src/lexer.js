@@ -34,6 +34,7 @@ export const TokenType = {
   ARG: 'ARG',
   IS: 'IS',
   ENUM: 'ENUM',
+  JS: 'JS',
 
   // Operators
   PLUS: 'PLUS',
@@ -115,6 +116,7 @@ const KEYWORDS = {
   'arg': TokenType.ARG,
   'is': TokenType.IS,
   'enum': TokenType.ENUM,
+  'js': TokenType.JS,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,
@@ -125,11 +127,12 @@ const KEYWORDS = {
 };
 
 export class Token {
-  constructor(type, value, line, column) {
+  constructor(type, value, line, column, sourcePos = 0) {
     this.type = type;
     this.value = value;
     this.line = line;
     this.column = column;
+    this.sourcePos = sourcePos;  // Position in source for raw extraction
   }
 
   toString() {

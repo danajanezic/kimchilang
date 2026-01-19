@@ -1,0 +1,42 @@
+// JavaScript Interop Examples
+
+// Simple JS block (no inputs)
+js {
+  console.log("Hello from raw JavaScript!");
+}
+
+// JS block with inputs from kimchi scope
+dec name = "Alice"
+dec count = 5
+
+js(name, count) {
+  const greeting = `Hello, ${name}! Count: ${count}`;
+  console.log(greeting);
+}
+
+// JS block as expression - returns a value
+dec doubled = js(count) {
+  return count * 2;
+}
+print "Doubled: ${doubled}"
+
+// Using JS for complex operations
+dec numbers = [1, 2, 3, 4, 5]
+dec sum = js(numbers) {
+  return numbers.reduce((a, b) => a + b, 0);
+}
+print "Sum: ${sum}"
+
+// Accessing JS libraries
+dec timestamp = js {
+  return Date.now();
+}
+print "Timestamp: ${timestamp}"
+
+// Complex JS with multiple statements
+dec result = js(name) {
+  const upper = name.toUpperCase();
+  const reversed = upper.split('').reverse().join('');
+  return reversed;
+}
+print "Reversed uppercase: ${result}"
