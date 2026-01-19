@@ -1,0 +1,240 @@
+// README Examples Validation File
+// This file tests all KimchiLang code examples from the README
+
+// === Quick Start ===
+print "Hello, KimchiLang!"
+
+fn greet(name) {
+  return "Welcome, " + name + "!"
+}
+
+print greet("Developer")
+
+// === Variables ===
+dec name = "Alice"
+dec PI = 3.14159
+dec config = {
+  api: {
+    url: "https://api.example.com",
+    timeout: 5000
+  }
+}
+
+// Destructuring
+dec person = { name: "Alice", age: 30, city: "NYC" }
+dec { name: personName, age } = person
+
+// Array destructuring
+dec numbers = [1, 2, 3, 4, 5]
+dec [first, second, third] = numbers
+
+// === Module Visibility ===
+dec internalConfig = { secret: "hidden" }
+fn helperFn() { return "internal" }
+
+expose dec API_VERSION = "1.0"
+expose fn greetExposed(n) { return "Hello, " + n }
+
+// === Functions ===
+expose fn add(a, b) {
+  return a + b
+}
+
+// Default parameters
+fn greetDefault(n = "World") {
+  return "Hello, " + n
+}
+
+print greetDefault()
+print greetDefault("Alice")
+
+// Rest parameters
+fn sum(...nums) {
+  return nums.reduce((acc, n) => acc + n, 0)
+}
+
+print sum(1, 2, 3, 4, 5)
+
+// Combined
+fn log(prefix, separator = ": ", ...messages) {
+  return prefix + separator + messages.join(", ")
+}
+
+// === Enums ===
+enum Color {
+  Red,
+  Green,
+  Blue
+}
+
+print Color.Red
+print Color.Green
+
+enum HttpStatus {
+  OK = 200,
+  NotFound = 404,
+  ServerError = 500
+}
+
+enum Priority {
+  Low,
+  Medium,
+  High = 10,
+  Critical
+}
+
+fn getStatusMessage(status) {
+  |status == HttpStatus.OK| => { return "Success" }
+  |status == HttpStatus.NotFound| => { return "Not Found" }
+  |true| => { return "Unknown" }
+}
+
+print getStatusMessage(200)
+
+// === Arrow Functions ===
+dec double = x => x * 2
+dec addArrow = (a, b) => a + b
+
+dec process = (x) => {
+  dec result = x * 2
+  return result + 1
+}
+
+dec numbersArr = [1, 2, 3, 4, 5]
+dec doubled = numbersArr.map(x => x * 2)
+dec sumArr = numbersArr.reduce((acc, n) => acc + n, 0)
+
+// === Control Flow ===
+dec score = 85
+if score >= 90 {
+  print "A"
+} elif score >= 80 {
+  print "B"
+} else {
+  print "C"
+}
+
+// For loop
+dec items = ["a", "b", "c"]
+for item in items {
+  print item
+}
+
+// Range expressions
+for i in 0..5 {
+  print i
+}
+
+// === Flow Operator ===
+fn addOne(x) { return x + 1 }
+fn doubleNum(x) { return x * 2 }
+fn square(x) { return x * x }
+
+transform >> addOne doubleNum square
+dec flowResult = transform(5)
+print "Flow result: ${flowResult}"
+
+// === Pattern Matching ===
+fn handleStatus(status) {
+  |status == 200| => { print "OK" }
+  |status == 404| => { print "Not Found" }
+  |status == 500| => { print "Server Error" }
+  |true| => { print "Unknown" }
+}
+
+handleStatus(200)
+
+// === Arrays & Objects ===
+dec nums = [1, 2, 3, 4, 5]
+dec personObj = {
+  name: "Bob",
+  age: 30
+}
+
+dec more = [...nums, 6, 7, 8]
+dec updated = { ...personObj, age: 31 }
+
+// === Safe Member Access ===
+dec obj = { a: { b: { c: 1 } } }
+print obj.a.b.c
+
+// === String Interpolation ===
+dec userName = "Alice"
+dec userAge = 30
+
+print "Hello, ${userName}!"
+print "${userName} is ${userAge} years old"
+
+dec itemsCount = [1, 2, 3]
+print "Count: ${itemsCount.length}"
+
+// === Pipe Operator ===
+dec pipeResult1 = square(addOne(doubleNum(5)))
+dec pipeResult2 = 5 ~> doubleNum ~> addOne ~> square
+print "Pipe result: ${pipeResult2}"
+
+// === Memoized Functions ===
+memo fib(n) {
+  |n <= 1| => { return n }
+  |true| => { return fib(n - 1) + fib(n - 2) }
+}
+
+print "fib(10) = ${fib(10)}"
+
+// === Error Handling ===
+dec NotFoundError = error.create("NotFoundError")
+dec ValidationError = error.create("ValidationError")
+
+fn fetchUser(id) {
+  if id == 0 {
+    throw NotFoundError("User ${id} not found")
+  }
+  return { id: id, name: "Alice" }
+}
+
+fn handleRequest(id) {
+  try {
+    return fetchUser(id)
+  } catch(e) {
+    |e is NotFoundError| => {
+      print "Not found: ${e.message}"
+      return null
+    }
+    |e is ValidationError| => {
+      print "Invalid: ${e.message}"
+      return null
+    }
+    |true| => {
+      throw e
+    }
+  }
+}
+
+dec user = handleRequest(1)
+print "User: ${user.name}"
+
+// === JavaScript Interop ===
+js {
+  console.log("Hello from raw JavaScript!");
+}
+
+dec jsName = "Alice"
+dec jsCount = 5
+
+js(jsName, jsCount) {
+  const greeting = `Hello, ${jsName}! Count: ${jsCount}`;
+  console.log(greeting);
+}
+
+dec jsNumbers = [1, 2, 3, 4, 5]
+dec jsSum = js(jsNumbers) {
+  return jsNumbers.reduce((a, b) => a + b, 0);
+}
+print "JS Sum: ${jsSum}"
+
+dec timestamp = js {
+  return Date.now();
+}
+print "Timestamp: ${timestamp}"
+
+print "All README examples validated successfully!"

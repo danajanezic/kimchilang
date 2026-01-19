@@ -293,9 +293,13 @@ if score >= 90 {
   print "C"
 }
 
-// While loop
-while count < 10 {
-  count = count + 1
+// While loop (use with JS interop for mutable state)
+js {
+  let count = 0;
+  while (count < 3) {
+    console.log("Count: " + count);
+    count++;
+  }
 }
 
 // For loop (for-in)
@@ -629,8 +633,8 @@ fn fetchData() {
 
 ```kimchi
 // Create a mock
-let mockHttp = {
-  get: fn(url) { return { data: "mock" } }
+dec mockHttp = {
+  get: (url) => { return { data: "mock" } }
 }
 
 // Inject the mock when importing
