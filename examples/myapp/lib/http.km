@@ -1,0 +1,16 @@
+// HTTP client library - a low-level dependency with configurable timeout
+
+arg timeout = 30000
+arg baseUrl = ""
+
+expose fn get(url) {
+  dec fullUrl = baseUrl + url
+  print "HTTP GET: " + fullUrl + " (timeout: " + timeout + "ms)"
+  return { status: 200, data: "response from " + fullUrl }
+}
+
+expose fn post(url, body) {
+  dec fullUrl = baseUrl + url
+  print "HTTP POST: " + fullUrl + " (timeout: " + timeout + "ms)"
+  return { status: 201, data: "created" }
+}

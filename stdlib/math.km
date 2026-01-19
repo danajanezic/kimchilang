@@ -1,0 +1,120 @@
+// KimchiLang Standard Library - Math Functions
+
+expose fn _describe() {
+  return "Math utilities: abs, round, floor, ceil, trigonometry, etc."
+}
+
+expose dec PI = Math.PI
+expose dec E = Math.E
+
+expose fn abs(x) {
+  return Math.abs(x)
+}
+
+expose fn sign(x) {
+  return Math.sign(x)
+}
+
+expose fn round(x) {
+  return Math.round(x)
+}
+
+expose fn floor(x) {
+  return Math.floor(x)
+}
+
+expose fn ceil(x) {
+  return Math.ceil(x)
+}
+
+expose fn trunc(x) {
+  return Math.trunc(x)
+}
+
+expose fn pow(base, exponent) {
+  return Math.pow(base, exponent)
+}
+
+expose fn sqrt(x) {
+  return Math.sqrt(x)
+}
+
+expose fn cbrt(x) {
+  return Math.cbrt(x)
+}
+
+expose fn exp(x) {
+  return Math.exp(x)
+}
+
+expose fn log(x) {
+  return Math.log(x)
+}
+
+expose fn log10(x) {
+  return Math.log10(x)
+}
+
+expose fn log2(x) {
+  return Math.log2(x)
+}
+
+expose fn sin(x) {
+  return Math.sin(x)
+}
+
+expose fn cos(x) {
+  return Math.cos(x)
+}
+
+expose fn tan(x) {
+  return Math.tan(x)
+}
+
+expose fn asin(x) {
+  return Math.asin(x)
+}
+
+expose fn acos(x) {
+  return Math.acos(x)
+}
+
+expose fn atan(x) {
+  return Math.atan(x)
+}
+
+expose fn atan2(y, x) {
+  return Math.atan2(y, x)
+}
+
+expose fn random() {
+  return Math.random()
+}
+
+expose fn randomInt(minVal, maxVal) {
+  return Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal
+}
+
+expose fn clamp(value, minVal, maxVal) {
+  return Math.min(Math.max(value, minVal), maxVal)
+}
+
+expose fn lerp(start, end, t) {
+  return start + (end - start) * t
+}
+
+expose fn degrees(radians) {
+  return radians * 180 / Math.PI
+}
+
+expose fn radians(deg) {
+  return deg * Math.PI / 180
+}
+
+expose fn isEven(n) {
+  return n % 2 == 0
+}
+
+expose fn isOdd(n) {
+  return n % 2 != 0
+}

@@ -1,0 +1,1 @@
+fn(global, factory) {  }(/* this */, fn(exports) {  })

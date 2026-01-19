@@ -1,0 +1,109 @@
+// KimchiLang Basic Examples
+// This file demonstrates the core features of KimchiLang
+
+// Variables (all immutable with dec)
+dec name = "World"
+dec PI = 3.14159
+
+// Print statement (convenience syntax)
+print "Hello, KimchiLang!"
+print name
+
+// Functions
+fn greet(person) {
+  return "Hello, " + person + "!"
+}
+
+fn add(a, b) {
+  return a + b
+}
+
+print greet("Alice")
+print add(5, 3)
+
+// Arrow functions
+dec double = x => x * 2
+dec multiply = (a, b) => a * b
+
+print double(21)
+print multiply(6, 7)
+
+// Arrays
+dec numbers = [1, 2, 3, 4, 5]
+dec fruits = ["apple", "banana", "cherry"]
+
+print numbers
+print fruits[0]
+
+// Objects
+dec person = {
+  name: "Bob",
+  age: 30,
+  city: "New York"
+}
+
+print person.name
+print person["age"]
+
+// Control flow - If/Else
+dec score = 85
+
+if score >= 90 {
+  print "Grade: A"
+} elif score >= 80 {
+  print "Grade: B"
+} elif score >= 70 {
+  print "Grade: C"
+} else {
+  print "Grade: F"
+}
+
+// Loops - For (immutable iteration)
+for item in fruits {
+  print item
+}
+
+// Range expressions
+for i in 0..5 {
+  print i
+}
+
+// Flow operator - creates a composed function
+fn addOne(x) {
+  return x + 1
+}
+
+fn square(x) {
+  return x * x
+}
+
+transform >> addOne square
+dec result = transform(5)
+print "transform(5) = ${result}"
+
+// Pipe operator - immediate execution
+dec pipeResult = 5 ~> addOne ~> square
+print "5 ~> addOne ~> square = ${pipeResult}"
+
+// Ternary operator
+dec age = 20
+dec status = age >= 18 ? "adult" : "minor"
+print status
+
+// Spread operator
+dec arr1 = [1, 2, 3]
+dec arr2 = [...arr1, 4, 5, 6]
+print arr2
+
+// Try/Catch
+fn riskyOperation() {
+  throw "Something went wrong!"
+}
+
+try {
+  riskyOperation()
+} catch(e) {
+  print "Caught error: " + e
+}
+
+print "Program completed successfully!"

@@ -1,0 +1,85 @@
+// Pattern matching in Array.reduce callback
+// Demonstrates using pattern matching to categorize and accumulate values
+
+dec transactions = [
+  { type: "credit", amount: 100 },
+  { type: "debit", amount: 50 },
+  { type: "credit", amount: 200 },
+  { type: "debit", amount: 75 },
+  { type: "refund", amount: 25 }
+]
+
+// Define reducer function with pattern matching
+fn transactionReducer(acc, tx) {
+  |tx.type == "credit"| => {
+    return acc + tx.amount
+  }
+  |tx.type == "debit"| => {
+    return acc - tx.amount
+  }
+  |tx.type == "refund"| => {
+    return acc + tx.amount
+  }
+  |true| => {
+    return acc
+  }
+}
+
+dec balance = transactions.reduce(transactionReducer, 0)
+print "Final balance: $${balance}"
+
+// Another example: grouping items by category
+dec items = [
+  { name: "apple", category: "fruit" },
+  { name: "carrot", category: "vegetable" },
+  { name: "banana", category: "fruit" },
+  { name: "broccoli", category: "vegetable" },
+  { name: "orange", category: "fruit" }
+]
+
+fn groupReducer(acc, item) {
+  |item.category == "fruit"| => {
+    return {
+      fruits: [...acc.fruits, item.name],
+      vegetables: acc.vegetables
+    }
+  }
+  |item.category == "vegetable"| => {
+    return {
+      fruits: acc.fruits,
+      vegetables: [...acc.vegetables, item.name]
+    }
+  }
+  |true| => {
+    return acc
+  }
+}
+
+dec grouped = items.reduce(groupReducer, { fruits: [], vegetables: [] })
+
+print "\nGrouped items:"
+print "Fruits: ${grouped.fruits.join(", ")}"
+print "Vegetables: ${grouped.vegetables.join(", ")}"
+
+// Example: state machine with pattern matching in arrow function
+dec events = ["start", "pause", "resume", "stop", "start"]
+
+dec finalState = events.reduce((state, event) => {
+  |event == "start"| => {
+    return "running"
+  }
+  |event == "pause" and state == "running"| => {
+    return "paused"
+  }
+  |event == "resume" and state == "paused"| => {
+    return "running"
+  }
+  |event == "stop"| => {
+    return "stopped"
+  }
+  |true| => {
+    return state
+  }
+}, "idle")
+
+print "\nFinal state: ${finalState}"

@@ -1,0 +1,97 @@
+// KimchiLang Standard Library - Date Functions
+
+expose fn _describe() {
+  return "Date/time utilities: now, format, parse, diff, etc."
+}
+
+expose fn now() {
+  return Date.now()
+}
+
+expose fn create(value) {
+  return new Date(value)
+}
+
+expose fn getYear(date) {
+  return date.getFullYear()
+}
+
+expose fn getMonth(date) {
+  return date.getMonth()
+}
+
+expose fn getDay(date) {
+  return date.getDate()
+}
+
+expose fn getDayOfWeek(date) {
+  return date.getDay()
+}
+
+expose fn getHours(date) {
+  return date.getHours()
+}
+
+expose fn getMinutes(date) {
+  return date.getMinutes()
+}
+
+expose fn getSeconds(date) {
+  return date.getSeconds()
+}
+
+expose fn getTime(date) {
+  return date.getTime()
+}
+
+expose fn toISO(date) {
+  return date.toISOString()
+}
+
+expose fn toLocaleDateString(date) {
+  return date.toDateString()
+}
+
+expose fn parse(str) {
+  return new Date(str)
+}
+
+expose fn addMs(date, ms) {
+  return new Date(date.getTime() + ms)
+}
+
+expose fn addSeconds(date, seconds) {
+  return new Date(date.getTime() + seconds * 1000)
+}
+
+expose fn addMinutes(date, minutes) {
+  return new Date(date.getTime() + minutes * 60 * 1000)
+}
+
+expose fn addHours(date, hours) {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000)
+}
+
+expose fn addDays(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
+}
+
+expose fn diffMs(date1, date2) {
+  return date1.getTime() - date2.getTime()
+}
+
+expose fn diffDays(date1, date2) {
+  return (date1.getTime() - date2.getTime()) / (24 * 60 * 60 * 1000)
+}
+
+expose fn isBefore(date1, date2) {
+  return date1.getTime() < date2.getTime()
+}
+
+expose fn isAfter(date1, date2) {
+  return date1.getTime() > date2.getTime()
+}
+
+expose fn isSameDay(date1, date2) {
+  return date1.toDateString() == date2.toDateString()
+}

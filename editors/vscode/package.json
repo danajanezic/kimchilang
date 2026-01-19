@@ -1,0 +1,35 @@
+{
+  "name": "kimchilang",
+  "displayName": "KimchiLang",
+  "description": "Syntax highlighting and language support for KimchiLang",
+  "version": "1.0.0",
+  "publisher": "kimchilang",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "kimchi",
+        "aliases": ["KimchiLang", "kimchi"],
+        "extensions": [".km", ".kimchi", ".kc"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kimchi",
+        "scopeName": "source.kimchi",
+        "path": "./syntaxes/kimchi.tmLanguage.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kimchilang/kimchilang"
+  },
+  "license": "MIT"
+}

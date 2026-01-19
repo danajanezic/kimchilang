@@ -1,0 +1,15 @@
+// Simple greeter module
+
+!arg name
+arg greeting = "Hello"
+
+expose fn _describe() {
+  return "A simple greeting module"
+}
+
+expose fn greet() {
+  print "${greeting}, ${name}!"
+}
+
+// Run on load
+greet()

@@ -1,0 +1,16 @@
+// Main application - depends on the API service
+// Must provide the required apiKey arg
+
+as api dep myapp.services.api({ apiKey: "prod-key-abc123" })
+
+fn main() {
+  print "=== Fetching users ==="
+  dec users = api.fetchUsers()
+  print users
+  
+  print "=== Creating user ==="
+  dec result = api.createUser("Alice")
+  print result
+}
+
+main()

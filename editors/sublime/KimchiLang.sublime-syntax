@@ -1,0 +1,137 @@
+%YAML 1.2
+---
+name: KimchiLang
+file_extensions:
+  - km
+  - kimchi
+  - kc
+scope: source.kimchi
+
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: numbers
+    - include: keywords
+    - include: storage
+    - include: constants
+    - include: operators
+    - include: pattern-matching
+    - include: functions
+
+  comments:
+    - match: //.*$
+      scope: comment.line.double-slash.kimchi
+    - match: /\*
+      scope: punctuation.definition.comment.begin.kimchi
+      push:
+        - meta_scope: comment.block.kimchi
+        - match: \*/
+          scope: punctuation.definition.comment.end.kimchi
+          pop: true
+
+  strings:
+    - match: '"'
+      scope: punctuation.definition.string.begin.kimchi
+      push:
+        - meta_scope: string.quoted.double.kimchi
+        - match: \\.
+          scope: constant.character.escape.kimchi
+        - match: '"'
+          scope: punctuation.definition.string.end.kimchi
+          pop: true
+    - match: "'"
+      scope: punctuation.definition.string.begin.kimchi
+      push:
+        - meta_scope: string.quoted.single.kimchi
+        - match: \\.
+          scope: constant.character.escape.kimchi
+        - match: "'"
+          scope: punctuation.definition.string.end.kimchi
+          pop: true
+    - match: "`"
+      scope: punctuation.definition.string.begin.kimchi
+      push:
+        - meta_scope: string.template.kimchi
+        - match: \\.
+          scope: constant.character.escape.kimchi
+        - match: \$\{
+          scope: punctuation.section.interpolation.begin.kimchi
+          push:
+            - meta_scope: meta.interpolation.kimchi
+            - match: \}
+              scope: punctuation.section.interpolation.end.kimchi
+              pop: true
+            - include: main
+        - match: "`"
+          scope: punctuation.definition.string.end.kimchi
+          pop: true
+
+  numbers:
+    - match: \b0x[0-9a-fA-F]+\b
+      scope: constant.numeric.hex.kimchi
+    - match: \b\d+\.\d+\b
+      scope: constant.numeric.float.kimchi
+    - match: \b\d+\b
+      scope: constant.numeric.integer.kimchi
+
+  keywords:
+    - match: \b(if|else|for|while|return|try|catch|throw|in|await|async)\b
+      scope: keyword.control.kimchi
+    - match: \b(dep|arg|expose|print|new)\b
+      scope: keyword.other.kimchi
+    - match: \b(and|or|not)\b
+      scope: keyword.operator.logical.kimchi
+
+  storage:
+    - match: \b(fn|memo)\b
+      scope: storage.type.function.kimchi
+    - match: \b(dec)\b
+      scope: storage.type.kimchi
+    - match: \b(as)\b
+      scope: storage.type.kimchi
+    - match: \b(expose)\b
+      scope: storage.modifier.kimchi
+
+  constants:
+    - match: \b(true|false)\b
+      scope: constant.language.boolean.kimchi
+    - match: \b(null|undefined)\b
+      scope: constant.language.null.kimchi
+
+  operators:
+    - match: =>
+      scope: keyword.operator.arrow.kimchi
+    - match: \|>
+      scope: keyword.operator.flow.kimchi
+    - match: \.\.\.
+      scope: keyword.operator.spread.kimchi
+    - match: \.\.
+      scope: keyword.operator.range.kimchi
+    - match: (===|!==|==|!=|<=|>=|<|>)
+      scope: keyword.operator.comparison.kimchi
+    - match: (&&|\|\||!)
+      scope: keyword.operator.logical.kimchi
+    - match: (\+|-|\*|/|%)
+      scope: keyword.operator.arithmetic.kimchi
+    - match: =
+      scope: keyword.operator.assignment.kimchi
+
+  pattern-matching:
+    - match: \|(?!>)
+      scope: punctuation.definition.pattern.begin.kimchi
+      push:
+        - meta_scope: meta.pattern-match.kimchi
+        - match: \|\s*=>
+          scope: punctuation.definition.pattern.end.kimchi
+          pop: true
+        - include: main
+
+  functions:
+    - match: \b(fn)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(
+      captures:
+        1: storage.type.function.kimchi
+        2: entity.name.function.kimchi
+    - match: \b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(
+      captures:
+        1: variable.function.kimchi

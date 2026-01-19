@@ -1,0 +1,17 @@
+// KimchiLang Standard Library - JSON Functions
+
+expose fn _describe() {
+  return "JSON utilities: parse, stringify, pretty print"
+}
+
+expose fn parse(str) {
+  return JSON.parse(str)
+}
+
+expose fn stringify(obj) {
+  return JSON.stringify(obj)
+}
+
+expose fn pretty(obj, indent) {
+  return JSON.stringify(obj, null, indent || 2)
+}

@@ -1,0 +1,33 @@
+// KimchiLang Standard Library - Promise Functions
+
+expose fn _describe() {
+  return "Promise/async utilities: all, race, resolve, reject, delay"
+}
+
+expose fn resolve(value) {
+  return Promise.resolve(value)
+}
+
+expose fn reject(reason) {
+  return Promise.reject(reason)
+}
+
+expose fn all(promises) {
+  return Promise.all(promises)
+}
+
+expose fn allSettled(promises) {
+  return Promise.allSettled(promises)
+}
+
+expose fn race(promises) {
+  return Promise.race(promises)
+}
+
+expose fn any(promises) {
+  return Promise.any(promises)
+}
+
+expose fn delay(ms) {
+  return new Promise((res) => setTimeout(res, ms))
+}

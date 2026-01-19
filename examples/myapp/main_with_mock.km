@@ -1,0 +1,42 @@
+// Main application with dependency injection - injects a mock HTTP client
+// Also demonstrates passing both deps and args together
+
+// Define a mock HTTP client for testing
+fn mockGet(url) {
+  print "MOCK GET: " + url
+  return { status: 200, data: "mock data" }
+}
+
+fn mockPost(url, body) {
+  print "MOCK POST: " + url
+  return { status: 201, data: "mock created" }
+}
+
+dec mockHttp = {
+  get: mockGet,
+  post: mockPost
+}
+
+// Import API service with:
+// - Mock HTTP client injected (dep override)
+// - Required apiKey arg provided
+// - Custom version arg provided
+as api dep myapp.services.api({
+  "myapp.lib.http": mockHttp,
+  apiKey: "test-key-xyz789",
+  version: "v2"
+})
+
+fn main() {
+  print "=== Testing with Mock HTTP ==="
+  
+  print "Fetching users (mocked):"
+  dec users = api.fetchUsers()
+  print users
+  
+  print "Creating user (mocked):"
+  dec result = api.createUser("Bob")
+  print result
+}
+
+main()

@@ -1,0 +1,22 @@
+// Test stdlib extensions on literals
+
+expose fn _describe() {
+  return "Test that literals have stdlib methods"
+}
+
+// Array extensions
+dec nums = [1, 2, 3, 4, 5]
+print "Array tests:"
+print "first: ${nums.first()}"
+print "last: ${nums.last()}"
+print "sum: ${nums.sum()}"
+print "average: ${nums.average()}"
+print "max: ${nums.max()}"
+print "min: ${nums.min()}"
+
+// String extensions
+dec text = "hello world"
+print "\nString tests:"
+print "capitalize: ${text.capitalize()}"
+print "isEmpty: ${text.isEmpty()}"
+print "isBlank: ${"   ".isBlank()}"

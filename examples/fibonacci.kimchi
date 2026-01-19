@@ -1,0 +1,17 @@
+// Fibonacci sequence in KimchiLang
+
+fn fibonacci(n) {
+  if n <= 1 {
+    return n
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// Print first 10 fibonacci numbers
+print "Fibonacci Sequence:"
+for i in 0..10 {
+  print fibonacci(i)
+}
+
+print "Fibonacci of 15:"
+print fibonacci(15)

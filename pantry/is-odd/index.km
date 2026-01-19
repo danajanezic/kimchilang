@@ -1,0 +1,2 @@
+as isNumber dep is-number
+expose dec exports = fn(value) { return n % 2 === 1 }

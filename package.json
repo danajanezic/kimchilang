@@ -1,0 +1,29 @@
+{
+  "name": "kimchilang",
+  "version": "1.0.0",
+  "description": "A modern programming language that transpiles to JavaScript",
+  "main": "src/index.js",
+  "bin": {
+    "kimchi": "./src/cli.js"
+  },
+  "scripts": {
+    "build": "node src/cli.js build",
+    "test": "node test/test.js",
+    "example": "node src/cli.js run examples/basic.kimchi"
+  },
+  "keywords": [
+    "programming-language",
+    "transpiler",
+    "javascript",
+    "compiler"
+  ],
+  "author": "KimchiLang Team",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "acorn": "^8.15.0"
+  },
+  "devDependencies": {
+    "is-odd": "^3.0.1"
+  }
+}

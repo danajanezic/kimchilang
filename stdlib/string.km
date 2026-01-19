@@ -1,0 +1,93 @@
+// KimchiLang Standard Library - String Functions
+
+expose fn _describe() {
+  return "String utilities: split, trim, replace, case conversion, etc."
+}
+
+expose fn split(str, separator) {
+  return str.split(separator)
+}
+
+expose fn trim(str) {
+  return str.trim()
+}
+
+expose fn trimStart(str) {
+  return str.trimStart()
+}
+
+expose fn trimEnd(str) {
+  return str.trimEnd()
+}
+
+expose fn toUpperCase(str) {
+  return str.toUpperCase()
+}
+
+expose fn toLowerCase(str) {
+  return str.toLowerCase()
+}
+
+expose fn startsWith(str, prefix) {
+  return str.startsWith(prefix)
+}
+
+expose fn endsWith(str, suffix) {
+  return str.endsWith(suffix)
+}
+
+expose fn includes(str, substring) {
+  return str.includes(substring)
+}
+
+expose fn indexOf(str, substring) {
+  return str.indexOf(substring)
+}
+
+expose fn replace(str, search, replacement) {
+  return str.replace(search, replacement)
+}
+
+expose fn replaceAll(str, search, replacement) {
+  return str.replaceAll(search, replacement)
+}
+
+expose fn slice(str, start, end) {
+  return str.slice(start, end)
+}
+
+expose fn charAt(str, index) {
+  return str.charAt(index)
+}
+
+expose fn padStart(str, length, padStr) {
+  return str.padStart(length, padStr)
+}
+
+expose fn padEnd(str, length, padStr) {
+  return str.padEnd(length, padStr)
+}
+
+expose fn repeat(str, count) {
+  return str.repeat(count)
+}
+
+expose fn length(str) {
+  return str.length
+}
+
+expose fn isEmpty(str) {
+  return str.length == 0
+}
+
+expose fn isBlank(str) {
+  return str.trim().length == 0
+}
+
+expose fn toChars(str) {
+  return str.split("")
+}
+
+expose fn toLines(str) {
+  return str.split("\n")
+}

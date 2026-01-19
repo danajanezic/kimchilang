@@ -1,0 +1,41 @@
+// KimchiLang Standard Library - Object Functions
+
+expose fn _describe() {
+  return "Object utilities: keys, values, entries, merge, etc."
+}
+
+expose fn keys(obj) {
+  return Object.keys(obj)
+}
+
+expose fn values(obj) {
+  return Object.values(obj)
+}
+
+expose fn entries(obj) {
+  return Object.entries(obj)
+}
+
+expose fn fromEntries(arr) {
+  return Object.fromEntries(arr)
+}
+
+expose fn has(obj, key) {
+  return Object.hasOwn(obj, key)
+}
+
+expose fn freeze(obj) {
+  return Object.freeze(obj)
+}
+
+expose fn isEmpty(obj) {
+  return Object.keys(obj).length == 0
+}
+
+expose fn size(obj) {
+  return Object.keys(obj).length
+}
+
+expose fn assign(target, source) {
+  return Object.assign(target, source)
+}

@@ -1,0 +1,18 @@
+// API service - depends on the HTTP library with required API key
+
+as http dep myapp.lib.http({ baseUrl: "https://api.example.com" })
+
+!arg apiKey
+arg version = "v1"
+
+expose fn fetchUsers() {
+  print "Using API key: " + apiKey + " (version: " + version + ")"
+  dec response = http.get("/" + version + "/users")
+  return response.data
+}
+
+expose fn createUser(name) {
+  print "Using API key: " + apiKey
+  dec response = http.post("/" + version + "/users", { name: name })
+  return response.data
+}

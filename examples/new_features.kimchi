@@ -1,0 +1,52 @@
+// Test file for new features: String Interpolation and Pipe Operator
+
+// ===== String Interpolation =====
+dec name = "Alice"
+dec age = 30
+
+print "Hello, ${name}!"
+print "${name} is ${age} years old"
+
+// Expressions in interpolation
+dec items = [1, 2, 3, 4, 5]
+print "Count: ${items.length}"
+print "Sum: ${items.sum()}"
+
+// Nested object access
+dec user = { name: "Bob", score: 95 }
+print "${user.name} scored ${user.score}%"
+
+// ===== Pipe Operator (~>) =====
+fn double(x) { return x * 2 }
+fn addOne(x) { return x + 1 }
+fn square(x) { return x * x }
+
+// Basic pipe chain - passes value through functions left to right
+dec result = 5 ~> double ~> addOne ~> square
+print "5 ~> double ~> addOne ~> square = ${result}"
+
+// Pipe with array operations
+fn sumArray(arr) { return arr.sum() }
+fn doubleAll(arr) { return arr.map(x => x * 2) }
+fn filterBig(arr) { return arr.filter(x => x > 5) }
+
+dec numbers = [1, 2, 3, 4, 5]
+dec processed = numbers ~> doubleAll ~> filterBig ~> sumArray
+print "Processed array result: ${processed}"
+
+// Combining both features
+dec message = "The answer is ${5 ~> double ~> addOne}"
+print message
+
+// ===== Flow Operator (>>) =====
+// Creates a composed function that can be called later
+transform >> double addOne square
+
+// Now call the composed function
+dec flowResult = transform(5)
+print "transform(5) = ${flowResult}"
+
+// Another example with array functions
+processArray >> doubleAll filterBig sumArray
+dec flowArrayResult = processArray(numbers)
+print "processArray([1,2,3,4,5]) = ${flowArrayResult}"

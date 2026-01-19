@@ -1,0 +1,49 @@
+// KimchiLang Standard Library - Console Functions
+
+expose fn _describe() {
+  return "Console/IO utilities: log, error, warn, table, etc."
+}
+
+expose fn log(message) {
+  console.log(message)
+}
+
+expose fn error(message) {
+  console.error(message)
+}
+
+expose fn warn(message) {
+  console.warn(message)
+}
+
+expose fn info(message) {
+  console.info(message)
+}
+
+expose fn debug(message) {
+  console.debug(message)
+}
+
+expose fn table(data) {
+  console.table(data)
+}
+
+expose fn clear() {
+  console.clear()
+}
+
+expose fn time(label) {
+  console.time(label)
+}
+
+expose fn timeEnd(label) {
+  console.timeEnd(label)
+}
+
+expose fn trace(message) {
+  console.trace(message)
+}
+
+expose fn dir(obj) {
+  console.dir(obj)
+}

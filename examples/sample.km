@@ -1,0 +1,39 @@
+dec API_URL = "https://api.example.com"
+fn add(a, b) {
+  return a + b
+}
+
+fn greet(name) {
+  print "Hello, " + name
+}
+
+// Converted from class UserService
+fn createUserService(apiKey) {
+  return {
+    getUser: (id) => {
+      return "${apiKey}/users/${id}"
+    },
+    createUser: (name, email) => {
+      print "Creating user: ${name}"
+      return { name, email }
+    }
+  }
+}
+
+dec numbers = [1, 2, 3, 4, 5]
+dec doubled = numbers.map(x => x * 2)
+fn processStatus(status) {
+  |status == 200| => {
+    print "OK"
+  }
+  |status == 404| => {
+    print "Not Found"
+  }
+  |true| => {
+    print "Unknown"
+  }
+}
+
+for num in numbers {
+  print num
+}

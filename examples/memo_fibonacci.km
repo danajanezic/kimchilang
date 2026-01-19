@@ -1,0 +1,17 @@
+// Memoized Fibonacci - demonstrates the memo keyword
+
+memo fibonacci(n) {
+  if n <= 1 {
+    return n
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// This would be slow without memoization, but with memo it's fast
+print "Memoized Fibonacci Sequence:"
+for i in 0..20 {
+  print "fib(${i}) = ${fibonacci(i)}"
+}
+
+print "\nFibonacci of 35 (would be slow without memo):"
+print "fib(35) = ${fibonacci(35)}"

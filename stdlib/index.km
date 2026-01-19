@@ -1,0 +1,26 @@
+// KimchiLang Standard Library
+// Main entry point
+
+expose fn _describe() {
+  return "KimchiLang Standard Library - functional utilities for arrays, strings, objects, math, and more"
+}
+
+expose fn _help() {
+  return "
+Available modules:
+  stdlib.array     - Array utilities (map, filter, reduce, etc.)
+  stdlib.string    - String utilities (split, trim, replace, etc.)
+  stdlib.object    - Object utilities (keys, values, entries, etc.)
+  stdlib.math      - Math utilities (abs, round, trig, etc.)
+  stdlib.json      - JSON utilities (parse, stringify, pretty)
+  stdlib.console   - Console/IO utilities (log, error, table, etc.)
+  stdlib.promise   - Promise utilities (all, race, delay, etc.)
+  stdlib.date      - Date/time utilities (now, format, diff, etc.)
+  stdlib.function  - Function utilities (compose, pipe, etc.)
+
+Usage:
+  as arr dep stdlib.array
+  as str dep stdlib.string
+  as math dep stdlib.math
+"
+}

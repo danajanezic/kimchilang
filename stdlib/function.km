@@ -1,0 +1,44 @@
+// KimchiLang Standard Library - Function Utilities
+
+expose fn _describe() {
+  return "Function utilities: compose, pipe, identity, constant, etc."
+}
+
+expose fn identity(x) {
+  return x
+}
+
+expose fn constant(x) {
+  return () => x
+}
+
+expose fn negate(predicate) {
+  return (x) => !predicate(x)
+}
+
+expose fn flip(f) {
+  return (a, b) => f(b, a)
+}
+
+expose fn compose(f, g) {
+  return (x) => f(g(x))
+}
+
+expose fn pipe(f, g) {
+  return (x) => g(f(x))
+}
+
+expose fn tap(f) {
+  return (x) => {
+    f(x)
+    return x
+  }
+}
+
+expose fn unary(f) {
+  return (x) => f(x)
+}
+
+expose fn binary(f) {
+  return (a, b) => f(a, b)
+}

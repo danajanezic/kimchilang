@@ -1,0 +1,36 @@
+// Example API client module with args and help functions
+
+!arg clientId
+arg timeout = 5000
+
+as http dep pantry.axios
+
+expose fn _describe() {
+  return "API client for connecting to external services"
+}
+
+expose fn _help() {
+  return "
+  This module provides HTTP client functionality.
+  
+  Example:
+    kimchi api.client --client-id YOUR_ID
+    
+  The client will authenticate and make requests on your behalf.
+  "
+}
+
+expose fn connect() {
+  print "Connecting with client ID: ${clientId}"
+  print "Timeout: ${timeout}ms"
+  return { connected: true, clientId: clientId }
+}
+
+expose fn get(url) {
+  print "GET ${url}"
+  return { status: 200, data: "response" }
+}
+
+// Run on module load
+print "API Client initialized"
+connect()
