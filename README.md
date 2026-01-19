@@ -1,5 +1,7 @@
 # KimchiLang 🌶️
 
+*Some will think it stinks, others will love it—no matter what it's spicy and good for you!*
+
 A modern, expressive programming language that transpiles to JavaScript.
 
 ## Table of Contents
