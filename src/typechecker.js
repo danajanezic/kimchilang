@@ -40,6 +40,11 @@ export class TypeChecker {
     this.modulePath = options.modulePath || null;
     this.moduleExports = {}; // Track exposed declarations for this module
     this.argTypes = new Map(); // Track arg declaration types
+    
+    // Register built-in globals
+    this.defineVariable('error', this.createType(Type.Function));
+    this.defineVariable('_obj', this.createType(Type.Object));
+    this.defineVariable('_secret', this.createType(Type.Function));
   }
 
   // Static methods for module type registry
