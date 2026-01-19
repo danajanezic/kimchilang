@@ -1,14 +1,13 @@
 // Regex Pattern Matching Example
-// Demonstrates: /regex/ => body syntax
+// Demonstrates: subject ~ /regex/ => body syntax
 
-// Input to match against (set $_ before pattern matching)
-dec $_ = "hello world 123"
+dec input = "hello world 123"
 
-// Regex pattern matching - tests against $_ variable
+// Regex pattern matching with explicit subject
 // $match contains the match result (array with groups)
-/hello/ => print "Found hello!"
-/\d+/ => print "Found numbers: ${$match[0]}"
-/^goodbye/ => print "Starts with goodbye"
+input ~ /hello/ => print "Found hello!"
+input ~ /\d+/ => print "Found numbers: ${$match[0]}"
+input ~ /^goodbye/ => print "Starts with goodbye"
 
 // Regex literals can also be used in expressions
 dec emailPattern = /^[\w.-]+@[\w.-]+\.\w+$/
@@ -27,12 +26,12 @@ print "=== Validation Examples ==="
 print "Is 'test@example.com' a valid email? ${validateEmail('test@example.com')}"
 print "Is '555-123-4567' a valid phone? ${validatePhone('555-123-4567')}"
 
-// Multiple regex cases
-dec $_ = "ERROR: Connection failed"
+// Log level detection
+dec logLine = "ERROR: Connection failed"
 
 print ""
 print "=== Log Level Detection ==="
-/^ERROR/ => print "🔴 Error level log"
-/^WARN/ => print "🟡 Warning level log"
-/^INFO/ => print "🔵 Info level log"
-/^DEBUG/ => print "⚪ Debug level log"
+logLine ~ /^ERROR/ => print "🔴 Error level log"
+logLine ~ /^WARN/ => print "🟡 Warning level log"
+logLine ~ /^INFO/ => print "🔵 Info level log"
+logLine ~ /^DEBUG/ => print "⚪ Debug level log"

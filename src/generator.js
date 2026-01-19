@@ -804,18 +804,28 @@ export class CodeGenerator {
 
   visitPatternMatch(node, isTopLevel = false) {
     // Standalone pattern matching: |condition| => code
-    // Regex pattern matching: /regex/ => code (tests against $_ variable)
+    // Regex pattern matching: subject ~ /regex/ => code
     // At top level: use if/else if chain (no return)
     // Inside function: each case returns from the function when matched
+    
+    // For regex pattern matching with subject, evaluate subject once
+    let subjectVar = null;
+    if (node.subject && node.isRegex) {
+      subjectVar = '_subject';
+      const subjectExpr = this.visitExpression(node.subject);
+      this.emitLine(`const ${subjectVar} = ${subjectExpr};`);
+    }
+    
     for (let i = 0; i < node.cases.length; i++) {
       const matchCase = node.cases[i];
       let condition;
       
       if (matchCase.isRegex || matchCase.test.type === NodeType.RegexLiteral) {
-        // Regex pattern: test against $_ (implicit input variable)
+        // Regex pattern: test against subject
         // Store match result in $match for access in the body
         const regex = this.visitExpression(matchCase.test);
-        condition = `($match = ${regex}.exec($_))`;
+        const target = subjectVar || '_subject';
+        condition = `($match = ${regex}.exec(${target}))`;
       } else {
         condition = this.visitExpression(matchCase.test);
       }

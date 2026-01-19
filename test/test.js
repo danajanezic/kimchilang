@@ -537,32 +537,31 @@ test('Tokenize regex with escaped characters', () => {
   assertEqual(tokens[0].value.pattern, '\\d+\\.\\d+');
 });
 
-test('Parse regex pattern match', () => {
-  const tokens = tokenize('/hello/ => print "matched"');
+test('Tokenize match operator', () => {
+  const tokens = tokenize('input ~ /hello/');
+  assertEqual(tokens[0].type, 'IDENTIFIER');
+  assertEqual(tokens[1].type, 'MATCH');
+  assertEqual(tokens[2].type, 'REGEX');
+});
+
+test('Parse regex pattern match with subject', () => {
+  const tokens = tokenize('input ~ /hello/ => print "matched"');
   const ast = parse(tokens);
   assertEqual(ast.body[0].type, 'PatternMatch');
+  assertEqual(ast.body[0].subject.type, 'Identifier');
+  assertEqual(ast.body[0].subject.name, 'input');
   assertEqual(ast.body[0].cases[0].test.type, 'RegexLiteral');
   assertEqual(ast.body[0].cases[0].test.pattern, 'hello');
   assertEqual(ast.body[0].cases[0].isRegex, true);
 });
 
-test('Parse multiple regex pattern cases', () => {
-  const source = `/^hello/ => print "starts with hello"
-/world$/ => print "ends with world"`;
-  const tokens = tokenize(source);
-  const ast = parse(tokens);
-  assertEqual(ast.body[0].type, 'PatternMatch');
-  assertEqual(ast.body[0].cases.length, 2);
-  assertEqual(ast.body[0].cases[0].test.pattern, '^hello');
-  assertEqual(ast.body[0].cases[1].test.pattern, 'world$');
-});
-
-test('Generate regex pattern match code', () => {
-  const source = `/hello/ => print "matched"`;
+test('Generate regex pattern match code with subject', () => {
+  const source = 'input ~ /hello/ => print "matched"';
   const tokens = tokenize(source);
   const ast = parse(tokens);
   const code = generate(ast);
-  assertEqual(code.includes('/hello/.exec($_)'), true);
+  assertEqual(code.includes('const _subject = input'), true);
+  assertEqual(code.includes('/hello/.exec(_subject)'), true);
   assertEqual(code.includes('$match'), true);
 });
 

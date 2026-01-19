@@ -75,6 +75,7 @@ export const TokenType = {
   FAT_ARROW: 'FAT_ARROW',
   FLOW: 'FLOW',
   PIPE: 'PIPE',
+  MATCH: 'MATCH',
   QUESTION: 'QUESTION',
   COLON: 'COLON',
   DOUBLE_COLON: 'DOUBLE_COLON',
@@ -677,7 +678,7 @@ export class Lexer {
           if (this.match('>')) {
             this.tokens.push(new Token(TokenType.PIPE, '~>', startLine, startColumn));
           } else {
-            this.tokens.push(new Token(TokenType.BITNOT, '~', startLine, startColumn));
+            this.tokens.push(new Token(TokenType.MATCH, '~', startLine, startColumn));
           }
           break;
         case '?':

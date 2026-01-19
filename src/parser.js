@@ -294,11 +294,6 @@ export class Parser {
       return this.parsePatternMatch();
     }
     
-    // Regex pattern matching: /regex/ => code
-    if (this.check(TokenType.REGEX)) {
-      return this.parseRegexPatternMatch();
-    }
-    
     // Print (convenience)
     if (this.check(TokenType.PRINT)) {
       return this.parsePrintStatement();
@@ -761,12 +756,18 @@ export class Parser {
     return left;
   }
 
-  parseRegexPatternMatch() {
-    // Regex pattern matching: /regex/ => code
-    // Parse consecutive regex pattern cases
+  parseRegexPatternMatch(subject) {
+    // Regex pattern matching: subject ~ /regex/ => code
+    // Parse consecutive regex pattern cases with the same subject
     const cases = [];
     
-    while (this.check(TokenType.REGEX)) {
+    while (this.check(TokenType.MATCH)) {
+      this.expect(TokenType.MATCH, 'Expected ~');
+      
+      if (!this.check(TokenType.REGEX)) {
+        this.error('Expected regex pattern after ~');
+      }
+      
       const regexToken = this.advance();
       const regex = {
         type: NodeType.RegexLiteral,
@@ -791,10 +792,15 @@ export class Parser {
       });
       
       this.skipNewlines();
+      
+      // Check if next line continues with same subject pattern
+      // For now, each line is independent - user repeats subject
+      break;
     }
     
     return {
       type: NodeType.PatternMatch,
+      subject,
       cases,
       isRegex: true,
     };
@@ -1227,6 +1233,12 @@ export class Parser {
 
   parseExpressionStatement() {
     const expression = this.parseExpression();
+    
+    // Check for regex pattern match: expr ~ /regex/ => body
+    if (this.check(TokenType.MATCH)) {
+      return this.parseRegexPatternMatch(expression);
+    }
+    
     return {
       type: NodeType.ExpressionStatement,
       expression,
