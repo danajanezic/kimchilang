@@ -790,6 +790,12 @@ Static files (`.static` extension) are data-only files for configuration, consta
 **Syntax:**
 
 ```
+// Primitive strings and numbers
+AppName "MyApp"
+Version "1.0.0"
+MaxRetries 3
+Timeout 5000
+
 // Arrays: Name [value1, value2, ...]
 Colors ["red", "green", "blue"]
 
@@ -813,6 +819,29 @@ Endpoints {
   cdn = "https://cdn.example.com"
 }
 ```
+
+**Secret values:**
+
+Use the `secret` keyword to protect sensitive values. Secrets are masked when converted to strings:
+
+```
+// Secret primitive
+secret ApiKey "sk-1234567890abcdef"
+secret InternalPort 8443
+
+// Object with secret properties
+DatabaseConfig {
+  host = "localhost"
+  port = 5432
+  secret username = "admin"
+  secret password = "super-secret-password"
+}
+```
+
+Secret values:
+- Display as `********` when logged or converted to string
+- Actual value accessible via `.value` property
+- Protected from accidental exposure in logs and error messages
 
 **Importing static files:**
 

@@ -104,6 +104,7 @@ export class StaticLexer {
     if (value === 'true') return { type: 'BOOLEAN', value: true };
     if (value === 'false') return { type: 'BOOLEAN', value: false };
     if (value === 'null') return { type: 'NULL', value: null };
+    if (value === 'secret') return { type: 'SECRET' };
     
     return { type: 'IDENTIFIER', value };
   }
@@ -226,6 +227,13 @@ export class StaticParser {
   }
 
   parseDeclaration() {
+    // Check for secret modifier
+    let isSecret = false;
+    if (this.match('SECRET')) {
+      isSecret = true;
+      this.skipNewlines();
+    }
+    
     // Expect an identifier (the name)
     const nameToken = this.expect('IDENTIFIER', 'Expected declaration name');
     const name = nameToken.value;
@@ -242,8 +250,28 @@ export class StaticParser {
     } else if (this.check('BACKTICK')) {
       // Enum declaration: Name `ENUM1 = foo, ENUM2 = bar`
       this.declarations[name] = this.parseEnum();
+    } else if (this.check('STRING')) {
+      // String primitive: Name "value"
+      const token = this.advance();
+      this.declarations[name] = { type: 'literal', value: token.value, secret: isSecret };
+      return;
+    } else if (this.check('NUMBER')) {
+      // Number primitive: Name 123
+      const token = this.advance();
+      this.declarations[name] = { type: 'literal', value: token.value, secret: isSecret };
+      return;
+    } else if (this.check('BOOLEAN')) {
+      // Boolean primitive: Name true/false
+      const token = this.advance();
+      this.declarations[name] = { type: 'literal', value: token.value, secret: isSecret };
+      return;
     } else {
-      this.error(`Expected [, {, or \` after declaration name "${name}"`);
+      this.error(`Expected [, {, \`, string, or number after declaration name "${name}"`);
+    }
+    
+    // Mark the declaration as secret if needed
+    if (isSecret && this.declarations[name]) {
+      this.declarations[name].secret = true;
     }
   }
 
@@ -276,12 +304,22 @@ export class StaticParser {
     this.skipNewlines();
     
     while (!this.check('RBRACE') && !this.check('EOF')) {
+      // Check for secret modifier on property
+      let isSecret = false;
+      if (this.match('SECRET')) {
+        isSecret = true;
+        this.skipNewlines();
+      }
+      
       const keyToken = this.expect('IDENTIFIER', 'Expected property name');
       const key = keyToken.value;
       
       this.expect('EQUALS', 'Expected = after property name');
       
       const value = this.parseValue();
+      if (isSecret) {
+        value.secret = true;
+      }
       properties[key] = value;
       
       // Comma or newline separates properties
@@ -370,6 +408,22 @@ export class StaticParser {
 export function generateStaticCode(declarations, modulePath) {
   let code = '// Generated from .static file\n\n';
   
+  // Check if any declarations use secrets
+  const hasSecrets = checkForSecrets(declarations);
+  
+  if (hasSecrets) {
+    // Add _secret helper for secret values
+    code += `// Secret wrapper class\n`;
+    code += `class _Secret {\n`;
+    code += `  constructor(value) { this._value = value; }\n`;
+    code += `  toString() { return "********"; }\n`;
+    code += `  valueOf() { return this._value; }\n`;
+    code += `  get value() { return this._value; }\n`;
+    code += `  [Symbol.toPrimitive](hint) { return hint === "string" ? "********" : this._value; }\n`;
+    code += `}\n`;
+    code += `function _secret(value) { return new _Secret(value); }\n\n`;
+  }
+  
   for (const [name, decl] of Object.entries(declarations)) {
     code += `export const ${name} = ${generateValue(decl)};\n\n`;
   }
@@ -377,38 +431,64 @@ export function generateStaticCode(declarations, modulePath) {
   return code;
 }
 
+// Check if any node in the declarations tree has secret: true
+function checkForSecrets(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (obj.secret === true) return true;
+  
+  for (const value of Object.values(obj)) {
+    if (checkForSecrets(value)) return true;
+  }
+  return false;
+}
+
 function generateValue(node) {
+  let value;
+  
   switch (node.type) {
     case 'literal':
       if (typeof node.value === 'string') {
-        return JSON.stringify(node.value);
+        value = JSON.stringify(node.value);
+      } else {
+        value = String(node.value);
       }
-      return String(node.value);
+      break;
     
     case 'reference':
       // References are resolved at runtime via the dependency system
-      return node.path;
+      value = node.path;
+      break;
     
     case 'array':
       const arrayItems = node.values.map(v => generateValue(v)).join(', ');
-      return `[${arrayItems}]`;
+      value = `[${arrayItems}]`;
+      break;
     
     case 'object':
       const objProps = Object.entries(node.properties)
         .map(([k, v]) => `${k}: ${generateValue(v)}`)
         .join(', ');
-      return `{ ${objProps} }`;
+      value = `{ ${objProps} }`;
+      break;
     
     case 'enum':
       // Enums are frozen objects
       const enumProps = Object.entries(node.members)
         .map(([k, v]) => `${k}: ${generateValue(v)}`)
         .join(', ');
-      return `Object.freeze({ ${enumProps} })`;
+      value = `Object.freeze({ ${enumProps} })`;
+      break;
     
     default:
       throw new Error(`Unknown node type: ${node.type}`);
   }
+  
+  // Wrap in _secret() if marked as secret
+  if (node.secret) {
+    return `_secret(${value})`;
+  }
+  
+  return value;
 }
 
 // Parse a static file and return declarations
