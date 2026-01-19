@@ -568,6 +568,8 @@ export class TypeChecker {
         return this.visitFlowExpression(node);
       case NodeType.RegexLiteral:
         return this.createType(Type.Object); // RegExp is an object type
+      case NodeType.MatchExpression:
+        return this.visitMatchExpression(node);
       default:
         return this.createType(Type.Unknown);
     }
@@ -747,6 +749,31 @@ export class TypeChecker {
     }
     
     return this.createType(Type.Unknown);
+  }
+
+  visitMatchExpression(node) {
+    // Match expression: subject ~ /regex/ or subject ~ /regex/ => { body }
+    this.visitExpression(node.subject);
+    this.visitExpression(node.pattern);
+    
+    if (node.body) {
+      // With body: return type depends on body
+      if (node.body.type === NodeType.BlockStatement) {
+        this.pushScope();
+        // Add $match to scope
+        this.defineVariable('$match', this.createArrayType(this.createType(Type.String)));
+        for (const stmt of node.body.body) {
+          this.visitStatement(stmt);
+        }
+        this.popScope();
+      } else {
+        return this.visitExpression(node.body);
+      }
+      return this.createType(Type.Unknown);
+    } else {
+      // Without body: returns string (first match) or null
+      return this.createType(Type.String);
+    }
   }
 
   visitMemberExpression(node) {

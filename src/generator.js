@@ -922,6 +922,8 @@ export class CodeGenerator {
         return this.visitShellBlockExpression(node);
       case NodeType.RegexLiteral:
         return this.visitRegexLiteral(node);
+      case NodeType.MatchExpression:
+        return this.visitMatchExpression(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
@@ -951,6 +953,38 @@ export class CodeGenerator {
 
   visitRegexLiteral(node) {
     return `/${node.pattern}/${node.flags}`;
+  }
+
+  visitMatchExpression(node) {
+    // Match expression: subject ~ /regex/ or subject ~ /regex/ => { body }
+    const subject = this.visitExpression(node.subject);
+    const regex = this.visitExpression(node.pattern);
+    
+    if (node.body) {
+      // With body: execute body with $match available, return result
+      // Wrap in IIFE to create scope for $match
+      if (node.body.type === NodeType.BlockStatement) {
+        // Block body - generate IIFE with statements
+        let bodyCode = '';
+        for (const stmt of node.body.body) {
+          if (stmt.type === NodeType.ReturnStatement) {
+            bodyCode += `return ${this.visitExpression(stmt.argument)};`;
+          } else {
+            // For other statements, we'd need to handle them
+            // For now, assume return statements
+            bodyCode += this.visitExpression(stmt.expression) + ';';
+          }
+        }
+        return `(($match) => { ${bodyCode} })(${regex}.exec(${subject}))`;
+      } else {
+        // Expression body
+        const bodyExpr = this.visitExpression(node.body);
+        return `(($match) => ${bodyExpr})(${regex}.exec(${subject}))`;
+      }
+    } else {
+      // Without body: return first match (match[0]) or null
+      return `(${regex}.exec(${subject}) || [])[0]`;
+    }
   }
 
   visitBinaryExpression(node) {

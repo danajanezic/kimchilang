@@ -54,6 +54,7 @@ export const NodeType = {
   ArrayPattern: 'ArrayPattern',
   EnumDeclaration: 'EnumDeclaration',
   RegexLiteral: 'RegexLiteral',
+  MatchExpression: 'MatchExpression',
   
   // Interop
   JSBlock: 'JSBlock',
@@ -756,56 +757,6 @@ export class Parser {
     return left;
   }
 
-  parseRegexPatternMatch(subject) {
-    // Regex pattern matching: subject ~ /regex/ => code
-    // Parse consecutive regex pattern cases with the same subject
-    const cases = [];
-    
-    while (this.check(TokenType.MATCH)) {
-      this.expect(TokenType.MATCH, 'Expected ~');
-      
-      if (!this.check(TokenType.REGEX)) {
-        this.error('Expected regex pattern after ~');
-      }
-      
-      const regexToken = this.advance();
-      const regex = {
-        type: NodeType.RegexLiteral,
-        pattern: regexToken.value.pattern,
-        flags: regexToken.value.flags,
-      };
-      
-      this.expect(TokenType.FAT_ARROW, 'Expected =>');
-      
-      let consequent;
-      if (this.check(TokenType.LBRACE)) {
-        consequent = this.parseBlock();
-      } else {
-        consequent = this.parseStatement();
-      }
-      
-      cases.push({
-        type: NodeType.MatchCase,
-        test: regex,
-        isRegex: true,
-        consequent,
-      });
-      
-      this.skipNewlines();
-      
-      // Check if next line continues with same subject pattern
-      // For now, each line is independent - user repeats subject
-      break;
-    }
-    
-    return {
-      type: NodeType.PatternMatch,
-      subject,
-      cases,
-      isRegex: true,
-    };
-  }
-
   parsePrintStatement() {
     this.expect(TokenType.PRINT, 'Expected print');
     const argument = this.parseExpression();
@@ -1233,12 +1184,6 @@ export class Parser {
 
   parseExpressionStatement() {
     const expression = this.parseExpression();
-    
-    // Check for regex pattern match: expr ~ /regex/ => body
-    if (this.check(TokenType.MATCH)) {
-      return this.parseRegexPatternMatch(expression);
-    }
-    
     return {
       type: NodeType.ExpressionStatement,
       expression,
@@ -1362,15 +1307,53 @@ export class Parser {
   parsePipe() {
     // Pipe expression: value ~> fn1 ~> fn2
     // Left-associative: (value ~> fn1) ~> fn2
-    let left = this.parseOr();
+    let left = this.parseMatch();
     
     while (this.match(TokenType.PIPE)) {
       // The right side should be a function (identifier or member expression)
-      const right = this.parseOr();
+      const right = this.parseMatch();
       left = {
         type: NodeType.PipeExpression,
         left,
         right,
+      };
+    }
+    
+    return left;
+  }
+
+  parseMatch() {
+    // Match expression: expr ~ /regex/ or expr ~ /regex/ => { body }
+    let left = this.parseOr();
+    
+    if (this.match(TokenType.MATCH)) {
+      if (!this.check(TokenType.REGEX)) {
+        this.error('Expected regex pattern after ~');
+      }
+      
+      const regexToken = this.advance();
+      const regex = {
+        type: NodeType.RegexLiteral,
+        pattern: regexToken.value.pattern,
+        flags: regexToken.value.flags,
+      };
+      
+      // Check for optional => { body } for transformation
+      let body = null;
+      if (this.match(TokenType.FAT_ARROW)) {
+        if (this.check(TokenType.LBRACE)) {
+          body = this.parseBlock();
+        } else {
+          // Single expression body
+          body = this.parseExpression();
+        }
+      }
+      
+      return {
+        type: NodeType.MatchExpression,
+        subject: left,
+        pattern: regex,
+        body,
       };
     }
     

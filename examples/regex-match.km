@@ -1,15 +1,28 @@
 // Regex Pattern Matching Example
-// Demonstrates: subject ~ /regex/ => body syntax
+// Demonstrates two syntaxes:
+// 1. Simple match: expr ~ /regex/ - returns the matched string or undefined
+// 2. Match with body: expr ~ /regex/ => { return value } - returns the body result
 
+// Simple match - returns the matched portion
 dec input = "hello world 123"
+dec matched = input ~ /hello/
+print "Simple match result: ${matched}"
 
-// Regex pattern matching with explicit subject
-// $match contains the match result (array with groups)
-input ~ /hello/ => print "Found hello!"
-input ~ /\d+/ => print "Found numbers: ${$match[0]}"
-input ~ /^goodbye/ => print "Starts with goodbye"
+// Match with transformation - returns body result
+dec transformed = input ~ /(\w+) (\w+)/ => { return $match[2] }
+print "Transformed (second word): ${transformed}"
 
-// Regex literals can also be used in expressions
+// Extract numbers from string
+dec numbers = "Price: $42.99" ~ /\d+\.\d+/
+print "Extracted number: ${numbers}"
+
+// Match with body for complex transformation
+dec greeting = "Hello, John!" ~ /Hello, (\w+)!/ => {
+  return "Welcome, ${$match[1]}!"
+}
+print greeting
+
+// Regex literals can also be used directly in expressions
 dec emailPattern = /^[\w.-]+@[\w.-]+\.\w+$/
 dec phonePattern = /^\d{3}-\d{3}-\d{4}$/
 
@@ -26,12 +39,8 @@ print "=== Validation Examples ==="
 print "Is 'test@example.com' a valid email? ${validateEmail('test@example.com')}"
 print "Is '555-123-4567' a valid phone? ${validatePhone('555-123-4567')}"
 
-// Log level detection
+// Conditional based on match result
 dec logLine = "ERROR: Connection failed"
-
+dec level = logLine ~ /^(ERROR|WARN|INFO|DEBUG)/
 print ""
-print "=== Log Level Detection ==="
-logLine ~ /^ERROR/ => print "🔴 Error level log"
-logLine ~ /^WARN/ => print "🟡 Warning level log"
-logLine ~ /^INFO/ => print "🔵 Info level log"
-logLine ~ /^DEBUG/ => print "⚪ Debug level log"
+print "Log level: ${level}"

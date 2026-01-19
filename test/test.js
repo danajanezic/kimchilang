@@ -544,25 +544,41 @@ test('Tokenize match operator', () => {
   assertEqual(tokens[2].type, 'REGEX');
 });
 
-test('Parse regex pattern match with subject', () => {
-  const tokens = tokenize('input ~ /hello/ => print "matched"');
+test('Parse simple match expression', () => {
+  const tokens = tokenize('dec result = "hello world" ~ /hello/');
   const ast = parse(tokens);
-  assertEqual(ast.body[0].type, 'PatternMatch');
-  assertEqual(ast.body[0].subject.type, 'Identifier');
-  assertEqual(ast.body[0].subject.name, 'input');
-  assertEqual(ast.body[0].cases[0].test.type, 'RegexLiteral');
-  assertEqual(ast.body[0].cases[0].test.pattern, 'hello');
-  assertEqual(ast.body[0].cases[0].isRegex, true);
+  assertEqual(ast.body[0].type, 'DecDeclaration');
+  assertEqual(ast.body[0].init.type, 'MatchExpression');
+  assertEqual(ast.body[0].init.subject.type, 'Literal');
+  assertEqual(ast.body[0].init.pattern.type, 'RegexLiteral');
+  assertEqual(ast.body[0].init.pattern.pattern, 'hello');
+  assertEqual(ast.body[0].init.body, null);
 });
 
-test('Generate regex pattern match code with subject', () => {
-  const source = 'input ~ /hello/ => print "matched"';
+test('Parse match expression with body', () => {
+  const tokens = tokenize('dec result = "hello" ~ /hello/ => { return "bar" }');
+  const ast = parse(tokens);
+  assertEqual(ast.body[0].type, 'DecDeclaration');
+  assertEqual(ast.body[0].init.type, 'MatchExpression');
+  assertEqual(ast.body[0].init.body.type, 'BlockStatement');
+});
+
+test('Generate simple match expression', () => {
+  const source = 'dec foo = "test foo" ~ /foo/';
   const tokens = tokenize(source);
   const ast = parse(tokens);
   const code = generate(ast);
-  assertEqual(code.includes('const _subject = input'), true);
-  assertEqual(code.includes('/hello/.exec(_subject)'), true);
+  assertEqual(code.includes('/foo/.exec'), true);
+  assertEqual(code.includes('|| [])[0]'), true);
+});
+
+test('Generate match expression with body', () => {
+  const source = 'dec foo = "test" ~ /test/ => { return "bar" }';
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  const code = generate(ast);
   assertEqual(code.includes('$match'), true);
+  assertEqual(code.includes('return "bar"'), true);
 });
 
 test('Regex literal in expression', () => {
