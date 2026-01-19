@@ -298,6 +298,7 @@ export class CodeGenerator {
     
     // First, emit the raw imports for all dependencies
     // Static files (.static) are imported directly, regular modules use factory pattern
+    // External modules (@ prefix) are resolved from .km_modules directory
     for (const dep of depStatements) {
       const moduleVar = `_dep_${dep.alias}`;
       if (dep.isStatic) {
@@ -309,6 +310,10 @@ export class CodeGenerator {
           ? `file://${this.options.basePath}/../${dep.pathParts.join('/')}.static.js`
           : relativePath;
         this.emitLine(`import * as ${moduleVar} from '${filePath}';`);
+      } else if (dep.isExternal) {
+        // External module from .km_modules: @foo.bar -> .km_modules/foo/bar.km
+        const filePath = './.km_modules/' + dep.pathParts.join('/') + '.km';
+        this.emitLine(`import ${moduleVar} from '${filePath}';`);
       } else {
         const filePath = './' + dep.pathParts.join('/') + '.km';
         this.emitLine(`import ${moduleVar} from '${filePath}';`);

@@ -1391,7 +1391,21 @@ kimchi install
 kimchi clean
 ```
 
-Dependencies are cloned to `.kimchi/deps/` and tracked in `.kimchi/lock.json`.
+Dependencies are cloned to `.km_modules/` and tracked in `.km_modules/.lock.json`.
+
+### Using Installed Modules
+
+Import external modules using the `@` prefix:
+
+```kimchi
+// Module installed at .km_modules/foo/bar.km
+as bar dep @foo.bar
+
+// Use the imported module
+bar.doSomething()
+```
+
+The `@` prefix tells the compiler to look in `.km_modules/` instead of the local project. It also makes it clear to the reader that the module is external.
 
 ### Dependency URL Format
 

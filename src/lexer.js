@@ -95,6 +95,7 @@ export const TokenType = {
   COMMENT: 'COMMENT',
   TEMPLATE_STRING: 'TEMPLATE_STRING',
   REGEX: 'REGEX',
+  AT: 'AT',
 };
 
 const KEYWORDS = {
@@ -801,6 +802,9 @@ export class Lexer {
           break;
         case ']':
           this.tokens.push(new Token(TokenType.RBRACKET, ']', startLine, startColumn));
+          break;
+        case '@':
+          this.tokens.push(new Token(TokenType.AT, '@', startLine, startColumn));
           break;
         default:
           this.error(`Unexpected character: ${char}`);

@@ -770,9 +770,13 @@ export class Parser {
   parseDepStatement() {
     // Syntax: as <alias> dep <dotted.path>
     // Or: as <alias> dep <dotted.path>({overrides})
+    // Or: as <alias> dep @<dotted.path> (external module from .km_modules)
     this.expect(TokenType.AS, 'Expected as');
     const alias = this.expect(TokenType.IDENTIFIER, 'Expected dependency alias').value;
     this.expect(TokenType.DEP, 'Expected dep');
+    
+    // Check for @ prefix indicating external module
+    const isExternal = this.match(TokenType.AT);
     
     // Parse dotted path (e.g., project_name.salesforce.client)
     const pathParts = [];
@@ -797,6 +801,7 @@ export class Parser {
       path,
       pathParts,
       overrides,
+      isExternal,
     };
   }
 

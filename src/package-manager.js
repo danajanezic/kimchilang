@@ -6,8 +6,8 @@ import { resolve, join, dirname, basename } from 'path';
 import { execSync } from 'child_process';
 import { parseStaticFile } from './static-parser.js';
 
-const DEPS_DIR = '.kimchi/deps';
-const LOCK_FILE = '.kimchi/lock.json';
+const DEPS_DIR = '.km_modules';
+const LOCK_FILE = '.km_modules/.lock.json';
 
 /**
  * Parse project.static and extract dependencies
@@ -299,15 +299,9 @@ export function resolveExternalModule(modulePath, projectPath = '.') {
  */
 export function cleanDependencies(projectPath = '.') {
   const depsDir = resolve(projectPath, DEPS_DIR);
-  const lockPath = resolve(projectPath, LOCK_FILE);
   
   if (existsSync(depsDir)) {
     rmSync(depsDir, { recursive: true, force: true });
-    console.log('Removed .kimchi/deps');
-  }
-  
-  if (existsSync(lockPath)) {
-    rmSync(lockPath);
-    console.log('Removed .kimchi/lock.json');
+    console.log('Removed .km_modules');
   }
 }
