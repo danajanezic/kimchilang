@@ -1,0 +1,48 @@
+// Math utility module
+// Example module to demonstrate unit testing
+
+expose fn add(a, b) {
+  return a + b
+}
+
+expose fn subtract(a, b) {
+  return a - b
+}
+
+expose fn multiply(a, b) {
+  return a * b
+}
+
+expose fn divide(a, b) {
+  if b == 0 {
+    throw js { return new Error("Cannot divide by zero"); }
+  }
+  return a / b
+}
+
+expose fn factorial(n) {
+  |n < 0| => throw js { return new Error("Factorial not defined for negative numbers"); }
+  |n <= 1| => return 1
+  |true| => return n * factorial(n - 1)
+}
+
+expose fn fibonacci(n) {
+  |n <= 0| => return 0
+  |n == 1| => return 1
+  |true| => return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+expose fn isPrime(n) {
+  |n <= 1| => return false
+  |n <= 3| => return true
+  |n % 2 == 0| => return false
+  
+  dec i = 3
+  // Use JS for the loop since we need mutation
+  return js(n, i) {
+    for (let i = 3; i * i <= n; i += 2) {
+      if (n % i === 0) return false;
+    }
+    return true;
+  }
+}

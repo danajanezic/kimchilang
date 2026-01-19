@@ -1,0 +1,29 @@
+// User service module - demonstrates testing with dependency injection
+// This module depends on an HTTP client that can be mocked in tests
+
+as http dep examples.testing.http_client
+
+expose fn getUser(id) {
+  dec response = http.get("/users/${id}")
+  return response.data
+}
+
+expose fn createUser(name, email) {
+  dec response = http.post("/users", { name: name, email: email })
+  return response.data
+}
+
+expose fn updateUser(id, updates) {
+  dec response = http.put("/users/${id}", updates)
+  return response.data
+}
+
+expose fn deleteUser(id) {
+  dec response = http.delete("/users/${id}")
+  return response.status == 200
+}
+
+expose fn getUsersByRole(role) {
+  dec response = http.get("/users?role=${role}")
+  return response.data
+}

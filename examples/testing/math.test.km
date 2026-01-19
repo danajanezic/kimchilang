@@ -1,0 +1,93 @@
+// Unit tests for math.km module
+// Run with: kimchi examples.testing.math.test
+
+as math dep examples.testing.math
+
+// Test basic arithmetic operations
+describe "Basic Arithmetic" {
+  test "add returns correct sum" {
+    expect(math.add(2, 3)).toBe(5)
+    expect(math.add(-1, 1)).toBe(0)
+    expect(math.add(0, 0)).toBe(0)
+  }
+  
+  test "subtract returns correct difference" {
+    expect(math.subtract(5, 3)).toBe(2)
+    expect(math.subtract(3, 5)).toBe(-2)
+    expect(math.subtract(0, 0)).toBe(0)
+  }
+  
+  test "multiply returns correct product" {
+    expect(math.multiply(3, 4)).toBe(12)
+    expect(math.multiply(-2, 3)).toBe(-6)
+    expect(math.multiply(0, 100)).toBe(0)
+  }
+  
+  test "divide returns correct quotient" {
+    expect(math.divide(10, 2)).toBe(5)
+    expect(math.divide(7, 2)).toBe(3.5)
+    expect(math.divide(-6, 2)).toBe(-3)
+  }
+  
+  test "divide by zero throws error" {
+    expect(() => math.divide(10, 0)).toThrow("Cannot divide by zero")
+  }
+}
+
+// Test factorial function
+describe "Factorial" {
+  test "factorial of 0 is 1" {
+    expect(math.factorial(0)).toBe(1)
+  }
+  
+  test "factorial of 1 is 1" {
+    expect(math.factorial(1)).toBe(1)
+  }
+  
+  test "factorial of positive numbers" {
+    expect(math.factorial(5)).toBe(120)
+    expect(math.factorial(6)).toBe(720)
+  }
+  
+  test "factorial of negative throws error" {
+    expect(() => math.factorial(-1)).toThrow("negative")
+  }
+}
+
+// Test fibonacci function
+describe "Fibonacci" {
+  test "fibonacci base cases" {
+    expect(math.fibonacci(0)).toBe(0)
+    expect(math.fibonacci(1)).toBe(1)
+  }
+  
+  test "fibonacci sequence" {
+    expect(math.fibonacci(2)).toBe(1)
+    expect(math.fibonacci(3)).toBe(2)
+    expect(math.fibonacci(4)).toBe(3)
+    expect(math.fibonacci(5)).toBe(5)
+    expect(math.fibonacci(10)).toBe(55)
+  }
+}
+
+// Test prime checking
+describe "Prime Numbers" {
+  test "small primes are identified" {
+    expect(math.isPrime(2)).toBe(true)
+    expect(math.isPrime(3)).toBe(true)
+    expect(math.isPrime(5)).toBe(true)
+    expect(math.isPrime(7)).toBe(true)
+  }
+  
+  test "non-primes are identified" {
+    expect(math.isPrime(0)).toBe(false)
+    expect(math.isPrime(1)).toBe(false)
+    expect(math.isPrime(4)).toBe(false)
+    expect(math.isPrime(9)).toBe(false)
+  }
+  
+  test "larger primes" {
+    expect(math.isPrime(97)).toBe(true)
+    expect(math.isPrime(100)).toBe(false)
+  }
+}

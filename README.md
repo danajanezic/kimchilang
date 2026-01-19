@@ -42,6 +42,10 @@ A modern, expressive programming language that transpiles to JavaScript.
 - [Standard Library](#standard-library)
   - [Logger](#logger)
   - [Bitwise](#bitwise)
+- [Testing](#testing)
+  - [Test Syntax](#test-syntax)
+  - [Matchers](#matchers)
+  - [Testing with Mocks](#testing-with-mocks)
 - [Running Tests](#running-tests)
 - [File Extensions](#file-extensions)
 - [How It Works](#how-it-works)
@@ -1354,6 +1358,86 @@ dec masked = bit.band(flags, 0x01)   // 1
 dec shifted = bit.rshift(16, 2)      // 4
 ```
 
+## Testing
+
+KimchiLang includes a built-in testing framework with `test`, `describe`, `expect`, and `assert`.
+
+### Test Syntax
+
+**Basic test:**
+
+```kimchi
+test "addition works" {
+  expect(add(2, 3)).toBe(5)
+}
+```
+
+**Grouped tests with describe:**
+
+```kimchi
+describe "Math functions" {
+  test "add returns correct sum" {
+    expect(add(2, 3)).toBe(5)
+  }
+  
+  test "multiply returns correct product" {
+    expect(multiply(3, 4)).toBe(12)
+  }
+}
+```
+
+**Assert statement:**
+
+```kimchi
+assert condition, "Error message if false"
+```
+
+### Matchers
+
+| Matcher | Description |
+|---------|-------------|
+| `toBe(value)` | Strict equality (`===`) |
+| `toEqual(value)` | Deep equality (JSON comparison) |
+| `toContain(item)` | Array/string contains item |
+| `toBeNull()` | Value is `null` |
+| `toBeTruthy()` | Value is truthy |
+| `toBeFalsy()` | Value is falsy |
+| `toBeGreaterThan(n)` | Value > n |
+| `toBeLessThan(n)` | Value < n |
+| `toHaveLength(n)` | Array/string length equals n |
+| `toMatch(regex)` | String matches regex |
+| `toThrow(message)` | Function throws error containing message |
+
+### Testing with Mocks
+
+Use dependency injection to mock dependencies in tests:
+
+```kimchi
+// Create a mock
+dec mockHttp = {
+  get: (url) => { status: 200, data: { id: 1, name: "Test" } }
+}
+
+// Inject mock when importing module
+as userService dep myapp.user-service({
+  "myapp.http-client": mockHttp
+})
+
+// Test with mocked dependency
+test "getUser returns user data" {
+  dec user = userService.getUser(1)
+  expect(user.name).toBe("Test")
+}
+```
+
+**Run tests:**
+
+```bash
+kimchi examples.testing.math.test
+```
+
+See `examples/testing/` for complete examples.
+
 ## Running Tests
 
 ```bash
@@ -1381,8 +1465,9 @@ See the `examples/` directory for more code samples:
 - `basic.kimchi` - Core language features
 - `fibonacci.kimchi` - Recursive and iterative Fibonacci
 - `myapp/` - Dependency injection example with mock testing
-- `logger-example.km` - Structured JSON logging with log levels
-- `regex-match.km` - Regex pattern matching expressions
+- `logger_example.km` - Structured JSON logging with log levels
+- `regex_match.km` - Regex pattern matching expressions
+- `testing/` - Unit testing examples with mocks
 
 ## License
 

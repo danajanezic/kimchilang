@@ -1,0 +1,18 @@
+// HTTP client module - simple stub for demonstration
+// In real usage, this would make actual HTTP requests
+
+expose fn get(url) {
+  return { status: 200, data: null }
+}
+
+expose fn post(url, body) {
+  return { status: 201, data: body }
+}
+
+expose fn put(url, body) {
+  return { status: 200, data: body }
+}
+
+expose fn delete(url) {
+  return { status: 200 }
+}

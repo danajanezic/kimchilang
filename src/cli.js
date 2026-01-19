@@ -558,6 +558,14 @@ function compileFile(filePath, options = {}) {
     process.exit(1);
   }
 
+  // Reject kebab-case file names
+  const fileName = basename(filePath);
+  if (/-/.test(fileName) && /\.(km|kimchi|kc)$/.test(fileName)) {
+    console.error(`Error: Kebab-case file names are not allowed: ${fileName}`);
+    console.error(`Please rename to use underscores: ${fileName.replace(/-/g, '_')}`);
+    process.exit(1);
+  }
+
   const source = readFileSync(filePath, 'utf-8');
   
   // Static file resolver - checks if a module path resolves to a .static file

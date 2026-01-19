@@ -1,0 +1,72 @@
+// Unit tests for user-service.km with mocked HTTP client
+// Demonstrates dependency injection for testing
+// Run with: kimchi examples.testing.user-service.test
+
+// Create a mock HTTP client
+dec mockHttp = {
+  get: (url) => {
+    |url == "/users/1"| => return { status: 200, data: { id: 1, name: "Alice", email: "alice@test.com" } }
+    |url == "/users?role=admin"| => return { status: 200, data: [{ id: 1, name: "Admin" }] }
+    |true| => return { status: 404, data: null }
+  },
+  post: (url, body) => {
+    return { status: 201, data: { id: 99, ...body } }
+  },
+  put: (url, body) => {
+    return { status: 200, data: { id: 1, ...body } }
+  },
+  delete: (url) => {
+    return { status: 200 }
+  }
+}
+
+// Import user service with mocked HTTP client
+as userService dep examples.testing.user_service({
+  "examples.testing.http_client": mockHttp
+})
+
+describe "User Service" {
+  describe "getUser" {
+    test "returns user data for valid id" {
+      dec user = userService.getUser(1)
+      expect(user.name).toBe("Alice")
+      expect(user.email).toBe("alice@test.com")
+    }
+    
+    test "returns null for invalid id" {
+      dec user = userService.getUser(999)
+      expect(user).toBeNull()
+    }
+  }
+  
+  describe "createUser" {
+    test "creates user with provided data" {
+      dec user = userService.createUser("Bob", "bob@test.com")
+      expect(user.name).toBe("Bob")
+      expect(user.email).toBe("bob@test.com")
+      expect(user.id).toBe(99)
+    }
+  }
+  
+  describe "updateUser" {
+    test "updates user data" {
+      dec user = userService.updateUser(1, { name: "Alice Updated" })
+      expect(user.name).toBe("Alice Updated")
+    }
+  }
+  
+  describe "deleteUser" {
+    test "returns true on successful delete" {
+      dec result = userService.deleteUser(1)
+      expect(result).toBe(true)
+    }
+  }
+  
+  describe "getUsersByRole" {
+    test "returns users filtered by role" {
+      dec admins = userService.getUsersByRole("admin")
+      expect(admins).toHaveLength(1)
+      expect(admins[0].name).toBe("Admin")
+    }
+  }
+}
