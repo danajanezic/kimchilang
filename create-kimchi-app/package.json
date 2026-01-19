@@ -1,0 +1,22 @@
+{
+  "name": "create-kimchi-app",
+  "version": "1.0.0",
+  "description": "Create a new KimchiLang application",
+  "bin": {
+    "create-kimchi-app": "./index.js"
+  },
+  "type": "module",
+  "keywords": [
+    "kimchi",
+    "kimchilang",
+    "create",
+    "bootstrap",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kimchilang/kimchilang"
+  }
+}

@@ -100,6 +100,22 @@ npm link
 
 ## Quick Start
 
+### Create a New Project
+
+```bash
+npx create-kimchi-app my-app
+cd my-app
+kimchi src.main
+```
+
+This creates a new project with:
+- `src/main.km` - Main entry point
+- `lib/utils.km` - Example utility module
+- `tests/utils.test.km` - Example tests
+- `project.static` - Project configuration
+
+### Or Create a Single File
+
 Create a file called `hello.kimchi`:
 
 ```kimchi
