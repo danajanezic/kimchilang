@@ -1174,7 +1174,13 @@ export class Parser {
   parseBitOr() {
     let left = this.parseBitXor();
     
-    while (this.match(TokenType.BITOR)) {
+    while (this.check(TokenType.BITOR)) {
+      // Look ahead to see if this is pattern matching syntax: |condition| =>
+      // If we find another | followed by =>, this is pattern matching, not bitwise OR
+      if (this.isPatternMatchStart()) {
+        break;
+      }
+      this.advance(); // Consume the |
       const right = this.parseBitXor();
       left = {
         type: NodeType.BinaryExpression,
@@ -1185,6 +1191,31 @@ export class Parser {
     }
     
     return left;
+  }
+  
+  isPatternMatchStart() {
+    // Check if current position starts a pattern match: |condition| =>
+    // We need to find a closing | followed by =>
+    if (!this.check(TokenType.BITOR)) return false;
+    
+    let depth = 0;
+    for (let i = this.pos; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+      if (token.type === TokenType.BITOR) {
+        depth++;
+        if (depth === 2) {
+          // Found closing |, check if next non-newline token is =>
+          for (let j = i + 1; j < this.tokens.length; j++) {
+            if (this.tokens[j].type === TokenType.NEWLINE) continue;
+            return this.tokens[j].type === TokenType.FAT_ARROW;
+          }
+        }
+      } else if (token.type === TokenType.NEWLINE || token.type === TokenType.EOF) {
+        // Pattern match must be on same line or continue to =>
+        if (depth === 0) return false;
+      }
+    }
+    return false;
   }
 
   parseBitXor() {

@@ -231,9 +231,9 @@ export class CodeGenerator {
       this.emitLine();
     }
     
-    // Emit the rest of the module body
+    // Emit the rest of the module body (top-level statements)
     for (const stmt of otherStatements) {
-      this.visitStatement(stmt);
+      this.visitStatement(stmt, true);
     }
     
     // Return an object with all exported values (collect exports)
@@ -262,7 +262,7 @@ export class CodeGenerator {
     return exports;
   }
 
-  visitStatement(node) {
+  visitStatement(node, isTopLevel = false) {
     switch (node.type) {
       case NodeType.DecDeclaration:
         this.visitDecDeclaration(node);
@@ -295,7 +295,7 @@ export class CodeGenerator {
         this.visitThrowStatement(node);
         break;
       case NodeType.PatternMatch:
-        this.visitPatternMatch(node);
+        this.visitPatternMatch(node, isTopLevel);
         break;
       case NodeType.PrintStatement:
         this.visitPrintStatement(node);
@@ -595,14 +595,20 @@ export class CodeGenerator {
     this.emitLine(`throw ${this.visitExpression(node.argument)};`);
   }
 
-  visitPatternMatch(node) {
+  visitPatternMatch(node, isTopLevel = false) {
     // Standalone pattern matching: |condition| => code
-    // Each case returns from the function when matched
+    // At top level: use if/else if chain (no return)
+    // Inside function: each case returns from the function when matched
     for (let i = 0; i < node.cases.length; i++) {
       const matchCase = node.cases[i];
       const condition = this.visitExpression(matchCase.test);
       
-      this.emitLine(`if (${condition}) {`);
+      // Use else if for subsequent cases
+      const prefix = i === 0 ? 'if' : '} else if';
+      if (i > 0) {
+        this.popIndent();
+      }
+      this.emitLine(`${prefix} (${condition}) {`);
       this.pushIndent();
       
       if (matchCase.consequent.type === NodeType.BlockStatement) {
@@ -612,8 +618,15 @@ export class CodeGenerator {
       } else {
         this.visitStatement(matchCase.consequent);
       }
-      this.emitLine('return;');
       
+      // Only add return inside functions, not at top level
+      if (!isTopLevel) {
+        this.emitLine('return;');
+      }
+    }
+    
+    // Close the final if block
+    if (node.cases.length > 0) {
       this.popIndent();
       this.emitLine('}');
     }

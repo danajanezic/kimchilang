@@ -17,9 +17,8 @@ KimchiLang's built-in module system makes it an excellent choice for building CL
 A basic CLI tool with required and optional arguments:
 
 ```bash
-# From the examples/ directory
-node ../src/cli.js cli-framework.greeter --name Alice
-node ../src/cli.js cli-framework.greeter --name Bob --greeting "Hey there" --times 3
+kimchi cli-framework.greeter --name Alice
+kimchi cli-framework.greeter --name Bob --greeting "Hey there" --times 3
 ```
 
 ### 2. Calculator (`calculator.km`)
@@ -27,9 +26,9 @@ node ../src/cli.js cli-framework.greeter --name Bob --greeting "Hey there" --tim
 A calculator with multiple operations:
 
 ```bash
-node ../src/cli.js cli-framework.calculator --op add --a 5 --b 3
-node ../src/cli.js cli-framework.calculator --op multiply --a 7 --b 6
-node ../src/cli.js cli-framework.calculator --op divide --a 100 --b 4
+kimchi cli-framework.calculator --op add --a 5 --b 3
+kimchi cli-framework.calculator --op multiply --a 7 --b 6
+kimchi cli-framework.calculator --op divide --a 100 --b 4
 ```
 
 ### 3. Deploy Tool (`deploy.km`)
@@ -37,19 +36,14 @@ node ../src/cli.js cli-framework.calculator --op divide --a 100 --b 4
 A deployment tool showing multi-action patterns with environment configuration:
 
 ```bash
-node ../src/cli.js cli-framework.deploy --action build
-node ../src/cli.js cli-framework.deploy --action test
-node ../src/cli.js cli-framework.deploy --action publish --target-env production --verbose true
+kimchi cli-framework.deploy --action build
+kimchi cli-framework.deploy --action test
+kimchi cli-framework.deploy --action publish --target-env production --verbose true
 ```
 
 ## Running Examples
 
 ```bash
-# From the examples/ directory
-cd examples
-node ../src/cli.js cli-framework.greeter --name World
-
-# Or with kimchi installed globally
 kimchi cli-framework.greeter --name World
 ```
 

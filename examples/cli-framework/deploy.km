@@ -120,12 +120,7 @@ print "━━━━━━━━━━━━━━━━━━━━━━━━�
 print ""
 
 // Dispatch action
-if action == "build" {
-  handleBuild()
-} elif action == "test" {
-  handleTest()
-} elif action == "publish" {
-  handlePublish()
-} else {
-  showHelp()
-}
+|action == "build"| => { handleBuild() }
+|action == "test"| => { handleTest() }
+|action == "publish"| => { handlePublish() }
+|true| => { showHelp() }

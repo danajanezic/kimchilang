@@ -54,14 +54,8 @@ fn showHelp() {
 }
 
 // Dispatch
-if op == "add" {
-  doAdd()
-} elif op == "subtract" {
-  doSubtract()
-} elif op == "multiply" {
-  doMultiply()
-} elif op == "divide" {
-  doDivide()
-} else {
-  showHelp()
-}
+|op == "add"| => { doAdd() }
+|op == "subtract"| => { doSubtract() }
+|op == "multiply"| => { doMultiply() }
+|op == "divide"| => { doDivide() }
+|true| => { showHelp() }
