@@ -11,6 +11,7 @@ import { convertJS } from './js2km.js';
 import { Linter, Severity } from './linter.js';
 import { tokenize, parse } from './index.js';
 import { parseStaticFile, generateStaticCode } from './static-parser.js';
+import { installDependencies, cleanDependencies, parseProjectFile } from './package-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,6 +41,8 @@ Commands:
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
   build <dir>       Compile all .kimchi files in a directory
+  install           Install dependencies from project.static
+  clean             Remove installed dependencies
   repl              Start an interactive REPL session
   help              Show this help message
   version           Show version information
@@ -1193,6 +1196,20 @@ async function main() {
       // Pass all remaining args to npm
       const npmArgs = process.argv.slice(3);
       await runNpmAndConvert(npmArgs, options);
+      break;
+    }
+
+    case 'install': {
+      // Install dependencies from project.static
+      console.log('KimchiLang Package Manager\n');
+      installDependencies('.');
+      break;
+    }
+
+    case 'clean': {
+      // Remove installed dependencies
+      console.log('Cleaning dependencies...\n');
+      cleanDependencies('.');
       break;
     }
 

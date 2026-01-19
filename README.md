@@ -44,6 +44,7 @@ A modern, expressive programming language that transpiles to JavaScript.
 - [Standard Library](#standard-library)
   - [Logger](#logger)
   - [Bitwise](#bitwise)
+- [Package Management](#package-management)
 - [Testing](#testing)
   - [Test Syntax](#test-syntax)
   - [Matchers](#matchers)
@@ -1359,6 +1360,46 @@ dec flags = bit.bor(0x01, 0x04)      // 5
 dec masked = bit.band(flags, 0x01)   // 1
 dec shifted = bit.rshift(16, 2)      // 4
 ```
+
+## Package Management
+
+KimchiLang has a built-in package manager for fetching external dependencies from GitHub.
+
+### project.static
+
+Create a `project.static` file in your project root to declare dependencies:
+
+```
+// project.static
+name "my-app"
+version "1.0.0"
+
+depend [
+  "github.com/owner/repo",
+  "github.com/owner/repo@v1.0.0",
+  "github.com/owner/repo/path/to/module"
+]
+```
+
+### Installing Dependencies
+
+```bash
+# Install all dependencies from project.static
+kimchi install
+
+# Remove installed dependencies
+kimchi clean
+```
+
+Dependencies are cloned to `.kimchi/deps/` and tracked in `.kimchi/lock.json`.
+
+### Dependency URL Format
+
+| Format | Description |
+|--------|-------------|
+| `github.com/owner/repo` | Latest from main branch |
+| `github.com/owner/repo@tag` | Specific tag or branch |
+| `github.com/owner/repo/path` | Subdirectory of repo |
 
 ## Testing
 

@@ -1,0 +1,6 @@
+// KimchiLang project configuration
+name "kimchilang"
+version "1.0.0"
+
+// No external dependencies for the main project
+// This file demonstrates the format
