@@ -56,6 +56,12 @@ export const NodeType = {
   
   // Interop
   JSBlock: 'JSBlock',
+  
+  // Testing
+  TestBlock: 'TestBlock',
+  DescribeBlock: 'DescribeBlock',
+  ExpectStatement: 'ExpectStatement',
+  AssertStatement: 'AssertStatement',
 };
 
 class ParseError extends Error {
@@ -276,6 +282,26 @@ export class Parser {
     // JS interop block: js { ... } or js(args) { ... }
     if (this.check(TokenType.JS)) {
       return this.parseJSBlock();
+    }
+    
+    // Test block: test "name" { ... }
+    if (this.check(TokenType.TEST)) {
+      return this.parseTestBlock();
+    }
+    
+    // Describe block: describe "name" { ... }
+    if (this.check(TokenType.DESCRIBE)) {
+      return this.parseDescribeBlock();
+    }
+    
+    // Expect statement: expect(value).toBe(expected)
+    if (this.check(TokenType.EXPECT)) {
+      return this.parseExpectStatement();
+    }
+    
+    // Assert statement: assert condition, "message"
+    if (this.check(TokenType.ASSERT)) {
+      return this.parseAssertStatement();
     }
     
     // Expression statement
@@ -848,6 +874,16 @@ export class Parser {
       } else if (token.type === TokenType.NEWLINE) {
         jsCode += '\n';
         this.advance();
+      } else if (token.type === TokenType.EQ && this.peek(1).type === TokenType.ASSIGN) {
+        // Handle === (tokenized as == followed by =)
+        jsCode += '=== ';
+        this.advance();
+        this.advance();
+      } else if (token.type === TokenType.NEQ && this.peek(1).type === TokenType.ASSIGN) {
+        // Handle !== (tokenized as != followed by =)
+        jsCode += '!== ';
+        this.advance();
+        this.advance();
       } else {
         // Reconstruct the token as source
         jsCode += this.tokenToSource(token) + ' ';
@@ -898,9 +934,9 @@ export class Parser {
       case TokenType.ASSIGN:
         return '=';
       case TokenType.EQ:
-        return '===';
+        return '==';
       case TokenType.NEQ:
-        return '!==';
+        return '!=';
       case TokenType.LT:
         return '<';
       case TokenType.GT:
@@ -982,6 +1018,16 @@ export class Parser {
         }
       } else if (token.type === TokenType.NEWLINE) {
         jsCode += '\n';
+        this.advance();
+      } else if (token.type === TokenType.EQ && this.peek(1).type === TokenType.ASSIGN) {
+        // Handle === (tokenized as == followed by =)
+        jsCode += '=== ';
+        this.advance();
+        this.advance();
+      } else if (token.type === TokenType.NEQ && this.peek(1).type === TokenType.ASSIGN) {
+        // Handle !== (tokenized as != followed by =)
+        jsCode += '!== ';
+        this.advance();
         this.advance();
       } else {
         jsCode += this.tokenToSource(token) + ' ';
@@ -1699,6 +1745,91 @@ export class Parser {
     }
     
     this.error(`Unexpected token: ${this.peek().type}`);
+  }
+  
+  // Testing framework parsing
+  parseTestBlock() {
+    this.expect(TokenType.TEST, 'Expected test');
+    
+    // Test name (string)
+    const name = this.expect(TokenType.STRING, 'Expected test name').value;
+    
+    this.skipNewlines();
+    
+    // Test body
+    const body = this.parseBlock();
+    
+    return {
+      type: NodeType.TestBlock,
+      name,
+      body,
+    };
+  }
+  
+  parseDescribeBlock() {
+    this.expect(TokenType.DESCRIBE, 'Expected describe');
+    
+    // Describe name (string)
+    const name = this.expect(TokenType.STRING, 'Expected describe name').value;
+    
+    this.skipNewlines();
+    
+    // Describe body (contains tests and other statements)
+    const body = this.parseBlock();
+    
+    return {
+      type: NodeType.DescribeBlock,
+      name,
+      body,
+    };
+  }
+  
+  parseExpectStatement() {
+    this.expect(TokenType.EXPECT, 'Expected expect');
+    this.expect(TokenType.LPAREN, 'Expected ( after expect');
+    
+    const actual = this.parseExpression();
+    
+    this.expect(TokenType.RPAREN, 'Expected ) after expect value');
+    this.expect(TokenType.DOT, 'Expected . after expect()');
+    
+    // Parse matcher: toBe, toEqual, toContain, etc.
+    const matcher = this.expect(TokenType.IDENTIFIER, 'Expected matcher name').value;
+    
+    this.expect(TokenType.LPAREN, 'Expected ( after matcher');
+    
+    // Parse expected value (optional for some matchers like toBeNull)
+    let expected = null;
+    if (!this.check(TokenType.RPAREN)) {
+      expected = this.parseExpression();
+    }
+    
+    this.expect(TokenType.RPAREN, 'Expected ) after matcher value');
+    
+    return {
+      type: NodeType.ExpectStatement,
+      actual,
+      matcher,
+      expected,
+    };
+  }
+  
+  parseAssertStatement() {
+    this.expect(TokenType.ASSERT, 'Expected assert');
+    
+    const condition = this.parseExpression();
+    
+    // Optional message
+    let message = null;
+    if (this.match(TokenType.COMMA)) {
+      message = this.parseExpression();
+    }
+    
+    return {
+      type: NodeType.AssertStatement,
+      condition,
+      message,
+    };
   }
 }
 

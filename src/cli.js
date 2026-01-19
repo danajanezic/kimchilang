@@ -33,6 +33,7 @@ Commands:
   ls [path]         List modules (--verbose for descriptions, --recursive for tree)
   compile <file>    Compile a .kimchi file to JavaScript
   run <file>        Compile and run a .kimchi file
+  test <file>       Run tests in a .kimchi file
   lint <file>       Run linter on a .kimchi file
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
@@ -609,6 +610,66 @@ function lintFile(filePath, options = {}) {
   }
 }
 
+async function runTests(filePath, options = {}) {
+  if (!existsSync(filePath)) {
+    console.error(`Error: File not found: ${filePath}`);
+    process.exit(1);
+  }
+
+  const javascript = compileFile(filePath, options);
+  
+  if (options.debug) {
+    console.log('\n--- Generated JavaScript ---\n');
+    console.log(javascript);
+    console.log('\n--- Running Tests ---\n');
+  }
+
+  try {
+    const os = await import('os');
+    const crypto = await import('crypto');
+    const tempDir = os.default.tmpdir();
+    const tempFile = join(tempDir, `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
+    
+    const modifiedCode = javascript.replace(
+      /^export default function/m, 
+      'const _module = function'
+    );
+    
+    const wrappedCode = `
+${modifiedCode}
+
+// Call the module factory to register tests
+_module({});
+
+// Run all registered tests
+await _runTests();
+`;
+    
+    writeFileSync(tempFile, wrappedCode);
+    
+    try {
+      execSync(`node "${tempFile}"`, { 
+        stdio: 'inherit',
+        cwd: dirname(filePath)
+      });
+    } finally {
+      try {
+        const fs = await import('fs');
+        fs.default.unlinkSync(tempFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  } catch (error) {
+    console.error('Test Error:');
+    console.error(error.message);
+    if (options.debug) {
+      console.error(error.stack);
+    }
+    process.exit(1);
+  }
+}
+
 async function runFile(filePath, options = {}) {
   const javascript = compileFile(filePath, options);
   
@@ -940,6 +1001,17 @@ async function main() {
 
       const filePath = resolve(options.file);
       lintFile(filePath, options);
+      break;
+    }
+
+    case 'test': {
+      if (!options.file) {
+        console.error('Error: No input file specified');
+        process.exit(1);
+      }
+
+      const filePath = resolve(options.file);
+      await runTests(filePath, options);
       break;
     }
 

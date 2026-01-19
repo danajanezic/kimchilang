@@ -1,0 +1,197 @@
+// KimchiLang Standard Library - HTTP Client
+// Wrapper for Node.js http/https modules with a simple, promise-based API
+
+expose fn _describe() {
+  return "HTTP client: get, post, put, patch, delete, request"
+}
+
+// Make an HTTP GET request
+expose async fn get(url, options) {
+  return await request(url, { ...options, method: "GET" })
+}
+
+// Make an HTTP POST request
+expose async fn post(url, body, options) {
+  return await request(url, { ...options, method: "POST", body: body })
+}
+
+// Make an HTTP PUT request
+expose async fn put(url, body, options) {
+  return await request(url, { ...options, method: "PUT", body: body })
+}
+
+// Make an HTTP PATCH request
+expose async fn patch(url, body, options) {
+  return await request(url, { ...options, method: "PATCH", body: body })
+}
+
+// Make an HTTP DELETE request
+expose async fn del(url, options) {
+  return await request(url, { ...options, method: "DELETE" })
+}
+
+// Generic HTTP request function
+expose async fn request(url, options) {
+  dec opts = options ? options : {}
+  dec method = opts.method ? opts.method : "GET"
+  dec headers = opts.headers ? opts.headers : {}
+  dec body = opts.body
+  dec timeout = opts.timeout ? opts.timeout : 30000
+  
+  // Auto-set content-type for JSON bodies
+  dec finalHeaders = body and not headers["Content-Type"] 
+    ? { ...headers, "Content-Type": "application/json" }
+    : headers
+  
+  dec result = js(url, method, finalHeaders, body, timeout) {
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const isHttps = urlObj.protocol === 'https:';
+      const lib = isHttps ? require('https') : require('http');
+      
+      const reqOptions = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        method: method,
+        headers: finalHeaders,
+        timeout: timeout,
+      };
+      
+      const req = lib.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          let parsedBody = data;
+          const contentType = res.headers['content-type'] || '';
+          if (contentType.includes('application/json')) {
+            try {
+              parsedBody = JSON.parse(data);
+            } catch (e) {
+              // Keep as string if JSON parse fails
+            }
+          }
+          resolve({
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers: res.headers,
+            body: parsedBody,
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+          });
+        });
+      });
+      
+      req.on('error', (e) => reject(e));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+      
+      if (body) {
+        const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+        req.write(bodyStr);
+      }
+      
+      req.end();
+    });
+  }
+  
+  return result
+}
+
+// Helper to build query strings
+expose fn queryString(params) {
+  dec result = js(params) {
+    return Object.entries(params)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join('&');
+  }
+  return result
+}
+
+// Helper to build URL with query params
+expose fn buildUrl(baseUrl, params) {
+  dec qs = queryString(params)
+  if qs {
+    return "${baseUrl}?${qs}"
+  }
+  return baseUrl
+}
+
+// Create a client with default options (base URL, headers, etc.)
+expose fn createClient(baseOptions) {
+  dec baseUrl = baseOptions.baseUrl ? baseOptions.baseUrl : ""
+  dec defaultHeaders = baseOptions.headers ? baseOptions.headers : {}
+  dec defaultTimeout = baseOptions.timeout ? baseOptions.timeout : 30000
+  
+  dec clientGet = (path, options) => {
+    dec url = "${baseUrl}${path}"
+    dec opts = options ? options : {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
+    return request(url, { 
+      ...opts, 
+      method: "GET", 
+      headers: mergedHeaders,
+      timeout: opts.timeout ? opts.timeout : defaultTimeout
+    })
+  }
+  
+  dec clientPost = (path, body, options) => {
+    dec url = "${baseUrl}${path}"
+    dec opts = options ? options : {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
+    return request(url, { 
+      ...opts, 
+      method: "POST", 
+      body: body,
+      headers: mergedHeaders,
+      timeout: opts.timeout ? opts.timeout : defaultTimeout
+    })
+  }
+  
+  dec clientPut = (path, body, options) => {
+    dec url = "${baseUrl}${path}"
+    dec opts = options ? options : {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
+    return request(url, { 
+      ...opts, 
+      method: "PUT", 
+      body: body,
+      headers: mergedHeaders,
+      timeout: opts.timeout ? opts.timeout : defaultTimeout
+    })
+  }
+  
+  dec clientPatch = (path, body, options) => {
+    dec url = "${baseUrl}${path}"
+    dec opts = options ? options : {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
+    return request(url, { 
+      ...opts, 
+      method: "PATCH", 
+      body: body,
+      headers: mergedHeaders,
+      timeout: opts.timeout ? opts.timeout : defaultTimeout
+    })
+  }
+  
+  dec clientDel = (path, options) => {
+    dec url = "${baseUrl}${path}"
+    dec opts = options ? options : {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
+    return request(url, { 
+      ...opts, 
+      method: "DELETE", 
+      headers: mergedHeaders,
+      timeout: opts.timeout ? opts.timeout : defaultTimeout
+    })
+  }
+  
+  return {
+    get: clientGet,
+    post: clientPost,
+    put: clientPut,
+    patch: clientPatch,
+    del: clientDel
+  }
+}

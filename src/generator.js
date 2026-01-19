@@ -112,6 +112,82 @@ export class CodeGenerator {
     this.emitLine('}');
     this.emitLine('function _secret(value) { return new _Secret(value); }');
     this.emitLine();
+    
+    // Deep freeze helper for dec declarations
+    this.emitLine('function _deepFreeze(obj) {');
+    this.pushIndent();
+    this.emitLine('if (obj === null || typeof obj !== "object") return obj;');
+    this.emitLine('Object.keys(obj).forEach(key => _deepFreeze(obj[key]));');
+    this.emitLine('return Object.freeze(obj);');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine();
+    
+    // Testing framework runtime
+    this.emitLine('// Testing framework');
+    this.emitLine('const _tests = [];');
+    this.emitLine('let _currentDescribe = null;');
+    this.emitLine('function _describe(name, fn) {');
+    this.pushIndent();
+    this.emitLine('const prev = _currentDescribe;');
+    this.emitLine('_currentDescribe = { name, tests: [], parent: prev };');
+    this.emitLine('fn();');
+    this.emitLine('if (prev) { prev.tests.push(_currentDescribe); }');
+    this.emitLine('else { _tests.push(_currentDescribe); }');
+    this.emitLine('_currentDescribe = prev;');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('function _test(name, fn) {');
+    this.pushIndent();
+    this.emitLine('const test = { name, fn, describe: _currentDescribe };');
+    this.emitLine('if (_currentDescribe) { _currentDescribe.tests.push(test); }');
+    this.emitLine('else { _tests.push(test); }');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('function _expect(actual) {');
+    this.pushIndent();
+    this.emitLine('return {');
+    this.pushIndent();
+    this.emitLine('toBe(expected) { if (actual !== expected) throw new Error(`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`); },');
+    this.emitLine('toEqual(expected) { if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Expected ${JSON.stringify(expected)} to equal ${JSON.stringify(actual)}`); },');
+    this.emitLine('toContain(item) { if (!actual.includes(item)) throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(item)}`); },');
+    this.emitLine('toBeNull() { if (actual !== null) throw new Error(`Expected null but got ${JSON.stringify(actual)}`); },');
+    this.emitLine('toBeTruthy() { if (!actual) throw new Error(`Expected truthy but got ${JSON.stringify(actual)}`); },');
+    this.emitLine('toBeFalsy() { if (actual) throw new Error(`Expected falsy but got ${JSON.stringify(actual)}`); },');
+    this.emitLine('toBeGreaterThan(n) { if (actual <= n) throw new Error(`Expected ${actual} > ${n}`); },');
+    this.emitLine('toBeLessThan(n) { if (actual >= n) throw new Error(`Expected ${actual} < ${n}`); },');
+    this.emitLine('toHaveLength(n) { if (actual.length !== n) throw new Error(`Expected length ${n} but got ${actual.length}`); },');
+    this.emitLine('toMatch(pattern) { if (!pattern.test(actual)) throw new Error(`Expected ${JSON.stringify(actual)} to match ${pattern}`); },');
+    this.emitLine('toThrow(msg) { try { actual(); throw new Error("Expected to throw"); } catch(e) { if (msg && !e.message.includes(msg)) throw new Error(`Expected error containing "${msg}" but got "${e.message}"`); } },');
+    this.popIndent();
+    this.emitLine('};');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('function _assert(condition, message) { if (!condition) throw new Error(message); }');
+    this.emitLine('async function _runTests() {');
+    this.pushIndent();
+    this.emitLine('let passed = 0, failed = 0;');
+    this.emitLine('async function runItem(item, indent = "") {');
+    this.pushIndent();
+    this.emitLine('if (item.fn) {');
+    this.pushIndent();
+    this.emitLine('try { await item.fn(); console.log(indent + "✓ " + item.name); passed++; }');
+    this.emitLine('catch (e) { console.log(indent + "✗ " + item.name); console.log(indent + "  " + e.message); failed++; }');
+    this.popIndent();
+    this.emitLine('} else {');
+    this.pushIndent();
+    this.emitLine('console.log(indent + item.name);');
+    this.emitLine('for (const t of item.tests) await runItem(t, indent + "  ");');
+    this.popIndent();
+    this.emitLine('}');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('for (const item of _tests) await runItem(item);');
+    this.emitLine('console.log(`\\n${passed + failed} tests, ${passed} passed, ${failed} failed`);');
+    this.emitLine('return { passed, failed };');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine();
   }
 
   visit(node) {
@@ -151,18 +227,6 @@ export class CodeGenerator {
     
     // Emit stdlib prototype extensions
     this.emitRuntimeExtensions();
-    
-    // Emit _deepFreeze helper if there are any dec declarations
-    if (decDeclarations.length > 0) {
-      this.emitLine('function _deepFreeze(obj) {');
-      this.pushIndent();
-      this.emitLine('if (obj === null || typeof obj !== "object") return obj;');
-      this.emitLine('Object.keys(obj).forEach(key => _deepFreeze(obj[key]));');
-      this.emitLine('return Object.freeze(obj);');
-      this.popIndent();
-      this.emitLine('}');
-      this.emitLine();
-    }
     
     // Export default factory function
     this.emitLine('export default function(_opts = {}) {');
@@ -314,6 +378,18 @@ export class CodeGenerator {
         break;
       case NodeType.JSBlock:
         this.visitJSBlock(node);
+        break;
+      case NodeType.TestBlock:
+        this.visitTestBlock(node);
+        break;
+      case NodeType.DescribeBlock:
+        this.visitDescribeBlock(node);
+        break;
+      case NodeType.ExpectStatement:
+        this.visitExpectStatement(node);
+        break;
+      case NodeType.AssertStatement:
+        this.visitAssertStatement(node);
         break;
       case NodeType.ExpressionStatement:
         this.emitLine(this.visitExpression(node.expression) + ';');
@@ -878,6 +954,79 @@ export class CodeGenerator {
     
     result += '`';
     return result;
+  }
+  
+  // Testing framework code generation
+  visitTestBlock(node) {
+    this.emitLine(`_test(${JSON.stringify(node.name)}, async () => {`);
+    this.pushIndent();
+    for (const stmt of node.body.body) {
+      this.visitStatement(stmt);
+    }
+    this.popIndent();
+    this.emitLine('});');
+  }
+  
+  visitDescribeBlock(node) {
+    this.emitLine(`_describe(${JSON.stringify(node.name)}, () => {`);
+    this.pushIndent();
+    for (const stmt of node.body.body) {
+      this.visitStatement(stmt);
+    }
+    this.popIndent();
+    this.emitLine('});');
+  }
+  
+  visitExpectStatement(node) {
+    const actual = this.visitExpression(node.actual);
+    const matcher = node.matcher;
+    const expected = node.expected ? this.visitExpression(node.expected) : '';
+    
+    // Generate appropriate assertion based on matcher
+    switch (matcher) {
+      case 'toBe':
+        this.emitLine(`_expect(${actual}).toBe(${expected});`);
+        break;
+      case 'toEqual':
+        this.emitLine(`_expect(${actual}).toEqual(${expected});`);
+        break;
+      case 'toContain':
+        this.emitLine(`_expect(${actual}).toContain(${expected});`);
+        break;
+      case 'toBeNull':
+        this.emitLine(`_expect(${actual}).toBeNull();`);
+        break;
+      case 'toBeTruthy':
+        this.emitLine(`_expect(${actual}).toBeTruthy();`);
+        break;
+      case 'toBeFalsy':
+        this.emitLine(`_expect(${actual}).toBeFalsy();`);
+        break;
+      case 'toBeGreaterThan':
+        this.emitLine(`_expect(${actual}).toBeGreaterThan(${expected});`);
+        break;
+      case 'toBeLessThan':
+        this.emitLine(`_expect(${actual}).toBeLessThan(${expected});`);
+        break;
+      case 'toThrow':
+        this.emitLine(`_expect(${actual}).toThrow(${expected});`);
+        break;
+      case 'toMatch':
+        this.emitLine(`_expect(${actual}).toMatch(${expected});`);
+        break;
+      case 'toHaveLength':
+        this.emitLine(`_expect(${actual}).toHaveLength(${expected});`);
+        break;
+      default:
+        // Generic matcher
+        this.emitLine(`_expect(${actual}).${matcher}(${expected});`);
+    }
+  }
+  
+  visitAssertStatement(node) {
+    const condition = this.visitExpression(node.condition);
+    const message = node.message ? this.visitExpression(node.message) : JSON.stringify('Assertion failed');
+    this.emitLine(`_assert(${condition}, ${message});`);
   }
 }
 

@@ -1,0 +1,69 @@
+// Example test file demonstrating KimchiLang's built-in testing framework
+
+// Helper function to test
+fn add(a, b) {
+  return a + b
+}
+
+fn multiply(a, b) {
+  return a * b
+}
+
+fn greet(name) {
+  return "Hello, ${name}!"
+}
+
+// Simple tests
+test "addition works" {
+  expect(add(2, 3)).toBe(5)
+  expect(add(-1, 1)).toBe(0)
+}
+
+test "multiplication works" {
+  expect(multiply(3, 4)).toBe(12)
+  expect(multiply(0, 100)).toBe(0)
+}
+
+// Grouped tests with describe
+describe "String functions" {
+  test "greet returns correct message" {
+    expect(greet("World")).toBe("Hello, World!")
+  }
+  
+  test "string contains check" {
+    dec message = greet("Alice")
+    expect(message).toContain("Alice")
+  }
+}
+
+describe "Array operations" {
+  test "array length" {
+    dec arr = [1, 2, 3, 4, 5]
+    expect(arr).toHaveLength(5)
+  }
+  
+  test "array contains" {
+    dec fruits = ["apple", "banana", "cherry"]
+    expect(fruits).toContain("banana")
+  }
+}
+
+// Using assert
+test "assert examples" {
+  assert 1 + 1 == 2, "Basic math should work"
+  assert true, "True should be truthy"
+}
+
+// Testing comparisons
+test "comparison matchers" {
+  expect(10).toBeGreaterThan(5)
+  expect(3).toBeLessThan(7)
+}
+
+// Testing truthiness
+test "truthy and falsy" {
+  expect(true).toBeTruthy()
+  expect(false).toBeFalsy()
+  expect(null).toBeFalsy()
+  expect("hello").toBeTruthy()
+}

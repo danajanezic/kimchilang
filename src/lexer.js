@@ -37,6 +37,10 @@ export const TokenType = {
   IS: 'IS',
   ENUM: 'ENUM',
   JS: 'JS',
+  TEST: 'TEST',
+  DESCRIBE: 'DESCRIBE',
+  EXPECT: 'EXPECT',
+  ASSERT: 'ASSERT',
 
   // Operators
   PLUS: 'PLUS',
@@ -121,6 +125,10 @@ const KEYWORDS = {
   'is': TokenType.IS,
   'enum': TokenType.ENUM,
   'js': TokenType.JS,
+  'test': TokenType.TEST,
+  'describe': TokenType.DESCRIBE,
+  'expect': TokenType.EXPECT,
+  'assert': TokenType.ASSERT,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,
