@@ -36,6 +36,7 @@ Commands:
   run <file>        Compile and run a .kimchi file
   test <file>       Run tests in a .kimchi file
   lint <file>       Run linter on a .kimchi file
+  check <file>      Check a file for errors (for editor integration)
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
   build <dir>       Compile all .kimchi files in a directory
@@ -608,6 +609,59 @@ function compileStaticFile(filePath, options = {}) {
   }
 }
 
+function checkFile(source, filePath = null) {
+  // Check file for errors and return JSON-compatible error array
+  const errors = [];
+  
+  try {
+    // Step 1: Tokenize
+    const tokens = tokenize(source);
+    
+    // Step 2: Parse
+    const ast = parse(tokens);
+    
+    // Step 3: Lint
+    const linter = new Linter();
+    const lintMessages = linter.lint(ast, source);
+    
+    for (const msg of lintMessages) {
+      if (msg.severity === Severity.Error) {
+        errors.push({
+          line: msg.line || 1,
+          column: msg.column || 1,
+          message: `[${msg.rule}] ${msg.message}`,
+          severity: 'error',
+        });
+      }
+    }
+    
+    // Step 4: Type check (compile without generating code)
+    compile(source, { skipLint: true });
+    
+  } catch (error) {
+    // Parse error format: "Parse Error at line:column: message"
+    const match = error.message.match(/(?:Parse |Lexer |Type |Compile )?Error at (\d+):(\d+):\s*(.+)/i);
+    if (match) {
+      errors.push({
+        line: parseInt(match[1], 10),
+        column: parseInt(match[2], 10),
+        message: match[3],
+        severity: 'error',
+      });
+    } else {
+      // Generic error
+      errors.push({
+        line: 1,
+        column: 1,
+        message: error.message,
+        severity: 'error',
+      });
+    }
+  }
+  
+  return errors;
+}
+
 function lintFile(filePath, options = {}) {
   if (!existsSync(filePath)) {
     console.error(`Error: File not found: ${filePath}`);
@@ -1048,6 +1102,31 @@ async function main() {
 
       const filePath = resolve(options.file);
       lintFile(filePath, options);
+      break;
+    }
+
+    case 'check': {
+      // Check command for editor integration - outputs JSON errors
+      let source;
+      let filePath = options.file ? resolve(options.file) : null;
+      
+      // Read from stdin if --json flag or no file
+      if (process.stdin.isTTY === false) {
+        // Read from stdin
+        const chunks = [];
+        for await (const chunk of process.stdin) {
+          chunks.push(chunk);
+        }
+        source = Buffer.concat(chunks).toString('utf-8');
+      } else if (filePath && existsSync(filePath)) {
+        source = readFileSync(filePath, 'utf-8');
+      } else {
+        console.log(JSON.stringify({ errors: [] }));
+        break;
+      }
+      
+      const errors = checkFile(source, filePath);
+      console.log(JSON.stringify({ errors }));
       break;
     }
 

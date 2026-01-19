@@ -21,9 +21,13 @@ const moduleTypeRegistry = new Map();
 
 class TypeError extends Error {
   constructor(message, node) {
-    super(message);
+    const line = node?.line || 1;
+    const column = node?.column || 1;
+    super(`Type Error at ${line}:${column}: ${message}`);
     this.name = 'TypeError';
     this.node = node;
+    this.line = line;
+    this.column = column;
   }
 }
 
@@ -243,6 +247,26 @@ export class TypeChecker {
       case NodeType.ArgDeclaration:
         this.visitArgDeclaration(node);
         break;
+      case NodeType.EnvDeclaration:
+        this.visitEnvDeclaration(node);
+        break;
+      case NodeType.JSBlock:
+      case NodeType.ShellBlock:
+        // JS/Shell blocks are opaque - no type checking inside
+        break;
+      case NodeType.TestBlock:
+      case NodeType.DescribeBlock:
+      case NodeType.ExpectStatement:
+      case NodeType.AssertStatement:
+        // Test constructs - visit their bodies if present
+        if (node.body && node.body.body) {
+          this.pushScope();
+          for (const stmt of node.body.body) {
+            this.visitStatement(stmt);
+          }
+          this.popScope();
+        }
+        break;
       case NodeType.BreakStatement:
       case NodeType.ContinueStatement:
         // No type checking needed
@@ -306,6 +330,14 @@ export class TypeChecker {
     
     // Add to module exports so other modules can validate against it
     this.moduleExports[node.name] = argType;
+  }
+
+  visitEnvDeclaration(node) {
+    // Env variables are always strings (or undefined if not set)
+    const envType = this.createType(Type.String);
+    
+    // Define the env variable in scope
+    this.defineVariable(node.name, envType);
   }
 
   visitDecDeclaration(node) {
@@ -565,10 +597,22 @@ export class TypeChecker {
     }
     
     // Built-in globals
-    const builtins = ['console', 'Math', 'JSON', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Promise', 'fetch', 'setTimeout', 'setInterval'];
+    const builtins = [
+      'console', 'Math', 'JSON', 'Object', 'Array', 'String', 'Number', 'Boolean', 
+      'Date', 'Promise', 'fetch', 'setTimeout', 'setInterval', 'clearTimeout', 
+      'clearInterval', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'encodeURI',
+      'decodeURI', 'encodeURIComponent', 'decodeURIComponent', 'Error', 'TypeError',
+      'RangeError', 'SyntaxError', 'RegExp', 'Map', 'Set', 'WeakMap', 'WeakSet',
+      'Symbol', 'Proxy', 'Reflect', 'Intl', 'undefined', 'null', 'NaN', 'Infinity',
+      'globalThis', 'process', 'Buffer', 'require', 'module', 'exports', '__dirname',
+      '__filename', '_pipe', '_range', '_deepFreeze', 'true', 'false'
+    ];
     if (builtins.includes(node.name)) {
       return this.createType(Type.Any);
     }
+    
+    // Report undefined identifier error
+    this.addError(`Undefined identifier '${node.name}'`, node);
     
     return this.createType(Type.Unknown);
   }

@@ -88,6 +88,10 @@ export class Parser {
     throw new ParseError(message, this.peek());
   }
 
+  errorAt(message, token) {
+    throw new ParseError(message, token);
+  }
+
   peek(offset = 0) {
     const pos = this.pos + offset;
     if (pos >= this.tokens.length) {
@@ -127,6 +131,14 @@ export class Parser {
 
   skipNewlines() {
     while (this.match(TokenType.NEWLINE)) {}
+  }
+
+  // Attach position info from a token to a node
+  withPosition(node, token = null) {
+    const t = token || this.peek();
+    node.line = t.line;
+    node.column = t.column;
+    return node;
   }
 
   // Main parsing entry point
@@ -864,6 +876,7 @@ export class Parser {
     let braceDepth = 1;
     let jsCode = '';
     const startPos = this.pos;
+    const consoleTokens = []; // Track console tokens for error reporting
     
     // Get the position in source after the opening brace
     const openBraceToken = this.tokens[this.pos - 1];
@@ -902,6 +915,10 @@ export class Parser {
         this.advance();
         this.advance();
       } else {
+        // Track console tokens for error reporting
+        if (token.type === TokenType.IDENTIFIER && token.value === 'console') {
+          consoleTokens.push(token);
+        }
         // Reconstruct the token as source
         jsCode += this.tokenToSource(token) + ' ';
         this.advance();
@@ -916,7 +933,9 @@ export class Parser {
       for (const secretInput of secretInputs) {
         const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
         if (consolePattern.test(jsCode)) {
-          this.error(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`);
+          // Use the first console token for error location, or fall back to current position
+          const errorToken = consoleTokens.length > 0 ? consoleTokens[0] : this.peek();
+          this.errorAt(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`, errorToken);
         }
       }
     }
@@ -1098,6 +1117,7 @@ export class Parser {
     
     let braceDepth = 1;
     let jsCode = '';
+    const consoleTokens = []; // Track console tokens for error reporting
     
     while (braceDepth > 0 && !this.check(TokenType.EOF)) {
       const token = this.peek();
@@ -1126,6 +1146,10 @@ export class Parser {
         this.advance();
         this.advance();
       } else {
+        // Track console tokens for error reporting
+        if (token.type === TokenType.IDENTIFIER && token.value === 'console') {
+          consoleTokens.push(token);
+        }
         jsCode += this.tokenToSource(token) + ' ';
         this.advance();
       }
@@ -1141,7 +1165,9 @@ export class Parser {
         // Match console.log, console.error, console.warn, console.info with the secret variable
         const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
         if (consolePattern.test(jsCode)) {
-          this.error(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`);
+          // Use the first console token for error location, or fall back to current position
+          const errorToken = consoleTokens.length > 0 ? consoleTokens[0] : this.peek();
+          this.errorAt(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`, errorToken);
         }
       }
     }
@@ -1729,9 +1755,12 @@ export class Parser {
     
     // Identifier
     if (this.check(TokenType.IDENTIFIER)) {
+      const token = this.advance();
       return {
         type: NodeType.Identifier,
-        name: this.advance().value,
+        name: token.value,
+        line: token.line,
+        column: token.column,
       };
     }
     

@@ -144,18 +144,18 @@ test('Generate print statement', () => {
 });
 
 test('Generate if statement', () => {
-  const js = compile('if x > 0 { print x }');
+  const js = compile('if x > 0 { print x }', { skipTypeCheck: true });
   assertContains(js, 'if (');
   assertContains(js, 'console.log');
 });
 
 test('Generate while loop', () => {
-  const js = compile('while x < 10 { x = x + 1 }');
+  const js = compile('while x < 10 { x = x + 1 }', { skipTypeCheck: true });
   assertContains(js, 'while (');
 });
 
 test('Generate for loop', () => {
-  const js = compile('for item in items { print item }');
+  const js = compile('for item in items { print item }', { skipTypeCheck: true });
   assertContains(js, 'for (const item of items)');
 });
 
@@ -165,12 +165,12 @@ test('Generate arrow function', () => {
 });
 
 test('Generate flow expression', () => {
-  const js = compile('transform >> addOne double');
+  const js = compile('transform >> addOne double', { skipTypeCheck: true });
   assertContains(js, 'const transform = _flow(addOne, double)');
 });
 
 test('Generate pipe expression with _pipe helper', () => {
-  const js = compile('dec result = 5 ~> double ~> addOne');
+  const js = compile('dec result = 5 ~> double ~> addOne', { skipTypeCheck: true });
   assertContains(js, '_pipe(5, double, addOne)');
 });
 
@@ -180,29 +180,29 @@ test('Generate range expression', () => {
 });
 
 test('Generate ternary expression', () => {
-  const js = compile('dec x = a > b ? a : b');
+  const js = compile('dec x = a > b ? a : b', { skipTypeCheck: true });
   assertContains(js, '?');
   assertContains(js, ':');
 });
 
 test('Generate try/catch', () => {
-  const js = compile('try { risky() } catch(e) { print e }');
+  const js = compile('try { risky() } catch(e) { print e }', { skipTypeCheck: true });
   assertContains(js, 'try {');
   assertContains(js, 'catch');
 });
 
 test('Generate spread operator', () => {
-  const js = compile('dec arr = [...other, 1, 2]');
+  const js = compile('dec arr = [...other, 1, 2]', { skipTypeCheck: true });
   assertContains(js, '...other');
 });
 
 test('Equality uses strict equality', () => {
-  const js = compile('dec x = a == b');
+  const js = compile('dec x = a == b', { skipTypeCheck: true });
   assertContains(js, '===');
 });
 
 test('Inequality uses strict inequality', () => {
-  const js = compile('dec x = a != b');
+  const js = compile('dec x = a != b', { skipTypeCheck: true });
   assertContains(js, '!==');
 });
 
@@ -226,7 +226,7 @@ test('Compile fibonacci function', () => {
 
 test('Compile complex expression', () => {
   const source = 'dec result = (a + b) * (c - d) / e ** 2';
-  const js = compile(source);
+  const js = compile(source, { skipTypeCheck: true });
   assertContains(js, '**');
   assertContains(js, '/');
   assertContains(js, '*');

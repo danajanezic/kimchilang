@@ -1,15 +1,20 @@
 {
   "name": "kimchilang",
   "displayName": "KimchiLang",
-  "description": "Syntax highlighting and language support for KimchiLang",
-  "version": "1.0.0",
+  "description": "Syntax highlighting, error checking, and language support for KimchiLang",
+  "version": "1.1.0",
   "publisher": "kimchilang",
   "engines": {
     "vscode": "^1.60.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Linters"
   ],
+  "activationEvents": [
+    "onLanguage:kimchi"
+  ],
+  "main": "./src/extension.js",
   "contributes": {
     "languages": [
       {
@@ -25,7 +30,22 @@
         "scopeName": "source.kimchi",
         "path": "./syntaxes/kimchi.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "KimchiLang",
+      "properties": {
+        "kimchi.validateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate KimchiLang files on save"
+        },
+        "kimchi.validateOnChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate KimchiLang files as you type"
+        }
+      }
+    }
   },
   "repository": {
     "type": "git",

@@ -1,13 +1,32 @@
 # KimchiLang VS Code Extension
 
-Syntax highlighting and language support for KimchiLang.
+Syntax highlighting, error checking, and language support for KimchiLang.
 
 ## Features
 
-- Syntax highlighting for `.km`, `.kimchi`, and `.kc` files
+- **Syntax highlighting** for `.km`, `.kimchi`, `.kc`, and `.static` files
+- **Real-time error checking** - See compile-time errors as you type
+- **Diagnostics on save** - Errors are highlighted with red squiggles
 - Bracket matching and auto-closing
 - Comment toggling (line comments with `//`)
 - Code folding
+
+## Error Checking
+
+The extension provides real-time error checking for KimchiLang files:
+
+- **Parse errors** - Syntax issues like unclosed braces, brackets, or strings
+- **Type errors** - Type mismatches caught by the type checker
+- **Lint errors** - Code quality issues
+
+Errors appear as red squiggly underlines in the editor, and are listed in the Problems panel (`Ctrl+Shift+M` / `Cmd+Shift+M`).
+
+### Configuration
+
+You can configure error checking in VS Code settings:
+
+- `kimchi.validateOnSave` - Validate files when saved (default: true)
+- `kimchi.validateOnChange` - Validate files as you type (default: true)
 
 ## Installation
 
