@@ -4,6 +4,7 @@ import { Lexer, tokenize } from './lexer.js';
 import { Parser, parse } from './parser.js';
 import { CodeGenerator, generate } from './generator.js';
 import { TypeChecker } from './typechecker.js';
+import { Linter, Severity } from './linter.js';
 
 // Module registry for tracking required args across modules
 const moduleRegistry = new Map();
@@ -67,6 +68,27 @@ export class KimchiCompiler {
       if (typeErrors.length > 0) {
         const errorMessages = typeErrors.map(e => `Type Error: ${e.message}`).join('\n');
         throw new Error(errorMessages);
+      }
+    }
+    
+    // Step 2.8: Linting
+    if (!this.options.skipLint) {
+      const linter = new Linter(this.options.lintOptions || {});
+      const lintMessages = linter.lint(ast, source);
+      
+      // Collect lint errors (not warnings/info)
+      const lintErrors = lintMessages.filter(m => m.severity === Severity.Error);
+      if (lintErrors.length > 0) {
+        const errorMessages = lintErrors.map(m => `Lint Error [${m.rule}]: ${m.message}`).join('\n');
+        throw new Error(errorMessages);
+      }
+      
+      // Show warnings only if explicitly requested
+      if (this.options.showLintWarnings && lintMessages.length > 0) {
+        const warnings = lintMessages.filter(m => m.severity !== Severity.Error);
+        if (warnings.length > 0) {
+          console.error(linter.formatMessages());
+        }
       }
     }
     

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'url';
 import { execSync, spawn } from 'child_process';
 import { compile } from './index.js';
 import { convertJS } from './js2km.js';
+import { Linter, Severity } from './linter.js';
+import { tokenize, parse } from './index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,6 +33,7 @@ Commands:
   ls [path]         List modules (--verbose for descriptions, --recursive for tree)
   compile <file>    Compile a .kimchi file to JavaScript
   run <file>        Compile and run a .kimchi file
+  lint <file>       Run linter on a .kimchi file
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
   build <dir>       Compile all .kimchi files in a directory
@@ -41,6 +44,7 @@ Commands:
 Options:
   -o, --output <file>    Output file path (for compile command)
   -d, --debug            Enable debug output
+  --no-lint              Skip linting during compilation
   --verbose, -v          Show module descriptions (for ls command)
   --recursive, -r        Recurse into subdirectories (for ls command)
   --dep <name=path>      Inject dependency (can be used multiple times)
@@ -65,6 +69,7 @@ function parseArgs(args) {
     help: false,
     verbose: false,
     recursive: false,
+    skipLint: false,
     moduleArgs: {},  // Args to pass to module (--arg-name value)
     deps: {},        // Dependency injections (--dep name=path)
   };
@@ -77,6 +82,8 @@ function parseArgs(args) {
       result.help = true;
     } else if (arg === '-d' || arg === '--debug') {
       result.debug = true;
+    } else if (arg === '--no-lint') {
+      result.skipLint = true;
     } else if (arg === '-v' || arg === '--verbose') {
       result.verbose = true;
     } else if (arg === '-r' || arg === '--recursive') {
@@ -551,10 +558,49 @@ function compileFile(filePath, options = {}) {
   const source = readFileSync(filePath, 'utf-8');
   
   try {
-    const javascript = compile(source, { debug: options.debug });
+    const javascript = compile(source, { 
+      debug: options.debug,
+      skipLint: options.skipLint,
+      showLintWarnings: true,
+    });
     return javascript;
   } catch (error) {
     console.error(`Compilation Error in ${filePath}:`);
+    console.error(error.message);
+    if (options.debug) {
+      console.error(error.stack);
+    }
+    process.exit(1);
+  }
+}
+
+function lintFile(filePath, options = {}) {
+  if (!existsSync(filePath)) {
+    console.error(`Error: File not found: ${filePath}`);
+    process.exit(1);
+  }
+
+  const source = readFileSync(filePath, 'utf-8');
+  
+  try {
+    const tokens = tokenize(source);
+    const ast = parse(tokens);
+    
+    const linter = new Linter();
+    const messages = linter.lint(ast, source);
+    
+    if (messages.length === 0) {
+      console.log(`✅ ${basename(filePath)}: No lint issues found`);
+    } else {
+      console.log(`\n📋 Lint results for ${basename(filePath)}:`);
+      console.log(linter.formatMessages());
+      
+      if (linter.hasErrors()) {
+        process.exit(1);
+      }
+    }
+  } catch (error) {
+    console.error(`Error linting ${filePath}:`);
     console.error(error.message);
     if (options.debug) {
       console.error(error.stack);
@@ -883,6 +929,17 @@ async function main() {
 
       const filePath = resolve(options.file);
       runFile(filePath, options);
+      break;
+    }
+
+    case 'lint': {
+      if (!options.file) {
+        console.error('Error: No input file specified');
+        process.exit(1);
+      }
+
+      const filePath = resolve(options.file);
+      lintFile(filePath, options);
       break;
     }
 
