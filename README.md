@@ -158,6 +158,73 @@ expose fn greet(name) { return "Hello, " + name }
 
 Attempting to access an unexposed member from a dependency will result in a compile-time error.
 
+### Secrets
+
+KimchiLang provides built-in protection for sensitive values like API keys, tokens, and passwords using the `secret` modifier.
+
+**Declaring secrets:**
+
+```kimchi
+// Secret variables
+secret dec apiKey = "sk-1234567890"
+secret dec dbPassword = "super-secret"
+
+// Secret environment variables
+secret env DATABASE_URL
+
+// Secret module arguments
+secret arg authToken
+secret !arg apiKey  // Required secret argument
+```
+
+**How secrets are protected:**
+
+1. **Masked in output** - When converted to a string (e.g., in error messages or logs), secrets display as `********` instead of their actual value:
+
+```kimchi
+secret dec apiKey = "sk-1234567890"
+print "Key: ${apiKey}"  // Output: "Key: ********"
+```
+
+2. **Compile-time protection in JS interop** - Secrets cannot be passed to `console.log` or other console methods inside `js { }` blocks:
+
+```kimchi
+secret dec apiKey = "sk-1234567890"
+
+// This will FAIL at compile time:
+js(apiKey) {
+  console.log(apiKey);  // Error: Cannot pass secret 'apiKey' to console.log
+}
+
+// This is allowed (using secret for its intended purpose):
+js(apiKey) {
+  return fetch(url, { headers: { Authorization: apiKey } });
+}
+```
+
+The compiler checks for `console.log`, `console.error`, `console.warn`, `console.info`, `console.debug`, and `console.trace`.
+
+3. **Value access** - To get the actual value of a secret (e.g., for API calls), use the `.value` property:
+
+```kimchi
+secret dec apiKey = "sk-1234567890"
+
+// In JS interop, the value is accessible normally
+dec response = js(apiKey) {
+  return fetch("https://api.example.com", {
+    headers: { "Authorization": "Bearer " + apiKey }
+  });
+}
+```
+
+**Best practices:**
+
+- Use `secret` for all sensitive values (API keys, passwords, tokens)
+- Use `secret env` for environment variables containing credentials
+- Use `secret arg` for sensitive module arguments
+- Never log secrets - the compiler will catch attempts in JS blocks
+- The `_Secret` wrapper ensures secrets don't accidentally appear in stack traces or error messages
+
 ### Functions
 
 ```kimchi

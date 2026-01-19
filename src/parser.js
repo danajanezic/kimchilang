@@ -76,6 +76,7 @@ export class Parser {
     this.tokens = tokens.filter(t => t.type !== TokenType.NEWLINE || this.isSignificantNewline(t));
     this.pos = 0;
     this.decVariables = new Set(); // Track deeply immutable variables
+    this.secretVariables = new Set(); // Track secret variables
   }
 
   isSignificantNewline(token) {
@@ -167,6 +168,10 @@ export class Parser {
       const decl = this.parseDecDeclaration();
       decl.exposed = exposed;
       decl.secret = secret;
+      // Track secret variables
+      if (secret && decl.name) {
+        this.secretVariables.add(decl.name);
+      }
       return decl;
     }
     
@@ -209,6 +214,9 @@ export class Parser {
     if (this.check(TokenType.ENV) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ENV)) {
       const decl = this.parseEnvDeclaration();
       decl.secret = secret;
+      if (secret) {
+        this.secretVariables.add(decl.name);
+      }
       return decl;
     }
     
@@ -216,6 +224,9 @@ export class Parser {
     if (this.check(TokenType.ARG) || (this.check(TokenType.NOT) && this.peek(1).type === TokenType.ARG)) {
       const decl = this.parseArgDeclaration();
       decl.secret = secret;
+      if (secret) {
+        this.secretVariables.add(decl.name);
+      }
       return decl;
     }
     
@@ -893,6 +904,17 @@ export class Parser {
     
     this.expect(TokenType.RBRACE, 'Expected } to close js block');
     
+    // Check for secrets being passed to console.log
+    const secretInputs = inputs.filter(input => this.secretVariables.has(input));
+    if (secretInputs.length > 0) {
+      for (const secretInput of secretInputs) {
+        const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
+        if (consolePattern.test(jsCode)) {
+          this.error(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`);
+        }
+      }
+    }
+    
     return {
       type: NodeType.JSBlock,
       inputs,
@@ -1036,6 +1058,19 @@ export class Parser {
     }
     
     this.expect(TokenType.RBRACE, 'Expected } to close js block');
+    
+    // Check for secrets being passed to console.log
+    const secretInputs = inputs.filter(input => this.secretVariables.has(input));
+    if (secretInputs.length > 0) {
+      // Check if the JS code contains console.log with any of the secret inputs
+      for (const secretInput of secretInputs) {
+        // Match console.log, console.error, console.warn, console.info with the secret variable
+        const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
+        if (consolePattern.test(jsCode)) {
+          this.error(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`);
+        }
+      }
+    }
     
     return {
       type: NodeType.JSBlock,
