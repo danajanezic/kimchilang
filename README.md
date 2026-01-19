@@ -141,6 +141,7 @@ The type checker catches:
 - **Calling non-functions** (e.g., calling a number or string)
 - **Invalid enum member access**
 - **Destructuring non-existent properties**
+- **Type mismatches in dependency injection** (when overriding module args)
 
 ### Module Visibility (expose)
 

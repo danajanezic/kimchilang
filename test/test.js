@@ -1,6 +1,7 @@
 // KimchiLang Test Suite
 
 import { compile, tokenize, parse, KimchiCompiler } from '../src/index.js';
+import { TypeChecker } from '../src/typechecker.js';
 
 let passed = 0;
 let failed = 0;
@@ -449,6 +450,59 @@ test('Private function not in exports', () => {
   const js = compile('fn privateFn() { return 1 }');
   // Should not have return statement with exports since nothing is exposed
   assertEqual(js.includes('return {'), false);
+});
+
+// Dependency Type Checking Tests
+console.log('\n--- Dependency Type Checking Tests ---\n');
+
+test('TypeChecker registers module export types', () => {
+  TypeChecker.clearRegistry();
+  
+  // Compile a module with exposed declarations
+  const source = `
+    expose dec apiVersion = "1.0"
+    expose fn greet(name) { return "Hello " + name }
+    arg timeout = 5000
+  `;
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  
+  const checker = new TypeChecker({ modulePath: 'test.module' });
+  checker.check(ast);
+  
+  const moduleType = TypeChecker.getModuleType('test.module');
+  assertEqual(moduleType !== null, true);
+  assertEqual(moduleType.kind, 'object');
+  assertEqual('apiVersion' in moduleType.properties, true);
+  assertEqual('greet' in moduleType.properties, true);
+  assertEqual('timeout' in moduleType.properties, true);
+});
+
+test('Dep alias is defined in scope with module type', () => {
+  TypeChecker.clearRegistry();
+  
+  // First register a module type
+  TypeChecker.registerModuleType('lib.http', {
+    kind: 'object',
+    properties: {
+      get: { kind: 'function', params: [], returnType: { kind: 'unknown' } },
+      post: { kind: 'function', params: [], returnType: { kind: 'unknown' } }
+    }
+  });
+  
+  // Now compile code that uses that dependency
+  const source = `
+    as http dep lib.http
+    dec result = http.get("/api")
+  `;
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  
+  // Should not have errors - http.get exists
+  assertEqual(errors.length, 0);
 });
 
 // Summary

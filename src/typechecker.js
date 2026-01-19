@@ -13,7 +13,11 @@ export const Type = {
   Function: 'function',
   Void: 'void',
   Enum: 'enum',
+  Module: 'module',
 };
+
+// Global module type registry - stores the exported interface of each module
+const moduleTypeRegistry = new Map();
 
 class TypeError extends Error {
   constructor(message, node) {
@@ -24,16 +28,38 @@ class TypeError extends Error {
 }
 
 export class TypeChecker {
-  constructor() {
+  constructor(options = {}) {
     this.scopes = [new Map()]; // Stack of scopes
     this.errors = [];
     this.functions = new Map(); // Function signatures
     this.enums = new Map(); // Enum definitions
+    this.modulePath = options.modulePath || null;
+    this.moduleExports = {}; // Track exposed declarations for this module
+    this.argTypes = new Map(); // Track arg declaration types
+  }
+
+  // Static methods for module type registry
+  static registerModuleType(modulePath, exportType) {
+    moduleTypeRegistry.set(modulePath, exportType);
+  }
+
+  static getModuleType(modulePath) {
+    return moduleTypeRegistry.get(modulePath) || null;
+  }
+
+  static clearRegistry() {
+    moduleTypeRegistry.clear();
   }
 
   check(ast) {
     this.errors = [];
     this.visitProgram(ast);
+    
+    // Register this module's export type if we have a module path
+    if (this.modulePath && Object.keys(this.moduleExports).length > 0) {
+      TypeChecker.registerModuleType(this.modulePath, this.createObjectType(this.moduleExports));
+    }
+    
     return this.errors;
   }
 
@@ -212,7 +238,11 @@ export class TypeChecker {
         this.popScope();
         break;
       case NodeType.DepStatement:
+        this.visitDepStatement(node);
+        break;
       case NodeType.ArgDeclaration:
+        this.visitArgDeclaration(node);
+        break;
       case NodeType.BreakStatement:
       case NodeType.ContinueStatement:
         // No type checking needed
@@ -220,8 +250,71 @@ export class TypeChecker {
     }
   }
 
+  visitDepStatement(node) {
+    // Get the expected module type from registry
+    const expectedModuleType = TypeChecker.getModuleType(node.path);
+    
+    // If we have overrides, validate them against the expected module interface
+    if (node.overrides && expectedModuleType) {
+      const overrideType = this.visitExpression(node.overrides);
+      
+      if (overrideType && overrideType.kind === Type.Object && overrideType.properties) {
+        // Check each override property
+        for (const [key, valueType] of Object.entries(overrideType.properties)) {
+          // Skip dotted paths (dependency overrides like "foo.bar": mockFn)
+          if (key.includes('.')) continue;
+          
+          // Check if this is overriding an arg or an exported member
+          if (expectedModuleType.properties && key in expectedModuleType.properties) {
+            const expectedType = expectedModuleType.properties[key];
+            if (!this.isCompatible(expectedType, valueType)) {
+              this.addError(
+                `Type mismatch for '${key}' in dependency '${node.path}': expected ${this.typeToString(expectedType)}, got ${this.typeToString(valueType)}`,
+                node
+              );
+            }
+          }
+        }
+      }
+    }
+    
+    // Define the dependency alias in scope with the module's type
+    if (expectedModuleType) {
+      this.defineVariable(node.alias, expectedModuleType);
+    } else {
+      // Unknown module - use Any type
+      this.defineVariable(node.alias, this.createType(Type.Any));
+    }
+  }
+
+  visitArgDeclaration(node) {
+    let argType = this.createType(Type.Any);
+    
+    // Infer type from default value if present
+    if (node.defaultValue) {
+      argType = this.visitExpression(node.defaultValue);
+    }
+    
+    // Store arg type for module export
+    this.argTypes.set(node.name, {
+      type: argType,
+      required: node.required,
+    });
+    
+    // Define the arg in scope
+    this.defineVariable(node.name, argType);
+    
+    // Add to module exports so other modules can validate against it
+    this.moduleExports[node.name] = argType;
+  }
+
   visitDecDeclaration(node) {
     const initType = this.visitExpression(node.init);
+    
+    // Track exposed declarations for module export type
+    if (node.exposed) {
+      this.moduleExports[node.name] = initType;
+    }
     
     if (node.destructuring) {
       if (node.pattern.type === NodeType.ObjectPattern) {
@@ -258,6 +351,17 @@ export class TypeChecker {
   }
 
   visitFunctionDeclaration(node) {
+    // Track exposed functions for module export type
+    if (node.exposed) {
+      const fnInfo = this.functions.get(node.name);
+      if (fnInfo) {
+        this.moduleExports[node.name] = this.createFunctionType(
+          fnInfo.params.map(p => p.type),
+          fnInfo.returnType
+        );
+      }
+    }
+    
     this.pushScope();
     
     // Define parameters in scope

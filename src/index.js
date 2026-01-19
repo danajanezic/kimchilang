@@ -72,7 +72,7 @@ export class KimchiCompiler {
     
     // Step 2.7: Type checking
     if (!this.options.skipTypeCheck) {
-      const typeChecker = new TypeChecker();
+      const typeChecker = new TypeChecker({ modulePath });
       const typeErrors = typeChecker.check(ast);
       if (typeErrors.length > 0) {
         const errorMessages = typeErrors.map(e => `Type Error: ${e.message}`).join('\n');
