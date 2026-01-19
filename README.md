@@ -141,7 +141,7 @@ The type checker catches:
 - **Calling non-functions** (e.g., calling a number or string)
 - **Invalid enum member access**
 - **Destructuring non-existent properties**
-- **Type mismatches in dependency injection** (when overriding module args)
+- **Type mismatches in dependency injection** (when overriding module deps)
 
 ### Module Visibility (expose)
 
@@ -584,7 +584,7 @@ throw AuthError("Token expired")
 
 Each error created has:
 - **`e.message`** - The error message you provide
-- **`e.name`** - The error type for matching
+- **`e._id`** - The error type identifier for matching with `is`
 - **`e.stack`** - Full stack trace
 
 **Catching errors by type with `is`:**
@@ -642,7 +642,7 @@ fn handleError(e) {
 }
 ```
 
-The `is` keyword compares the `.name` property of both sides, so `e is NotFoundError` compiles to `e?.name === NotFoundError?.name`.
+The `is` keyword compares the `._id` property of both sides, so `e is NotFoundError` compiles to `e?._id === NotFoundError?._id`.
 
 ### JavaScript Interop
 

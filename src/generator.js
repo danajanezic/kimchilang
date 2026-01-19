@@ -106,17 +106,17 @@ export class CodeGenerator {
     this.emitLine();
     
     // Add error helper function for typed errors
-    this.emitLine('function error(message, name = "Error") {');
+    this.emitLine('function error(message, _id = "Error") {');
     this.pushIndent();
     this.emitLine('const e = new Error(message);');
-    this.emitLine('e.name = name;');
+    this.emitLine('e._id = _id;');
     this.emitLine('return e;');
     this.popIndent();
     this.emitLine('}');
-    this.emitLine('error.create = (name) => {');
+    this.emitLine('error.create = (_id) => {');
     this.pushIndent();
-    this.emitLine('const fn = (message) => error(message, name);');
-    this.emitLine('Object.defineProperty(fn, "name", { value: name, writable: false });');
+    this.emitLine('const fn = (message) => error(message, _id);');
+    this.emitLine('fn._id = _id;');
     this.emitLine('return fn;');
     this.popIndent();
     this.emitLine('};');
@@ -931,14 +931,14 @@ export class CodeGenerator {
     const left = this.visitExpression(node.left);
     const right = this.visitExpression(node.right);
     
-    // Handle 'is' operator - compares .name properties
+    // Handle 'is' operator - compares ._id properties
     if (node.operator === 'is') {
-      return `(${left}?.name === ${right}?.name)`;
+      return `(${left}?._id === ${right}?._id)`;
     }
     
-    // Handle 'is not' operator - negated .name comparison
+    // Handle 'is not' operator - negated ._id comparison
     if (node.operator === 'is not') {
-      return `(${left}?.name !== ${right}?.name)`;
+      return `(${left}?._id !== ${right}?._id)`;
     }
     
     return `(${left} ${node.operator} ${right})`;
