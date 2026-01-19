@@ -1231,6 +1231,51 @@ See `editors/README.md` for installation instructions for:
 - **Vim/Neovim** - Syntax file and configuration
 - **Emacs** - Major mode configuration
 
+## Standard Library
+
+KimchiLang includes a standard library in the `stdlib/` directory.
+
+### Logger
+
+Structured JSON logging with log levels.
+
+**Import:**
+
+```kimchi
+as log dep stdlib.logger
+```
+
+**Usage:**
+
+```kimchi
+log.info("Application started")
+log.debug("Debug info", { userId: 123 })
+log.warn("Warning message")
+log.error("Error occurred", { code: "ERR_001" })
+```
+
+**Log levels:** `debug`, `info`, `warn`, `error`
+
+**Environment variable:** Set `LOG_LEVEL` to control minimum level (default: `info`)
+
+```bash
+LOG_LEVEL=debug kimchi myapp.main
+LOG_LEVEL=warn kimchi myapp.main
+```
+
+**Output format:** JSON with metadata
+
+```json
+{"timestamp":"2024-01-15T10:30:00.000Z","level":"info","module":"main","function":"processOrder","line":42,"message":"Order completed"}
+```
+
+**Child loggers:** Add persistent context
+
+```kimchi
+dec userLog = log.child({ userId: 456, session: "abc" })
+userLog.info("User action")  // Includes userId and session in output
+```
+
 ## Running Tests
 
 ```bash
@@ -1258,6 +1303,8 @@ See the `examples/` directory for more code samples:
 - `basic.kimchi` - Core language features
 - `fibonacci.kimchi` - Recursive and iterative Fibonacci
 - `myapp/` - Dependency injection example with mock testing
+- `logger-example.km` - Structured JSON logging with log levels
+- `regex-match.km` - Regex pattern matching expressions
 
 ## License
 

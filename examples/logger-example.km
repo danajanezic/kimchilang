@@ -1,0 +1,34 @@
+// Logger Example
+// Demonstrates structured JSON logging with log levels
+
+// Import the logger from stdlib
+as log dep stdlib.logger
+
+// Basic logging at different levels
+log.info("Application started")
+log.debug("Debug information", { userId: 123 })
+log.warn("This is a warning")
+log.error("Something went wrong", { code: "ERR_001" })
+
+// Create a child logger with context
+dec userLog = log.child({ userId: 456, session: "abc123" })
+userLog.info("User logged in")
+userLog.debug("Processing request")
+
+// Function that uses logging
+fn processOrder(orderId) {
+  log.info("Processing order", { orderId: orderId })
+  
+  // Simulate some work
+  log.debug("Validating order")
+  log.debug("Charging payment")
+  
+  log.info("Order completed", { orderId: orderId, status: "success" })
+  return true
+}
+
+processOrder(789)
+
+// To test different log levels, run with:
+// LOG_LEVEL=debug kimchi examples/logger-example.km
+// LOG_LEVEL=warn kimchi examples/logger-example.km

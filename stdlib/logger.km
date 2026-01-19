@@ -1,0 +1,104 @@
+// KimchiLang Logger
+// Usage: as log dep stdlib.logger
+// Then: log.info("message"), log.debug("message"), etc.
+// Set LOG_LEVEL environment variable to control output (debug, info, warn, error)
+
+env LOG_LEVEL = "info"
+
+dec LOG_LEVELS = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3
+}
+
+fn getLogLevel() {
+  dec level = LOG_LEVEL.toLowerCase()
+  dec numLevel = LOG_LEVELS[level]
+  |numLevel == null| => return 1
+  return numLevel
+}
+
+fn shouldLog(level) {
+  return LOG_LEVELS[level] >= getLogLevel()
+}
+
+fn getCallerInfo() {
+  return js {
+    const err = new Error();
+    const stack = err.stack.split('\n');
+    for (let i = 3; i < stack.length; i++) {
+      const line = stack[i];
+      if (!line.includes('logger') && !line.includes('node:internal')) {
+        const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/);
+        if (match) {
+          return {
+            fn: match[1] || '<anonymous>',
+            module: match[2].replace(/^file:\/\//, '').replace(/.*\//, '').replace(/\.(js|km)$/, ''),
+            line: parseInt(match[3], 10),
+          };
+        }
+      }
+    }
+    return { fn: '<unknown>', module: '<unknown>', line: 0 };
+  }
+}
+
+fn formatLog(level, message, data) {
+  dec caller = getCallerInfo()
+  dec timestamp = js { return new Date().toISOString(); }
+  
+  dec entry = {
+    timestamp: timestamp,
+    level: level,
+    module: caller.module,
+    function: caller.fn,
+    line: caller.line,
+    message: message
+  }
+  
+  |data != null| => {
+    js(entry, data) {
+      Object.assign(entry, data);
+    }
+  }
+  
+  return js(entry) { return JSON.stringify(entry); }
+}
+
+expose fn debug(message, data) {
+  |shouldLog("debug")| => {
+    dec output = formatLog("debug", message, data)
+    js(output) { console.log(output); }
+  }
+}
+
+expose fn info(message, data) {
+  |shouldLog("info")| => {
+    dec output = formatLog("info", message, data)
+    js(output) { console.log(output); }
+  }
+}
+
+expose fn warn(message, data) {
+  |shouldLog("warn")| => {
+    dec output = formatLog("warn", message, data)
+    js(output) { console.warn(output); }
+  }
+}
+
+expose fn error(message, data) {
+  |shouldLog("error")| => {
+    dec output = formatLog("error", message, data)
+    js(output) { console.error(output); }
+  }
+}
+
+expose fn child(context) {
+  return {
+    debug: (msg, data) => debug(msg, { ...context, ...data }),
+    info: (msg, data) => info(msg, { ...context, ...data }),
+    warn: (msg, data) => warn(msg, { ...context, ...data }),
+    error: (msg, data) => error(msg, { ...context, ...data })
+  }
+}
