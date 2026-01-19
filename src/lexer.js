@@ -97,6 +97,7 @@ export const TokenType = {
   EOF: 'EOF',
   COMMENT: 'COMMENT',
   TEMPLATE_STRING: 'TEMPLATE_STRING',
+  REGEX: 'REGEX',
 };
 
 const KEYWORDS = {
@@ -355,6 +356,67 @@ export class Lexer {
     return new Token(TokenType.NUMBER, value, startLine, startColumn);
   }
 
+  canStartRegex() {
+    // Regex can start after these token types (expression start context)
+    // After values/identifiers/closing brackets, / is division
+    // After operators that expect an operand, / could be regex
+    if (this.tokens.length === 0) return true;
+    
+    const lastToken = this.tokens[this.tokens.length - 1];
+    
+    // After these, / is definitely division (they produce values)
+    const divisionPrecedingTokens = [
+      TokenType.NUMBER,
+      TokenType.STRING,
+      TokenType.TEMPLATE_STRING,
+      TokenType.IDENTIFIER,
+      TokenType.BOOLEAN,
+      TokenType.NULL,
+      TokenType.RPAREN,
+      TokenType.RBRACKET,
+      TokenType.RBRACE,
+      TokenType.REGEX, // After a regex, / is division
+    ];
+    
+    if (divisionPrecedingTokens.includes(lastToken.type)) {
+      return false;
+    }
+    
+    // After everything else (operators, keywords, opening brackets), / could be regex
+    return true;
+  }
+
+  readRegex() {
+    const startLine = this.line;
+    const startColumn = this.column;
+    let pattern = '';
+    let flags = '';
+    
+    // Read pattern until unescaped /
+    while (this.peek() !== '/' && this.peek() !== '\0' && this.peek() !== '\n') {
+      if (this.peek() === '\\') {
+        pattern += this.advance(); // backslash
+        if (this.peek() !== '\0' && this.peek() !== '\n') {
+          pattern += this.advance(); // escaped char
+        }
+      } else {
+        pattern += this.advance();
+      }
+    }
+    
+    if (this.peek() !== '/') {
+      this.error('Unterminated regex literal');
+    }
+    this.advance(); // closing /
+    
+    // Read flags (g, i, m, s, u, y)
+    while (/[gimsuy]/.test(this.peek())) {
+      flags += this.advance();
+    }
+    
+    return new Token(TokenType.REGEX, { pattern, flags }, startLine, startColumn);
+  }
+
   readIdentifier() {
     const startLine = this.line;
     const startColumn = this.column;
@@ -550,6 +612,9 @@ export class Lexer {
         case '/':
           if (this.match('=')) {
             this.tokens.push(new Token(TokenType.SLASH_ASSIGN, '/=', startLine, startColumn));
+          } else if (this.canStartRegex()) {
+            // This is a regex literal
+            this.tokens.push(this.readRegex());
           } else {
             this.tokens.push(new Token(TokenType.SLASH, '/', startLine, startColumn));
           }

@@ -1,0 +1,38 @@
+// Regex Pattern Matching Example
+// Demonstrates: /regex/ => body syntax
+
+// Input to match against (set $_ before pattern matching)
+dec $_ = "hello world 123"
+
+// Regex pattern matching - tests against $_ variable
+// $match contains the match result (array with groups)
+/hello/ => print "Found hello!"
+/\d+/ => print "Found numbers: ${$match[0]}"
+/^goodbye/ => print "Starts with goodbye"
+
+// Regex literals can also be used in expressions
+dec emailPattern = /^[\w.-]+@[\w.-]+\.\w+$/
+dec phonePattern = /^\d{3}-\d{3}-\d{4}$/
+
+fn validateEmail(email) {
+  return emailPattern.test(email)
+}
+
+fn validatePhone(phone) {
+  return phonePattern.test(phone)
+}
+
+print ""
+print "=== Validation Examples ==="
+print "Is 'test@example.com' a valid email? ${validateEmail('test@example.com')}"
+print "Is '555-123-4567' a valid phone? ${validatePhone('555-123-4567')}"
+
+// Multiple regex cases
+dec $_ = "ERROR: Connection failed"
+
+print ""
+print "=== Log Level Detection ==="
+/^ERROR/ => print "🔴 Error level log"
+/^WARN/ => print "🟡 Warning level log"
+/^INFO/ => print "🔵 Info level log"
+/^DEBUG/ => print "⚪ Debug level log"

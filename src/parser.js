@@ -53,6 +53,7 @@ export const NodeType = {
   ObjectPattern: 'ObjectPattern',
   ArrayPattern: 'ArrayPattern',
   EnumDeclaration: 'EnumDeclaration',
+  RegexLiteral: 'RegexLiteral',
   
   // Interop
   JSBlock: 'JSBlock',
@@ -291,6 +292,11 @@ export class Parser {
     // Pattern matching: |condition| => code
     if (this.check(TokenType.BITOR)) {
       return this.parsePatternMatch();
+    }
+    
+    // Regex pattern matching: /regex/ => code
+    if (this.check(TokenType.REGEX)) {
+      return this.parseRegexPatternMatch();
     }
     
     // Print (convenience)
@@ -753,6 +759,45 @@ export class Parser {
     }
     
     return left;
+  }
+
+  parseRegexPatternMatch() {
+    // Regex pattern matching: /regex/ => code
+    // Parse consecutive regex pattern cases
+    const cases = [];
+    
+    while (this.check(TokenType.REGEX)) {
+      const regexToken = this.advance();
+      const regex = {
+        type: NodeType.RegexLiteral,
+        pattern: regexToken.value.pattern,
+        flags: regexToken.value.flags,
+      };
+      
+      this.expect(TokenType.FAT_ARROW, 'Expected =>');
+      
+      let consequent;
+      if (this.check(TokenType.LBRACE)) {
+        consequent = this.parseBlock();
+      } else {
+        consequent = this.parseStatement();
+      }
+      
+      cases.push({
+        type: NodeType.MatchCase,
+        test: regex,
+        isRegex: true,
+        consequent,
+      });
+      
+      this.skipNewlines();
+    }
+    
+    return {
+      type: NodeType.PatternMatch,
+      cases,
+      isRegex: true,
+    };
   }
 
   parsePrintStatement() {
@@ -1723,6 +1768,16 @@ export class Parser {
         type: NodeType.Literal,
         value: null,
         raw: 'null',
+      };
+    }
+    
+    // Regex literal
+    if (this.check(TokenType.REGEX)) {
+      const token = this.advance();
+      return {
+        type: NodeType.RegexLiteral,
+        pattern: token.value.pattern,
+        flags: token.value.flags,
       };
     }
     

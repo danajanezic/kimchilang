@@ -1,6 +1,6 @@
 // KimchiLang Test Suite
 
-import { compile, tokenize, parse, KimchiCompiler } from '../src/index.js';
+import { compile, tokenize, parse, generate, KimchiCompiler } from '../src/index.js';
 import { TypeChecker } from '../src/typechecker.js';
 
 let passed = 0;
@@ -60,18 +60,27 @@ test('Tokenize identifiers and keywords', () => {
 });
 
 test('Tokenize operators', () => {
-  const tokens = tokenize('+ - * / == != <= >= && || >>');
-  assertEqual(tokens[0].type, 'PLUS');
-  assertEqual(tokens[1].type, 'MINUS');
-  assertEqual(tokens[2].type, 'STAR');
-  assertEqual(tokens[3].type, 'SLASH');
-  assertEqual(tokens[4].type, 'EQ');
-  assertEqual(tokens[5].type, 'NEQ');
-  assertEqual(tokens[6].type, 'LTE');
-  assertEqual(tokens[7].type, 'GTE');
-  assertEqual(tokens[8].type, 'AND');
-  assertEqual(tokens[9].type, 'OR');
-  assertEqual(tokens[10].type, 'FLOW');
+  // Test arithmetic operators with operands (/ after identifier is division)
+  const tokens1 = tokenize('a + b - c * d / e');
+  assertEqual(tokens1[0].type, 'IDENTIFIER');
+  assertEqual(tokens1[1].type, 'PLUS');
+  assertEqual(tokens1[2].type, 'IDENTIFIER');
+  assertEqual(tokens1[3].type, 'MINUS');
+  assertEqual(tokens1[4].type, 'IDENTIFIER');
+  assertEqual(tokens1[5].type, 'STAR');
+  assertEqual(tokens1[6].type, 'IDENTIFIER');
+  assertEqual(tokens1[7].type, 'SLASH');
+  assertEqual(tokens1[8].type, 'IDENTIFIER');
+  
+  // Test comparison and logical operators
+  const tokens2 = tokenize('a == b != c <= d >= e && f || g >> h');
+  assertEqual(tokens2[1].type, 'EQ');
+  assertEqual(tokens2[3].type, 'NEQ');
+  assertEqual(tokens2[5].type, 'LTE');
+  assertEqual(tokens2[7].type, 'GTE');
+  assertEqual(tokens2[9].type, 'AND');
+  assertEqual(tokens2[11].type, 'OR');
+  assertEqual(tokens2[13].type, 'FLOW');
 });
 
 // Parser Tests
@@ -503,6 +512,67 @@ test('Dep alias is defined in scope with module type', () => {
   
   // Should not have errors - http.get exists
   assertEqual(errors.length, 0);
+});
+
+// Regex Pattern Matching Tests
+console.log('\n--- Regex Pattern Matching Tests ---\n');
+
+test('Tokenize regex literal', () => {
+  const tokens = tokenize('/hello/');
+  assertEqual(tokens[0].type, 'REGEX');
+  assertEqual(tokens[0].value.pattern, 'hello');
+  assertEqual(tokens[0].value.flags, '');
+});
+
+test('Tokenize regex literal with flags', () => {
+  const tokens = tokenize('/hello/gi');
+  assertEqual(tokens[0].type, 'REGEX');
+  assertEqual(tokens[0].value.pattern, 'hello');
+  assertEqual(tokens[0].value.flags, 'gi');
+});
+
+test('Tokenize regex with escaped characters', () => {
+  const tokens = tokenize('/\\d+\\.\\d+/');
+  assertEqual(tokens[0].type, 'REGEX');
+  assertEqual(tokens[0].value.pattern, '\\d+\\.\\d+');
+});
+
+test('Parse regex pattern match', () => {
+  const tokens = tokenize('/hello/ => print "matched"');
+  const ast = parse(tokens);
+  assertEqual(ast.body[0].type, 'PatternMatch');
+  assertEqual(ast.body[0].cases[0].test.type, 'RegexLiteral');
+  assertEqual(ast.body[0].cases[0].test.pattern, 'hello');
+  assertEqual(ast.body[0].cases[0].isRegex, true);
+});
+
+test('Parse multiple regex pattern cases', () => {
+  const source = `/^hello/ => print "starts with hello"
+/world$/ => print "ends with world"`;
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  assertEqual(ast.body[0].type, 'PatternMatch');
+  assertEqual(ast.body[0].cases.length, 2);
+  assertEqual(ast.body[0].cases[0].test.pattern, '^hello');
+  assertEqual(ast.body[0].cases[1].test.pattern, 'world$');
+});
+
+test('Generate regex pattern match code', () => {
+  const source = `/hello/ => print "matched"`;
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  const code = generate(ast);
+  assertEqual(code.includes('/hello/.exec($_)'), true);
+  assertEqual(code.includes('$match'), true);
+});
+
+test('Regex literal in expression', () => {
+  const source = 'dec pattern = /\\w+/g';
+  const tokens = tokenize(source);
+  const ast = parse(tokens);
+  assertEqual(ast.body[0].init.type, 'RegexLiteral');
+  assertEqual(ast.body[0].init.pattern, '\\w+');
+  assertEqual(ast.body[0].init.flags, 'g');
 });
 
 // Summary

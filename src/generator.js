@@ -804,11 +804,21 @@ export class CodeGenerator {
 
   visitPatternMatch(node, isTopLevel = false) {
     // Standalone pattern matching: |condition| => code
+    // Regex pattern matching: /regex/ => code (tests against $_ variable)
     // At top level: use if/else if chain (no return)
     // Inside function: each case returns from the function when matched
     for (let i = 0; i < node.cases.length; i++) {
       const matchCase = node.cases[i];
-      const condition = this.visitExpression(matchCase.test);
+      let condition;
+      
+      if (matchCase.isRegex || matchCase.test.type === NodeType.RegexLiteral) {
+        // Regex pattern: test against $_ (implicit input variable)
+        // Store match result in $match for access in the body
+        const regex = this.visitExpression(matchCase.test);
+        condition = `($match = ${regex}.exec($_))`;
+      } else {
+        condition = this.visitExpression(matchCase.test);
+      }
       
       // Use else if for subsequent cases
       const prefix = i === 0 ? 'if' : '} else if';
@@ -900,6 +910,8 @@ export class CodeGenerator {
         return this.visitJSBlockExpression(node);
       case NodeType.ShellBlock:
         return this.visitShellBlockExpression(node);
+      case NodeType.RegexLiteral:
+        return this.visitRegexLiteral(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
@@ -925,6 +937,10 @@ export class CodeGenerator {
       return node.value ? 'true' : 'false';
     }
     return String(node.raw || node.value);
+  }
+
+  visitRegexLiteral(node) {
+    return `/${node.pattern}/${node.flags}`;
   }
 
   visitBinaryExpression(node) {

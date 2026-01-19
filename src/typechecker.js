@@ -566,6 +566,8 @@ export class TypeChecker {
         return this.createArrayType(this.createType(Type.Number));
       case NodeType.FlowExpression:
         return this.visitFlowExpression(node);
+      case NodeType.RegexLiteral:
+        return this.createType(Type.Object); // RegExp is an object type
       default:
         return this.createType(Type.Unknown);
     }
