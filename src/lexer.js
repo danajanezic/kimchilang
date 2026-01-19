@@ -65,12 +65,7 @@ export const TokenType = {
   AND: 'AND',
   OR: 'OR',
   NOT: 'NOT',
-  BITAND: 'BITAND',
   BITOR: 'BITOR',
-  BITXOR: 'BITXOR',
-  BITNOT: 'BITNOT',
-  LSHIFT: 'LSHIFT',
-  RSHIFT: 'RSHIFT',
   ARROW: 'ARROW',
   FAT_ARROW: 'FAT_ARROW',
   FLOW: 'FLOW',
@@ -661,7 +656,7 @@ export class Lexer {
           if (this.match('&')) {
             this.tokens.push(new Token(TokenType.AND, '&&', startLine, startColumn));
           } else {
-            this.tokens.push(new Token(TokenType.BITAND, '&', startLine, startColumn));
+            this.error('Bitwise operators not supported. Use stdlib.bitwise instead.');
           }
           break;
         case '|':
@@ -672,7 +667,7 @@ export class Lexer {
           }
           break;
         case '^':
-          this.tokens.push(new Token(TokenType.BITXOR, '^', startLine, startColumn));
+          this.error('Bitwise operators not supported. Use stdlib.bitwise instead.');
           break;
         case '~':
           if (this.match('>')) {

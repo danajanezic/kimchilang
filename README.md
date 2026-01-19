@@ -1276,6 +1276,38 @@ dec userLog = log.child({ userId: 456, session: "abc" })
 userLog.info("User action")  // Includes userId and session in output
 ```
 
+### Bitwise
+
+Bitwise operations are provided as functions rather than operators.
+
+**Import:**
+
+```kimchi
+as bitwise dep stdlib.bitwise
+```
+
+**Functions:**
+
+```kimchi
+bitwise.and(a, b)     // a & b
+bitwise.or(a, b)      // a | b
+bitwise.xor(a, b)     // a ^ b
+bitwise.not(a)        // ~a
+bitwise.lshift(a, b)  // a << b
+bitwise.rshift(a, b)  // a >> b (sign-propagating)
+bitwise.urshift(a, b) // a >>> b (unsigned)
+```
+
+**Examples:**
+
+```kimchi
+as bitwise dep stdlib.bitwise
+
+dec flags = bitwise.or(0x01, 0x04)     // 5
+dec masked = bitwise.and(flags, 0x01)  // 1
+dec shifted = bitwise.rshift(16, 2)    // 4
+```
+
 ## Running Tests
 
 ```bash

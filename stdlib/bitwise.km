@@ -1,0 +1,38 @@
+// KimchiLang Bitwise Operations
+// Usage: as bitwise dep stdlib.bitwise
+// Provides wrapper functions for JavaScript bitwise operators
+
+// Bitwise AND: a & b
+expose fn and(a, b) {
+  return js(a, b) { return a & b; }
+}
+
+// Bitwise OR: a | b
+expose fn or(a, b) {
+  return js(a, b) { return a | b; }
+}
+
+// Bitwise XOR: a ^ b
+expose fn xor(a, b) {
+  return js(a, b) { return a ^ b; }
+}
+
+// Bitwise NOT: ~a
+expose fn not(a) {
+  return js(a) { return ~a; }
+}
+
+// Left shift: a << b
+expose fn lshift(a, b) {
+  return js(a, b) { return a << b; }
+}
+
+// Right shift (sign-propagating): a >> b
+expose fn rshift(a, b) {
+  return js(a, b) { return a >> b; }
+}
+
+// Unsigned right shift: a >>> b
+expose fn urshift(a, b) {
+  return js(a, b) { return a >>> b; }
+}
