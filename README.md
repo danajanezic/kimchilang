@@ -21,11 +21,27 @@ A modern, expressive programming language that transpiles to JavaScript.
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/danajanezic/kimchilang.git
 cd kimchilang
 
-# Run directly with Node.js
-node src/cli.js run examples/hello.kimchi
+# Run the installer (installs dependencies and links the 'kimchi' command)
+./install.sh
+```
+
+After installation, the `kimchi` command is available globally:
+
+```bash
+kimchi run examples/hello.kimchi
+kimchi compile app.kimchi
+kimchi convert input.js
+kimchi help
+```
+
+**Manual installation** (if you prefer not to use the installer):
+
+```bash
+npm install
+npm link
 ```
 
 ## Quick Start
@@ -45,7 +61,7 @@ print greet("Developer")
 Run it:
 
 ```bash
-node src/cli.js run hello.kimchi
+kimchi run hello.kimchi
 ```
 
 ## Language Guide
@@ -444,22 +460,38 @@ try {
 }
 ```
 
-**Creating typed errors:**
+**Creating typed errors with `error.create()`:**
 
-Use the built-in `error(message, name)` function to create errors with a specific type:
+Use `error.create(name)` to define reusable error types:
 
 ```kimchi
-throw error("User not found", "NotFoundError")
-throw error("Invalid input", "ValidationError")
-throw error("Access denied", "AuthError")
+// Define custom error types
+dec NotFoundError = error.create("NotFoundError")
+dec ValidationError = error.create("ValidationError")
+dec AuthError = error.create("AuthError")
+
+// Throw errors using your custom types
+throw NotFoundError("User not found")
+throw ValidationError("Email is invalid")
+throw AuthError("Token expired")
 ```
 
-**Catching errors by type with pattern matching:**
+Each error created has:
+- **`e.message`** - The error message you provide
+- **`e.name`** - The error type for matching
+- **`e.stack`** - Full stack trace
+
+**Catching errors by type with `is`:**
+
+Use the `is` keyword to check if an error matches a specific type:
 
 ```kimchi
+dec NotFoundError = error.create("NotFoundError")
+dec ValidationError = error.create("ValidationError")
+
 fn fetchUser(id) {
   if id == 0 {
-    throw error("User not found", "NotFoundError")
+    throw NotFoundError("User ${id} not found")
   }
   return { id: id, name: "Alice" }
 }
@@ -468,79 +500,43 @@ fn handleRequest(id) {
   try {
     return fetchUser(id)
   } catch(e) {
-    |e.name == "NotFoundError"| => {
-      print "Not found: " + e.message
+    |e is NotFoundError| => {
+      print "Not found: ${e.message}"
       return null
     }
-    |e.name == "ValidationError"| => {
-      print "Invalid: " + e.message
+    |e is ValidationError| => {
+      print "Invalid: ${e.message}"
       return null
     }
     |true| => {
-      print "Unknown error: " + e.message
-      throw e
+      throw e  // Re-throw unknown errors
     }
   }
 }
 ```
 
-The `error()` function creates a proper JavaScript `Error` object with:
-- **`e.message`** - The error message
-- **`e.name`** - The error type for matching
-- **`e.stack`** - Full stack trace
+**Using `is not` for negated type checking:**
 
-**Creating reusable error constructors:**
-
-Use `error.create(name)` to create a partial function for a specific error type:
+Use `is not` to check if an error does NOT match a specific type:
 
 ```kimchi
-// Define custom error types
-dec NotFoundError = error.create("NotFoundError")
-dec ValidationError = error.create("ValidationError")
-dec AuthError = error.create("AuthError")
+dec NetworkError = error.create("NetworkError")
 
-// Use them like constructors
-throw NotFoundError("User not found")
-throw ValidationError("Email is invalid")
-throw AuthError("Token expired")
-```
-
-**The `is` keyword for type comparison:**
-
-Use the `is` keyword to compare objects by their `.name` property. This is especially useful for catching errors by type:
-
-```kimchi
-dec NotFoundError = error.create("NotFoundError")
-dec ValidationError = error.create("ValidationError")
-
-fn handleRequest(id) {
-  try {
-    return getUser(id)
-  } catch(e) {
-    |e is NotFoundError| => {
-      print "Not found: " + e.message
-      return null
-    }
-    |e is ValidationError| => {
-      print "Invalid: " + e.message
-      return null
-    }
-    |true| => {
-      throw e
-    }
+fn handleError(e) {
+  |e is not NetworkError| => {
+    // Handle all non-network errors
+    print "Non-network error: ${e.message}"
+    return false
+  }
+  |true| => {
+    // Retry network errors
+    print "Network issue, retrying..."
+    return true
   }
 }
 ```
 
 The `is` keyword compares the `.name` property of both sides, so `e is NotFoundError` compiles to `e?.name === NotFoundError?.name`.
-
-Use `is not` for negated type comparison:
-
-```kimchi
-|e is not NotFoundError| => {
-  print "This is some other error"
-}
-```
 
 ### Dependency Injection System
 
@@ -626,22 +622,213 @@ myapp/
 
 ## CLI Commands
 
+### Module Execution
+
+Run modules using dot-notation paths instead of file paths:
+
+```bash
+# Run a module by path (salesforce/client.km -> salesforce.client)
+kimchi salesforce.client
+
+# Equivalent to:
+kimchi run salesforce/client.km
+```
+
+**Passing named arguments:**
+
+Modules can declare arguments with `arg` and `!arg` (required). Pass them from the CLI using `--arg-name value`:
+
+```kimchi
+// api/client.km
+!arg clientId          // Required argument
+arg timeout = 5000     // Optional with default
+
+expose fn connect() {
+  print "Connecting with ${clientId}, timeout: ${timeout}ms"
+}
+
+connect()
+```
+
+```bash
+# Pass required and optional args
+kimchi api.client --client-id ABC123 --timeout 10000
+
+# Argument names convert: --client-id -> clientId (camelCase)
+```
+
+**Injecting dependencies:**
+
+Override module dependencies at runtime with `--dep alias=path`:
+
+```kimchi
+// services/api.km
+as http dep lib.http    // Normal dependency
+
+expose fn fetch(url) {
+  return http.get(url)
+}
+```
+
+```bash
+# Inject a mock HTTP module for testing
+kimchi services.api --dep http=mocks.http
+
+# Multiple dependency injections
+kimchi app.main --dep http=mocks.http --dep db=mocks.db
+```
+
+**Module help:**
+
+View a module's description, arguments, and dependencies:
+
+```bash
+kimchi help api.client
+```
+
+Output:
+```
+Module: api.client
+File: ./api/client.km
+
+Description:
+  API client for connecting to external services
+
+Arguments:
+  --client-id (required)
+  --timeout [default: 5000]
+
+Dependencies:
+  http <- lib.http
+
+Usage:
+  kimchi api.client --client-id <value>
+```
+
+**Listing modules:**
+
+```bash
+# List modules in current directory
+kimchi ls
+
+# List with descriptions (calls _describe() on each module)
+kimchi ls --verbose
+
+# Recursive tree view
+kimchi ls ./lib --recursive --verbose
+```
+
+### Basic Commands
+
 ```bash
 # Compile a file to JavaScript
-node src/cli.js compile app.kimchi
+kimchi compile app.kimchi
 
 # Compile with custom output
-node src/cli.js compile app.kimchi -o dist/app.js
+kimchi compile app.kimchi -o dist/app.js
 
 # Run a file directly
-node src/cli.js run app.kimchi
+kimchi run app.kimchi
 
 # Start interactive REPL
-node src/cli.js repl
+kimchi repl
 
 # Show help
-node src/cli.js help
+kimchi help
 ```
+
+### Reverse Transpiler (JavaScript to KimchiLang)
+
+Convert existing JavaScript code to KimchiLang with the `convert` command:
+
+```bash
+# Convert a JavaScript file to KimchiLang
+kimchi convert app.js
+
+# Convert with custom output path
+kimchi convert app.js -o src/app.km
+```
+
+The reverse transpiler handles:
+- **Variables** - `const`/`let`/`var` → `dec`
+- **Functions** - Function declarations → `fn`
+- **Classes** - Converted to factory functions (e.g., `class User` → `fn createUser()`)
+- **Imports** - ES modules and `require()` → `dep` statements
+- **Exports** - Named/default exports → `expose`
+- **console.log** → `print`
+- **Conditionals** - `if/else` → pattern matching syntax
+
+**Example:**
+
+```javascript
+// input.js
+const API_URL = "https://api.example.com";
+
+class UserService {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  
+  getUser(id) {
+    return fetch(`${API_URL}/users/${id}`);
+  }
+}
+
+console.log("Ready");
+```
+
+```bash
+kimchi convert input.js
+```
+
+```kimchi
+// output.km
+dec API_URL = "https://api.example.com"
+
+// Converted from class UserService
+fn createUserService(apiKey) {
+  return {
+    getUser: (id) => {
+      return fetch("${API_URL}/users/${id}")
+    }
+  }
+}
+
+print "Ready"
+```
+
+### NPM Integration
+
+The `npm` subcommand runs npm and automatically converts installed packages to the `pantry/` directory:
+
+```bash
+# Install a package and convert it to pantry/
+kimchi npm install lodash
+
+# Install multiple packages
+kimchi npm install axios moment
+
+# Any npm command works, but only install triggers conversion
+kimchi npm update
+```
+
+After installation, packages are available in `pantry/<package>/index.km`:
+
+```kimchi
+// Use the converted package
+as lodash dep pantry.lodash
+
+dec result = lodash.map([1, 2, 3], x => x * 2)
+```
+
+**How it works:**
+1. Runs the npm command normally
+2. Scans `node_modules/` for installed packages
+3. Finds each package's main entry point
+4. Converts JavaScript to KimchiLang using the reverse transpiler
+5. Saves to `pantry/<package>/index.km`
+
+**Note:** Complex packages with advanced JavaScript features may not convert perfectly. The pantry is best for simple utility libraries.
 
 ## Running Tests
 
