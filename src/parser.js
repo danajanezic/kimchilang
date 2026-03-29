@@ -8,6 +8,7 @@ export const NodeType = {
   
   // Declarations
   DecDeclaration: 'DecDeclaration',
+  MutDeclaration: 'MutDeclaration',
   FunctionDeclaration: 'FunctionDeclaration',
   
   // Statements
@@ -189,7 +190,12 @@ export class Parser {
       }
       return decl;
     }
-    
+
+    if (this.check(TokenType.MUT)) {
+      const decl = this.parseMutDeclaration();
+      return decl;
+    }
+
     if (this.check(TokenType.ASYNC)) {
       this.advance();
       if (this.check(TokenType.FN)) {
@@ -395,6 +401,50 @@ export class Parser {
       type: NodeType.DecDeclaration,
       name,
       init,
+    };
+  }
+
+  parseMutDeclaration() {
+    this.expect(TokenType.MUT, 'Expected mut');
+
+    if (this.check(TokenType.LBRACE)) {
+      const pattern = this.parseObjectPattern();
+      this.expect(TokenType.ASSIGN, 'mut requires initialization');
+      const init = this.parseExpression();
+      return {
+        type: NodeType.MutDeclaration,
+        pattern,
+        init,
+        destructuring: true,
+        line: this.tokens[this.pos - 1].line,
+        column: this.tokens[this.pos - 1].column,
+      };
+    }
+
+    if (this.check(TokenType.LBRACKET)) {
+      const pattern = this.parseArrayPattern();
+      this.expect(TokenType.ASSIGN, 'mut requires initialization');
+      const init = this.parseExpression();
+      return {
+        type: NodeType.MutDeclaration,
+        pattern,
+        init,
+        destructuring: true,
+        line: this.tokens[this.pos - 1].line,
+        column: this.tokens[this.pos - 1].column,
+      };
+    }
+
+    const name = this.expect(TokenType.IDENTIFIER, 'Expected variable name').value;
+    this.expect(TokenType.ASSIGN, 'mut requires initialization');
+    const init = this.parseExpression();
+
+    return {
+      type: NodeType.MutDeclaration,
+      name,
+      init,
+      line: this.tokens[this.pos - 1].line,
+      column: this.tokens[this.pos - 1].column,
     };
   }
 

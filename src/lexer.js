@@ -44,6 +44,7 @@ export const TokenType = {
   DESCRIBE: 'DESCRIBE',
   EXPECT: 'EXPECT',
   ASSERT: 'ASSERT',
+  MUT: 'MUT',
 
   // Operators
   PLUS: 'PLUS',
@@ -131,6 +132,7 @@ const KEYWORDS = {
   'describe': TokenType.DESCRIBE,
   'expect': TokenType.EXPECT,
   'assert': TokenType.ASSERT,
+  'mut': TokenType.MUT,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,

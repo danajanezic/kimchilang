@@ -590,6 +590,46 @@ test('Regex literal in expression', () => {
   assertEqual(ast.body[0].init.flags, 'g');
 });
 
+// --- Mut Tests ---
+console.log('\n--- Mut Tests ---\n');
+
+test('Tokenize mut keyword', () => {
+  const tokens = tokenize('mut x = 5');
+  assertEqual(tokens[0].type, 'MUT');
+  assertEqual(tokens[1].type, 'IDENTIFIER');
+  assertEqual(tokens[1].value, 'x');
+});
+
+test('Parse mut declaration', () => {
+  const ast = parse(tokenize('mut x = 42'));
+  assertEqual(ast.body[0].type, 'MutDeclaration');
+  assertEqual(ast.body[0].name, 'x');
+  assertEqual(ast.body[0].init.value, 42);
+});
+
+test('Parse mut with object destructuring', () => {
+  const ast = parse(tokenize('mut { a, b } = obj'));
+  assertEqual(ast.body[0].type, 'MutDeclaration');
+  assertEqual(ast.body[0].destructuring, true);
+});
+
+test('Mut allows reassignment (parser does not error)', () => {
+  const ast = parse(tokenize('mut x = 0\nx = x + 1'));
+  assertEqual(ast.body[0].type, 'MutDeclaration');
+  assertEqual(ast.body[1].type, 'ExpressionStatement');
+  assertEqual(ast.body[1].expression.type, 'AssignmentExpression');
+});
+
+test('Dec still blocks reassignment', () => {
+  let threw = false;
+  try {
+    parse(tokenize('dec x = 0\nx = 1'));
+  } catch (e) {
+    threw = true;
+  }
+  assertEqual(threw, true, 'dec reassignment should throw parse error');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
