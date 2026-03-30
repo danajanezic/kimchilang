@@ -1,0 +1,6 @@
+{
+  "llm": {
+    "command": "claude --print",
+    "maxRetries": 5
+  }
+}
