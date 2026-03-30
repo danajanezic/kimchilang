@@ -27,7 +27,7 @@
 
 ## Standard Library
 
-- [ ] `array.km` — currently empty, needs map/filter/reduce wrappers, chunk, zip, groupBy, sortBy, flatten, unique
+- [x] ~~`array.km`~~ — implemented: chunk, zip, groupBy, sortBy, range, compact, partition, intersect, difference
 - [ ] Package registry (beyond GitHub-based dependency management)
 - [ ] Version resolution and lockfile for dependencies
 
