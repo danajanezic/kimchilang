@@ -1062,6 +1062,39 @@ export class TypeChecker {
       this.popScope();
     }
 
+    // Exhaustiveness checking for enum matches
+    const hasWildcard = node.arms.some(a =>
+      a.pattern.type === 'WildcardPattern' || a.pattern.type === NodeType.WildcardPattern ||
+      a.pattern.type === 'BindingPattern'
+    );
+
+    if (!hasWildcard) {
+      // Collect MemberPattern arms that look like EnumName.Member
+      const memberPatterns = node.arms
+        .filter(a => a.pattern.type === 'MemberPattern')
+        .map(a => a.pattern);
+
+      if (memberPatterns.length > 0) {
+        // Check if all patterns reference the same enum
+        const enumName = memberPatterns[0].object;
+        const allSameEnum = memberPatterns.every(p => p.object === enumName);
+
+        if (allSameEnum && this.enums.has(enumName)) {
+          const enumDef = this.enums.get(enumName);
+          const coveredMembers = new Set(memberPatterns.map(p => p.property));
+          const allMembers = Object.keys(enumDef.members);
+          const missing = allMembers.filter(m => !coveredMembers.has(m));
+
+          if (missing.length > 0) {
+            this.addError(
+              `Non-exhaustive match on enum '${enumName}': missing ${missing.map(m => `${enumName}.${m}`).join(', ')}`,
+              node
+            );
+          }
+        }
+      }
+    }
+
     return resultType;
   }
 

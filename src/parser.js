@@ -863,9 +863,27 @@ export class Parser {
       };
     }
 
-    // Identifier — binding variable (like n in: n when n >= 90)
+    // Identifier — could be binding variable or enum member (Color.Red)
     if (this.check(TokenType.IDENTIFIER)) {
       const name = this.advance().value;
+
+      // Check for member access: Color.Red, HttpStatus.OK
+      if (this.check(TokenType.DOT)) {
+        let object = name;
+        let property;
+        while (this.match(TokenType.DOT)) {
+          property = this.advance().value;
+          if (this.check(TokenType.DOT)) {
+            object = object + '.' + property;
+          }
+        }
+        return {
+          type: 'MemberPattern',
+          object,
+          property,
+        };
+      }
+
       return {
         type: 'BindingPattern',
         name,

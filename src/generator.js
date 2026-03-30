@@ -1245,7 +1245,7 @@ export class CodeGenerator {
 
     // Optimization: simple match with only literal/wildcard patterns and expression bodies → ternary chain
     const canTernary = node.arms.every(arm =>
-      (arm.pattern.type === 'LiteralPattern' || arm.pattern.type === 'WildcardPattern' || arm.pattern.type === NodeType.WildcardPattern) &&
+      (arm.pattern.type === 'LiteralPattern' || arm.pattern.type === 'MemberPattern' || arm.pattern.type === 'WildcardPattern' || arm.pattern.type === NodeType.WildcardPattern) &&
       arm.body.type !== 'BlockStatement' &&
       !arm.guard
     );
@@ -1256,6 +1256,8 @@ export class CodeGenerator {
         const body = this.visitExpression(arm.body);
         if (arm.pattern.type === 'WildcardPattern' || arm.pattern.type === NodeType.WildcardPattern) {
           ternary += body;
+        } else if (arm.pattern.type === 'MemberPattern') {
+          ternary += `(${subject}) === ${arm.pattern.object}.${arm.pattern.property} ? ${body} : `;
         } else {
           const val = typeof arm.pattern.value === 'string' ? `"${arm.pattern.value}"` : arm.pattern.value;
           ternary += `(${subject}) === ${val} ? ${body} : `;
@@ -1347,6 +1349,15 @@ export class CodeGenerator {
       case 'LiteralPattern': {
         const val = typeof pattern.value === 'string' ? `"${pattern.value}"` : pattern.value;
         condition = `_subject === ${val}`;
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
+      case 'MemberPattern': {
+        condition = `_subject === ${pattern.object}.${pattern.property}`;
         if (guard) {
           const guardExpr = this.visitExpression(guard);
           condition += ` && (${guardExpr})`;
