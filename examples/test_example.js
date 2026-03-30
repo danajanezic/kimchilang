@@ -44,59 +44,6 @@ error.create = (_id) => {
   return fn;
 };
 
-class _Secret {
-  constructor(value) { this._value = value; }
-  toString() { return "********"; }
-  valueOf() { return this._value; }
-  get value() { return this._value; }
-  [Symbol.toPrimitive](hint) { return hint === "string" ? "********" : this._value; }
-}
-function _secret(value) { return new _Secret(value); }
-
-function _deepFreeze(obj) {
-  if (obj === null || typeof obj !== "object") return obj;
-  Object.keys(obj).forEach(key => _deepFreeze(obj[key]));
-  return Object.freeze(obj);
-}
-
-function _pipe(value, ...fns) {
-  let result = value;
-  for (let i = 0; i < fns.length; i++) {
-    if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }
-    result = fns[i](result);
-  }
-  return result;
-}
-
-function _flow(...fns) {
-  const composed = (...args) => {
-    let result = fns[0](...args);
-    for (let i = 1; i < fns.length; i++) {
-      if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }
-      result = fns[i](result);
-    }
-    return result;
-  };
-  return composed;
-}
-
-async function _shell(command, inputs = {}) {
-  const { exec } = await import("child_process");
-  const { promisify } = await import("util");
-  const execAsync = promisify(exec);
-  // Interpolate inputs into command
-  let cmd = command;
-  for (const [key, value] of Object.entries(inputs)) {
-    cmd = cmd.replace(new RegExp("\\$" + key + "\\b", "g"), String(value));
-  }
-  try {
-    const { stdout, stderr } = await execAsync(cmd);
-    return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 };
-  } catch (error) {
-    return { stdout: error.stdout?.trim() || "", stderr: error.stderr?.trim() || error.message, exitCode: error.code || 1 };
-  }
-}
-
 // Testing framework
 const _tests = [];
 let _currentDescribe = null;
@@ -228,17 +175,17 @@ export default async function(_opts = {}) {
       _expect(greet("World")).toBe("Hello, World!");
     });
     _test("string contains check", async () => {
-      const message = _deepFreeze(greet("Alice"));
+      const message = greet("Alice");
       _expect(message).toContain("Alice");
     });
   });
   _describe("Array operations", () => {
     _test("array length", async () => {
-      const arr = _deepFreeze([1, 2, 3, 4, 5]);
+      const arr = [1, 2, 3, 4, 5];
       _expect(arr).toHaveLength(5);
     });
     _test("array contains", async () => {
-      const fruits = _deepFreeze(["apple", "banana", "cherry"]);
+      const fruits = ["apple", "banana", "cherry"];
       _expect(fruits).toContain("banana");
     });
   });
@@ -259,11 +206,11 @@ export default async function(_opts = {}) {
   _describe("New matchers", () => {
     _test("toBeDefined and toBeUndefined", async () => {
       _expect(42).toBeDefined();
-      const obj = _deepFreeze({ a: 1 });
+      const obj = { a: 1 };
       _expect(obj?.b).toBeUndefined();
     });
     _test("toBeCloseTo for floating point", async () => {
-      const result = _deepFreeze((0.1 + 0.2));
+      const result = (0.1 + 0.2);
       _expect(result).toBeCloseTo(0.3);
     });
   });
@@ -272,7 +219,7 @@ export default async function(_opts = {}) {
       _expect(1).not.toBe(2);
     });
     _test("not.toContain", async () => {
-      const arr = _deepFreeze([1, 2, 3]);
+      const arr = [1, 2, 3];
       _expect(arr).not.toContain(4);
     });
     _test("not.toBeNull", async () => {
@@ -292,7 +239,7 @@ export default async function(_opts = {}) {
   });
   _describe("Match expressions", () => {
     _test("match returns correct value", async () => {
-      const result = _deepFreeze((() => {
+      const result = (() => {
         const _subject = 200;
         if (_subject === 200) {
           return "OK";
@@ -301,18 +248,18 @@ export default async function(_opts = {}) {
         } else {
           return "Unknown";
         }
-      })());
+      })();
       _expect(result).toBe("OK");
     });
     _test("match with wildcard", async () => {
-      const result = _deepFreeze((() => {
+      const result = (() => {
         const _subject = 999;
         if (_subject === 200) {
           return "OK";
         } else {
           return "Unknown";
         }
-      })());
+      })();
       _expect(result).toBe("Unknown");
     });
   });

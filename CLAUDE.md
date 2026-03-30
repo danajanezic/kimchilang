@@ -47,8 +47,8 @@ Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
 
 ## Key Runtime Patterns
 
-- `dec x = value` compiles to `const x = _deepFreeze(value)` — all values deeply frozen
-- `obj.a.b.c` compiles to `obj?.a?.b?.c` — all member access is null-safe
+- `dec x = value` compiles to `const x = value` — immutability enforced at compile time, not runtime. `dec` vars are `Object.freeze`d only when passed to `js()` blocks.
+- `obj.a.b.c` compiles to `obj.a.b.c` when shape is known from literal declaration, `obj?.a?.b?.c` otherwise
 - `==` compiles to `===` — strict equality only
 - `~>` is the pipe operator (eager); `>>` is the flow operator (lazy composition)
 
