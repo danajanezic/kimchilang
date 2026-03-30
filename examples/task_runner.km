@@ -1,0 +1,138 @@
+// Task Runner — demonstrates new KimchiLang features
+// A mini build pipeline that validates, transforms, and reports on tasks
+
+// --- Data ---
+
+dec tasks = [
+  { name: "lint",    status: "pending",  priority: 3, runner: "eslint",  timeout: null },
+  { name: "typecheck", status: "pending", priority: 2, runner: "tsc",    timeout: 30 },
+  { name: "test",    status: "pending",  priority: 1, runner: "jest",    timeout: 60 },
+  { name: "build",   status: "pending",  priority: 1, runner: null,      timeout: 120 },
+  { name: "deploy",  status: "skipped",  priority: 4, runner: "rsync",   timeout: 300 }
+]
+
+// --- Custom error types ---
+
+dec TaskError = error.create("TaskError")
+dec ValidationError = error.create("ValidationError")
+
+// --- Validation with guard ---
+
+fn validateTask(task) {
+  guard task != null else { throw ValidationError("Task is null") }
+  guard task.name != null else { throw ValidationError("Task missing name") }
+  guard task.status != null else { throw ValidationError("Task missing status") }
+  return task
+}
+
+// --- Classify tasks using match expressions ---
+
+fn getTimeoutLabel(task) {
+  dec seconds = task.timeout ?? 30
+  return match seconds {
+    n when n <= 10 => "fast"
+    n when n <= 60 => "normal"
+    n when n > 60 => "slow"
+    _ => "unknown"
+  }
+}
+
+fn describeTask(task) {
+  dec runner = task.runner ?? "default"
+  dec timeout = task.timeout ?? 30
+  dec speed = getTimeoutLabel(task)
+  dec urgent = "URGENT".if(task.priority == 1).else("")
+
+  return {
+    name: task.name,
+    runner: runner,
+    timeout: timeout,
+    speed: speed,
+    urgent: urgent,
+    status: task.status
+  }
+}
+
+// --- Filter and process pipeline ---
+
+fn shouldRun(task) {
+  return match task.status {
+    "pending" => true
+    "failed" => true
+    _ => false
+  }
+}
+
+fn runTask(task) {
+  dec described = describeTask(task)
+  dec prefix = "[${described.urgent}]".if(described.urgent != "").else("[  ]")
+
+  print "${prefix} Running ${described.name} (${described.runner}, ${described.speed})"
+
+  // Simulate: build fails if no runner configured and no default
+  return match task {
+    { runner: null, name } => {
+      print "  WARNING: no runner for '${name}', using fallback"
+      return { ...described, status: "done", note: "used fallback runner" }
+    }
+    { priority: 1 } => {
+      print "  Priority task — running with extra checks"
+      return { ...described, status: "done", note: "priority run" }
+    }
+    _ => {
+      return { ...described, status: "done", note: null }
+    }
+  }
+}
+
+// --- Main execution ---
+
+fn main() {
+  print "=== Task Runner ==="
+  print ""
+
+  // Validate all tasks
+  dec validated = tasks.map(t => validateTask(t))
+
+  // Filter to runnable tasks
+  dec runnable = validated.filter(t => shouldRun(t))
+  print "Tasks to run: ${runnable.length} of ${tasks.length}"
+  print ""
+
+  // Run tasks, accumulate results with mut
+  mut results = []
+  mut passed = 0
+  mut failed = 0
+
+  for task in runnable {
+    try {
+      dec result = runTask(task)
+      results = [...results, result]
+      passed = passed + 1
+    } catch(e) {
+      print "  FAILED: ${e.message}"
+      failed = failed + 1
+      results = [...results, { name: task.name, status: "failed" }]
+    }
+  }
+
+  // --- Summary ---
+  print ""
+  print "=== Results ==="
+  print "Passed: ${passed}"
+  print "Failed: ${failed}"
+  print ""
+
+  // Show notes for tasks that have them
+  for result in results {
+    dec note = result.note ?? "no notes"
+    dec marker = "*".if(result.status == "done").else("x")
+    print "  [${marker}] ${result.name}: ${note}"
+  }
+
+  print ""
+  dec allPassed = "ALL TASKS PASSED".if(failed == 0).else("SOME TASKS FAILED")
+  print allPassed
+}
+
+main()
