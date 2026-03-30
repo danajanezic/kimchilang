@@ -661,7 +661,16 @@ export class Parser {
     
     this.skipNewlines();
     this.expect(TokenType.RBRACE, 'Expected }');
-    
+
+    // Disallow mixed implicit/explicit enum values
+    if (members.length > 1) {
+      const hasExplicit = members.some(m => m.value !== null);
+      const hasImplicit = members.some(m => m.value === null);
+      if (hasExplicit && hasImplicit) {
+        this.error(`Enum '${name}' mixes implicit and explicit values. Use all implicit (Red, Green, Blue) or all explicit (OK = 200, NotFound = 404)`);
+      }
+    }
+
     return {
       type: NodeType.EnumDeclaration,
       name,

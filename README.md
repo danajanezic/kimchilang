@@ -393,13 +393,20 @@ enum HttpStatus {
   ServerError = 500
 }
 
-// Mixed (auto-increment continues from last explicit value)
+// All-explicit with custom values
 enum Priority {
-  Low,       // 0
-  Medium,    // 1
-  High = 10, // 10
-  Critical   // 11
+  Low = 0,
+  Medium = 1,
+  High = 10,
+  Critical = 11
 }
+```
+
+**Note:** Enums must be all-implicit or all-explicit — mixing is a compile error:
+
+```kimchi
+// This is NOT allowed:
+enum Bad { A, B, C = 10 }  // Error: mixes implicit and explicit values
 ```
 
 Enums are frozen objects and can be used with pattern matching:
