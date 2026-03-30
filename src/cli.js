@@ -44,7 +44,6 @@ Commands:
   build <dir>       Compile all .kimchi files in a directory
   install           Install dependencies from project.static
   clean             Remove installed dependencies
-  repl              Start an interactive REPL session
   cache clear       Clear transpilation cache
   help              Show this help message
   version           Show version information
@@ -1148,7 +1147,8 @@ async function main() {
     }
 
     case 'repl':
-      await startRepl();
+      console.error('REPL is not yet implemented. Use stdin instead: echo \'print "hi"\' | kimchi');
+      process.exit(1);
       break;
 
     case 'convert': {

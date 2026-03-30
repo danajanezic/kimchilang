@@ -12,6 +12,7 @@
 
 ## Tooling
 
+- [ ] REPL — interactive session with state across lines
 - [ ] LSP: go-to-definition, hover (show KMDocs + types), find references
 - [ ] LSP: autocomplete
 - [ ] Debugger integration
