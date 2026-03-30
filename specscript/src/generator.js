@@ -354,6 +354,7 @@ class CodeGenerator {
       }
 
       case NodeType.Identifier:
+        if (node.name === 'expect') return '_expect';
         return node.name;
 
       case NodeType.BinaryExpression: {
