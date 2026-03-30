@@ -1026,6 +1026,28 @@ test('Parse describe.skip', () => {
   assertEqual(ast.body[0].modifier, 'skip');
 });
 
+test('Generate test.only passes modifier', () => {
+  const js = generate(parse(tokenize('test.only "critical" { assert true }')));
+  assertContains(js, '"only"');
+});
+
+test('Generate test.skip passes modifier', () => {
+  const js = generate(parse(tokenize('test.skip "todo" { assert true }')));
+  assertContains(js, '"skip"');
+});
+
+test('Generate describe.only passes modifier', () => {
+  const js = generate(parse(tokenize('describe.only "Auth" { test "login" { assert true } }')));
+  assertContains(js, '"only"');
+});
+
+test('Runtime has skip/only support', () => {
+  const js = generate(parse(tokenize('test "x" { assert true }')));
+  assertContains(js, '_hasOnly');
+  assertContains(js, 'skipped');
+  assertContains(js, 'shouldSkip');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

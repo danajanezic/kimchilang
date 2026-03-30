@@ -208,19 +208,26 @@ export class CodeGenerator {
     this.emitLine('// Testing framework');
     this.emitLine('const _tests = [];');
     this.emitLine('let _currentDescribe = null;');
-    this.emitLine('function _describe(name, fn) {');
+    this.emitLine('let _hasOnly = false;');
+
+    // _describe with modifier support
+    this.emitLine('function _describe(name, fn, modifier = null) {');
     this.pushIndent();
     this.emitLine('const prev = _currentDescribe;');
-    this.emitLine('_currentDescribe = { name, tests: [], parent: prev };');
+    this.emitLine('_currentDescribe = { name, tests: [], parent: prev, modifier };');
+    this.emitLine('if (modifier === "only") _hasOnly = true;');
     this.emitLine('fn();');
     this.emitLine('if (prev) { prev.tests.push(_currentDescribe); }');
     this.emitLine('else { _tests.push(_currentDescribe); }');
     this.emitLine('_currentDescribe = prev;');
     this.popIndent();
     this.emitLine('}');
-    this.emitLine('function _test(name, fn) {');
+
+    // _test with modifier support
+    this.emitLine('function _test(name, fn, modifier = null) {');
     this.pushIndent();
-    this.emitLine('const test = { name, fn, describe: _currentDescribe };');
+    this.emitLine('if (modifier === "only") _hasOnly = true;');
+    this.emitLine('const test = { name, fn, describe: _currentDescribe, modifier };');
     this.emitLine('if (_currentDescribe) { _currentDescribe.tests.push(test); }');
     this.emitLine('else { _tests.push(test); }');
     this.popIndent();
@@ -263,27 +270,53 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('}');
     this.emitLine('function _assert(condition, message) { if (!condition) throw new Error(message); }');
+    // _runTests with only/skip logic
     this.emitLine('async function _runTests() {');
     this.pushIndent();
-    this.emitLine('let passed = 0, failed = 0;');
-    this.emitLine('async function runItem(item, indent = "") {');
+    this.emitLine('let passed = 0, failed = 0, skipped = 0;');
+    this.emitLine('function shouldSkip(item, parentSkipped) {');
     this.pushIndent();
+    this.emitLine('if (item.modifier === "skip" || parentSkipped) return true;');
+    this.emitLine('if (_hasOnly && item.modifier !== "only") {');
+    this.pushIndent();
+    this.emitLine('if (item.tests) { return !hasOnly(item); }');
+    this.emitLine('return true;');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('return false;');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('function hasOnly(item) {');
+    this.pushIndent();
+    this.emitLine('if (item.modifier === "only") return true;');
+    this.emitLine('if (item.tests) return item.tests.some(t => hasOnly(t));');
+    this.emitLine('return false;');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('async function runItem(item, indent = "", parentSkipped = false) {');
+    this.pushIndent();
+    this.emitLine('const skip = shouldSkip(item, parentSkipped);');
     this.emitLine('if (item.fn) {');
     this.pushIndent();
+    this.emitLine('if (skip) { console.log(indent + "○ " + item.name + " (skipped)"); skipped++; return; }');
     this.emitLine('try { await item.fn(); console.log(indent + "✓ " + item.name); passed++; }');
     this.emitLine('catch (e) { console.log(indent + "✗ " + item.name); console.log(indent + "  " + e.message); failed++; }');
     this.popIndent();
     this.emitLine('} else {');
     this.pushIndent();
     this.emitLine('console.log(indent + item.name);');
-    this.emitLine('for (const t of item.tests) await runItem(t, indent + "  ");');
+    this.emitLine('const childSkipped = skip || item.modifier === "skip";');
+    this.emitLine('for (const t of item.tests) await runItem(t, indent + "  ", childSkipped);');
     this.popIndent();
     this.emitLine('}');
     this.popIndent();
     this.emitLine('}');
     this.emitLine('for (const item of _tests) await runItem(item);');
-    this.emitLine('console.log(`\\n${passed + failed} tests, ${passed} passed, ${failed} failed`);');
-    this.emitLine('return { passed, failed };');
+    this.emitLine('const total = passed + failed + skipped;');
+    this.emitLine('const parts = [`${total} tests`, `${passed} passed`, `${failed} failed`];');
+    this.emitLine('if (skipped > 0) parts.push(`${skipped} skipped`);');
+    this.emitLine('console.log("\\n" + parts.join(", "));');
+    this.emitLine('return { passed, failed, skipped };');
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
@@ -1424,23 +1457,25 @@ export class CodeGenerator {
   
   // Testing framework code generation
   visitTestBlock(node) {
+    const modifier = node.modifier ? `, ${JSON.stringify(node.modifier)}` : '';
     this.emitLine(`_test(${JSON.stringify(node.name)}, async () => {`);
     this.pushIndent();
     for (const stmt of node.body.body) {
       this.visitStatement(stmt);
     }
     this.popIndent();
-    this.emitLine('});');
+    this.emitLine(`}${modifier});`);
   }
-  
+
   visitDescribeBlock(node) {
+    const modifier = node.modifier ? `, ${JSON.stringify(node.modifier)}` : '';
     this.emitLine(`_describe(${JSON.stringify(node.name)}, () => {`);
     this.pushIndent();
     for (const stmt of node.body.body) {
       this.visitStatement(stmt);
     }
     this.popIndent();
-    this.emitLine('});');
+    this.emitLine(`}${modifier});`);
   }
   
   visitExpectStatement(node) {
