@@ -1,0 +1,74 @@
+// Test file for testing framework enhancements
+// Run with: kimchi test examples/testing/framework_features.test.km
+
+describe "Lifecycle hooks" {
+  beforeAll {
+    print "  [hook] beforeAll ran"
+  }
+
+  afterAll {
+    print "  [hook] afterAll ran"
+  }
+
+  beforeEach {
+    print "  [hook] beforeEach ran"
+  }
+
+  afterEach {
+    print "  [hook] afterEach ran"
+  }
+
+  test "first test runs after hooks" {
+    assert true, "test runs"
+  }
+
+  test "second test also gets hooks" {
+    assert true, "test runs"
+  }
+}
+
+describe "New matchers" {
+  test "toBeDefined" {
+    expect(1).toBeDefined()
+    expect("hello").toBeDefined()
+  }
+
+  test "toBeUndefined" {
+    dec obj = { a: 1 }
+    expect(obj.b).toBeUndefined()
+  }
+
+  test "toBeCloseTo" {
+    dec result = 0.1 + 0.2
+    expect(result).toBeCloseTo(0.3)
+  }
+}
+
+describe ".not modifier" {
+  test "not.toBe" {
+    expect(1).not.toBe(2)
+  }
+
+  test "not.toBeNull" {
+    expect("hello").not.toBeNull()
+  }
+
+  test "not.toContain" {
+    dec items = [1, 2, 3]
+    expect(items).not.toContain(4)
+  }
+
+  test "not.toBeUndefined" {
+    expect(42).not.toBeUndefined()
+  }
+}
+
+describe.skip "Skipped suite" {
+  test "this should be skipped" {
+    assert false, "Should not run"
+  }
+}
+
+test.skip "Individual skipped test" {
+  assert false, "Should not run"
+}
