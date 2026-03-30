@@ -2,7 +2,8 @@
 
 ## Module System
 
-- [ ] Index file resolution in `dep` imports — `as svc dep myapp.services` should resolve `./myapp/services/index.km` (CLI already does this, generator doesn't)
+- [ ] Alias-free imports — `dep myapp.lib.http` without `as`, accessible via full path `myapp.lib.http.get()`. The `as` form remains for shorthand. No index files — files are modules, directories are just organization.
+- [ ] Remove index file fallback from CLI's `modulePathToFilePath` (currently tries `/index.km` — inconsistent with the explicit-path philosophy)
 
 ## Language Design
 
