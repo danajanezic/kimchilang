@@ -14,9 +14,9 @@ import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse }
 let passed = 0;
 let failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
   try {
-    fn();
+    await fn();
     console.log(`  ✓ ${name}`);
     passed++;
   } catch (error) {
@@ -76,7 +76,7 @@ console.log('\n--- SpecScript Test Suite ---\n');
 
 console.log('--- Section Splitter Tests ---');
 
-test('splits a valid .sp file into three sections', () => {
+await test('splits a valid .sp file into three sections', () => {
   const source = `## spec
 
 # MyModule
@@ -105,35 +105,35 @@ fn doSomething() {
   assertContains(sections.impl, 'fn doSomething');
 });
 
-test('rejects file missing ## spec section', () => {
+await test('rejects file missing ## spec section', () => {
   assertThrows(
     () => splitSections('## test\n\n## impl\n'),
     '## spec'
   );
 });
 
-test('rejects file missing ## test section', () => {
+await test('rejects file missing ## test section', () => {
   assertThrows(
     () => splitSections('## spec\n\n## impl\n'),
     '## test'
   );
 });
 
-test('rejects file missing ## impl section', () => {
+await test('rejects file missing ## impl section', () => {
   assertThrows(
     () => splitSections('## spec\n\n## test\n'),
     '## impl'
   );
 });
 
-test('rejects file with sections out of order (impl before test)', () => {
+await test('rejects file with sections out of order (impl before test)', () => {
   assertThrows(
     () => splitSections('## spec\n\n## impl\n\n## test\n'),
     'order'
   );
 });
 
-test('rejects file exceeding 500 lines', () => {
+await test('rejects file exceeding 500 lines', () => {
   const longFile = '## spec\n' + 'line\n'.repeat(499) + '## test\n\n## impl\n';
   assertThrows(
     () => splitSections(longFile),
@@ -141,7 +141,7 @@ test('rejects file exceeding 500 lines', () => {
   );
 });
 
-test('accepts file at exactly 500 lines', () => {
+await test('accepts file at exactly 500 lines', () => {
   const lines = [];
   lines.push('## spec');
   for (let i = 0; i < 494; i++) lines.push('x');
@@ -157,7 +157,7 @@ test('accepts file at exactly 500 lines', () => {
 
 console.log('--- Spec Parser Tests ---');
 
-test('parses module name from # heading', () => {
+await test('parses module name from # heading', () => {
   const spec = `# OrderProcessor
 
 **intent:** Process orders
@@ -166,7 +166,7 @@ test('parses module name from # heading', () => {
   assertEqual(result.module, 'OrderProcessor');
 });
 
-test('parses intent and reason', () => {
+await test('parses intent and reason', () => {
   const spec = `# Mod
 
 **intent:** Does things
@@ -176,7 +176,7 @@ test('parses intent and reason', () => {
   assertEqual(result.reason, 'Because reasons');
 });
 
-test('parses requires list', () => {
+await test('parses requires list', () => {
   const spec = `# Mod
 
 **intent:** x
@@ -193,7 +193,7 @@ test('parses requires list', () => {
   assertEqual(result.requires[2], 'Third requirement');
 });
 
-test('parses type definitions', () => {
+await test('parses type definitions', () => {
   const spec = `# Mod
 
 **intent:** x
@@ -210,7 +210,7 @@ test('parses type definitions', () => {
   assertEqual(result.types[1].name, 'Status');
 });
 
-test('parses depends list', () => {
+await test('parses depends list', () => {
   const spec = `# Mod
 
 **intent:** x
@@ -227,7 +227,7 @@ test('parses depends list', () => {
   assertDeepEqual(result.depends[1].functions, ['processPayment', 'rollbackPayment']);
 });
 
-test('parses expose function declarations', () => {
+await test('parses expose function declarations', () => {
   const spec = `# Mod
 
 **intent:** x
@@ -245,7 +245,7 @@ test('parses expose function declarations', () => {
   assertEqual(result.functions[0].intent, 'Validate and process an order');
 });
 
-test('parses internal function declarations', () => {
+await test('parses internal function declarations', () => {
   const spec = `# Mod
 
 **intent:** x
@@ -259,19 +259,19 @@ test('parses internal function declarations', () => {
   assertEqual(result.functions[0].name, 'helper');
 });
 
-test('rejects spec missing module name', () => {
+await test('rejects spec missing module name', () => {
   assertThrows(() => parseSpec('**intent:** x\n**reason:** y'), 'module name');
 });
 
-test('rejects spec missing intent', () => {
+await test('rejects spec missing intent', () => {
   assertThrows(() => parseSpec('# Mod\n**reason:** y'), 'intent');
 });
 
-test('rejects spec missing reason', () => {
+await test('rejects spec missing reason', () => {
   assertThrows(() => parseSpec('# Mod\n**intent:** x'), 'reason');
 });
 
-test('parses full spec with all sections', () => {
+await test('parses full spec with all sections', () => {
   const spec = `# OrderProcessor
 
 **intent:** Process customer orders
@@ -310,57 +310,57 @@ test('parses full spec with all sections', () => {
 
 console.log('--- Hasher Tests ---');
 
-test('normalizeSpec collapses whitespace', () => {
+await test('normalizeSpec collapses whitespace', () => {
   const a = normalizeSpec('# Mod\n\n\n**intent:** x\n  **reason:** y');
   const b = normalizeSpec('# Mod\n**intent:** x\n**reason:** y');
   assertEqual(a, b);
 });
 
-test('normalizeSpec trims lines', () => {
+await test('normalizeSpec trims lines', () => {
   const a = normalizeSpec('  # Mod  \n  **intent:** x  ');
   const b = normalizeSpec('# Mod\n**intent:** x');
   assertEqual(a, b);
 });
 
-test('computeSpecHash returns consistent hash for same content', () => {
+await test('computeSpecHash returns consistent hash for same content', () => {
   const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
   const hash2 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
   assertEqual(hash1, hash2);
 });
 
-test('computeSpecHash returns different hash for different content', () => {
+await test('computeSpecHash returns different hash for different content', () => {
   const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
   const hash2 = computeSpecHash('# Mod\n**intent:** z\n**reason:** y');
   const different = hash1 !== hash2;
   assertEqual(different, true);
 });
 
-test('computeSpecHash ignores whitespace differences', () => {
+await test('computeSpecHash ignores whitespace differences', () => {
   const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
   const hash2 = computeSpecHash('# Mod\n\n  **intent:** x  \n\n**reason:** y\n\n');
   assertEqual(hash1, hash2);
 });
 
-test('computeSpecHash returns sha256: prefixed string', () => {
+await test('computeSpecHash returns sha256: prefixed string', () => {
   const hash = computeSpecHash('# Mod');
   assertEqual(hash.startsWith('sha256:'), true);
   assertEqual(hash.length, 7 + 64);
 });
 
-test('extractHash finds hash in HTML comment', () => {
+await test('extractHash finds hash in HTML comment', () => {
   const section = '<!-- spec-hash: sha256:abc123def456 -->\n\nsome code';
   const hash = extractHash(section);
   assertEqual(hash, 'sha256:abc123def456');
 });
 
-test('extractHash returns null when no hash present', () => {
+await test('extractHash returns null when no hash present', () => {
   const hash = extractHash('just some code\nno hash here');
   assertEqual(hash, null);
 });
 
 console.log('--- Lexer Tests ---');
 
-test('tokenizes keywords', () => {
+await test('tokenizes keywords', () => {
   const tokens = tokenize('dec fn return if else');
   assertEqual(tokens[0].type, TokenType.DEC);
   assertEqual(tokens[1].type, TokenType.FN);
@@ -369,7 +369,7 @@ test('tokenizes keywords', () => {
   assertEqual(tokens[4].type, TokenType.ELSE);
 });
 
-test('tokenizes identifiers', () => {
+await test('tokenizes identifiers', () => {
   const tokens = tokenize('myVar foo_bar');
   assertEqual(tokens[0].type, TokenType.IDENTIFIER);
   assertEqual(tokens[0].value, 'myVar');
@@ -377,7 +377,7 @@ test('tokenizes identifiers', () => {
   assertEqual(tokens[1].value, 'foo_bar');
 });
 
-test('tokenizes numbers', () => {
+await test('tokenizes numbers', () => {
   const tokens = tokenize('42 3.14');
   assertEqual(tokens[0].type, TokenType.NUMBER);
   assertEqual(tokens[0].value, '42');
@@ -385,13 +385,13 @@ test('tokenizes numbers', () => {
   assertEqual(tokens[1].value, '3.14');
 });
 
-test('tokenizes strings', () => {
+await test('tokenizes strings', () => {
   const tokens = tokenize('"hello world"');
   assertEqual(tokens[0].type, TokenType.STRING);
   assertEqual(tokens[0].value, 'hello world');
 });
 
-test('tokenizes operators', () => {
+await test('tokenizes operators', () => {
   const tokens = tokenize('= == != => ~> >> + - * /');
   assertEqual(tokens[0].type, TokenType.ASSIGN);
   assertEqual(tokens[1].type, TokenType.EQ);
@@ -401,7 +401,7 @@ test('tokenizes operators', () => {
   assertEqual(tokens[5].type, TokenType.FLOW);
 });
 
-test('tokenizes delimiters', () => {
+await test('tokenizes delimiters', () => {
   const tokens = tokenize('( ) { } [ ] , .');
   assertEqual(tokens[0].type, TokenType.LPAREN);
   assertEqual(tokens[1].type, TokenType.RPAREN);
@@ -413,20 +413,20 @@ test('tokenizes delimiters', () => {
   assertEqual(tokens[7].type, TokenType.DOT);
 });
 
-test('tokenizes test block keywords', () => {
+await test('tokenizes test block keywords', () => {
   const tokens = tokenize('test expect');
   assertEqual(tokens[0].type, TokenType.TEST);
   assertEqual(tokens[1].type, TokenType.EXPECT);
 });
 
-test('tokenizes logical operators', () => {
+await test('tokenizes logical operators', () => {
   const tokens = tokenize('and or not');
   assertEqual(tokens[0].type, TokenType.AND);
   assertEqual(tokens[1].type, TokenType.OR);
   assertEqual(tokens[2].type, TokenType.NOT);
 });
 
-test('tokenizes boolean literals', () => {
+await test('tokenizes boolean literals', () => {
   const tokens = tokenize('true false');
   assertEqual(tokens[0].type, TokenType.BOOLEAN);
   assertEqual(tokens[0].value, 'true');
@@ -434,14 +434,14 @@ test('tokenizes boolean literals', () => {
   assertEqual(tokens[1].value, 'false');
 });
 
-test('tokenizes pipe operator in expression', () => {
+await test('tokenizes pipe operator in expression', () => {
   const tokens = tokenize('items ~> filter(x => x > 0)');
   assertEqual(tokens[0].type, TokenType.IDENTIFIER);
   assertEqual(tokens[1].type, TokenType.PIPE);
   assertEqual(tokens[2].type, TokenType.IDENTIFIER);
 });
 
-test('tracks line and column', () => {
+await test('tracks line and column', () => {
   const tokens = tokenize('dec x = 1\ndec y = 2');
   assertEqual(tokens[0].line, 1);
   assertEqual(tokens[0].column, 1);
@@ -449,18 +449,18 @@ test('tracks line and column', () => {
   assertEqual(yToken.line, 2);
 });
 
-test('skips comments', () => {
+await test('skips comments', () => {
   const tokens = tokenize('dec x = 1 // this is a comment\ndec y = 2');
   const identifiers = tokens.filter(t => t.type === TokenType.IDENTIFIER);
   assertEqual(identifiers.length, 2);
 });
 
-test('skips HTML comments (hash lines)', () => {
+await test('skips HTML comments (hash lines)', () => {
   const tokens = tokenize('<!-- spec-hash: sha256:abc -->\nfn foo() {}');
   assertEqual(tokens[0].type, TokenType.FN);
 });
 
-test('ends with EOF', () => {
+await test('ends with EOF', () => {
   const tokens = tokenize('dec x = 1');
   assertEqual(tokens[tokens.length - 1].type, TokenType.EOF);
 });
@@ -470,106 +470,106 @@ console.log('--- Parser Tests ---');
 // Use the already-imported tokenize function as tok
 const tok = tokenize;
 
-test('parses dec declaration', () => {
+await test('parses dec declaration', () => {
   const ast = parse(tok('dec x = 42'));
   assertEqual(ast.body[0].type, NodeType.DecDeclaration);
   assertEqual(ast.body[0].name, 'x');
   assertEqual(ast.body[0].init.value, 42);
 });
 
-test('parses fn declaration', () => {
+await test('parses fn declaration', () => {
   const ast = parse(tok('fn add(a, b) { return a + b }'));
   assertEqual(ast.body[0].type, NodeType.FunctionDeclaration);
   assertEqual(ast.body[0].name, 'add');
   assertEqual(ast.body[0].params.length, 2);
 });
 
-test('parses if/else', () => {
+await test('parses if/else', () => {
   const ast = parse(tok('if x > 0 { return 1 } else { return 0 }'));
   assertEqual(ast.body[0].type, NodeType.IfStatement);
   assertEqual(ast.body[0].alternate.type, NodeType.BlockStatement);
 });
 
-test('parses for/in loop', () => {
+await test('parses for/in loop', () => {
   const ast = parse(tok('for item in items { print(item) }'));
   assertEqual(ast.body[0].type, NodeType.ForInStatement);
   assertEqual(ast.body[0].variable, 'item');
 });
 
-test('parses test block', () => {
+await test('parses test block', () => {
   const ast = parse(tok('test "it works" { expect(1).toBe(1) }'));
   assertEqual(ast.body[0].type, NodeType.TestBlock);
   assertEqual(ast.body[0].name, 'it works');
 });
 
-test('parses expect expression', () => {
+await test('parses expect expression', () => {
   const ast = parse(tok('expect(x).toBe(5)'));
   const expr = ast.body[0].expression;
   assertEqual(expr.type, NodeType.CallExpression);
   assertEqual(expr.callee.property, 'toBe');
 });
 
-test('parses arrow function', () => {
+await test('parses arrow function', () => {
   const ast = parse(tok('dec f = x => x * 2'));
   assertEqual(ast.body[0].init.type, NodeType.ArrowFunctionExpression);
 });
 
-test('parses pipe operator', () => {
+await test('parses pipe operator', () => {
   const ast = parse(tok('dec result = items ~> filter(x => x > 0)'));
   assertEqual(ast.body[0].init.type, NodeType.PipeExpression);
 });
 
-test('parses object literal', () => {
+await test('parses object literal', () => {
   const ast = parse(tok('dec obj = { name: "alice", age: 30 }'));
   assertEqual(ast.body[0].init.type, NodeType.ObjectExpression);
   assertEqual(ast.body[0].init.properties.length, 2);
 });
 
-test('parses array literal', () => {
+await test('parses array literal', () => {
   const ast = parse(tok('dec arr = [1, 2, 3]'));
   assertEqual(ast.body[0].init.type, NodeType.ArrayExpression);
   assertEqual(ast.body[0].init.elements.length, 3);
 });
 
-test('parses member access', () => {
+await test('parses member access', () => {
   const ast = parse(tok('dec x = obj.name'));
   assertEqual(ast.body[0].init.type, NodeType.MemberExpression);
   assertEqual(ast.body[0].init.property, 'name');
 });
 
-test('parses function call', () => {
+await test('parses function call', () => {
   const ast = parse(tok('doSomething(1, "two", three)'));
   const expr = ast.body[0].expression;
   assertEqual(expr.type, NodeType.CallExpression);
   assertEqual(expr.arguments.length, 3);
 });
 
-test('parses enum declaration', () => {
+await test('parses enum declaration', () => {
   const ast = parse(tok('enum Color { Red, Green, Blue }'));
   assertEqual(ast.body[0].type, NodeType.EnumDeclaration);
   assertEqual(ast.body[0].name, 'Color');
   assertEqual(ast.body[0].variants.length, 3);
 });
 
-test('parses try/catch', () => {
+await test('parses try/catch', () => {
   const ast = parse(tok('try { risky() } catch e { handle(e) }'));
   assertEqual(ast.body[0].type, NodeType.TryStatement);
   assertEqual(ast.body[0].param, 'e');
 });
 
-test('parses object destructuring', () => {
+await test('parses object destructuring', () => {
   const ast = parse(tok('dec { name, age } = person'));
   assertEqual(ast.body[0].type, NodeType.DecDeclaration);
   assertEqual(ast.body[0].pattern.type, NodeType.ObjectPattern);
 });
 
-test('parses array destructuring', () => {
+await test('parses array destructuring', () => {
   const ast = parse(tok('dec [a, b] = pair'));
   assertEqual(ast.body[0].type, NodeType.DecDeclaration);
   assertEqual(ast.body[0].pattern.type, NodeType.ArrayPattern);
 });
 
-test('parses named constructor (enum variant with fields)', () => {
+await test('parses named constructor (enum variant with fields)', () => {
   const ast = parse(tok('dec x = Confirmed { orderId: 123 }'));
   assertEqual(ast.body[0].init.type, NodeType.NamedConstructor);
   assertEqual(ast.body[0].init.name, 'Confirmed');
@@ -581,94 +581,94 @@ function gen(code) {
   return generate(parse(tokenize(code)));
 }
 
-test('generates dec with deep freeze', () => {
+await test('generates dec with deep freeze', () => {
   const js = gen('dec x = 42');
   assertContains(js, 'const x = _deepFreeze(42)');
 });
 
-test('generates fn declaration', () => {
+await test('generates fn declaration', () => {
   const js = gen('fn add(a, b) { return a + b }');
   assertContains(js, 'function add(a, b)');
   assertContains(js, 'return a + b');
 });
 
-test('generates strict equality for ==', () => {
+await test('generates strict equality for ==', () => {
   const js = gen('dec x = a == b');
   assertContains(js, '===');
 });
 
-test('generates strict inequality for !=', () => {
+await test('generates strict inequality for !=', () => {
   const js = gen('dec x = a != b');
   assertContains(js, '!==');
 });
 
-test('generates optional chaining for member access', () => {
+await test('generates optional chaining for member access', () => {
   const js = gen('dec x = obj.name');
   assertContains(js, 'obj?.name');
 });
 
-test('generates logical operators', () => {
+await test('generates logical operators', () => {
   const js = gen('dec x = a and b or not c');
   assertContains(js, '&&');
   assertContains(js, '||');
   assertContains(js, '!');
 });
 
-test('generates if/else', () => {
+await test('generates if/else', () => {
   const js = gen('if x > 0 { return 1 } else { return 0 }');
   assertContains(js, 'if (');
   assertContains(js, '} else {');
 });
 
-test('generates for/in loop', () => {
+await test('generates for/in loop', () => {
   const js = gen('for item in items { print(item) }');
   assertContains(js, 'for (const item of');
 });
 
-test('generates arrow function', () => {
+await test('generates arrow function', () => {
   const js = gen('dec f = x => x * 2');
   assertContains(js, '(x) => ');
 });
 
-test('generates object literal', () => {
+await test('generates object literal', () => {
   const js = gen('dec obj = { name: "alice" }');
   assertContains(js, '"name": "alice"');
 });
 
-test('generates array literal', () => {
+await test('generates array literal', () => {
   const js = gen('dec arr = [1, 2, 3]');
   assertContains(js, '[1, 2, 3]');
 });
 
-test('generates test block', () => {
+await test('generates test block', () => {
   const js = gen('test "it works" { expect(1).toBe(1) }');
   assertContains(js, '_test("it works"');
 });
 
-test('generates enum as frozen object', () => {
+await test('generates enum as frozen object', () => {
   const js = gen('enum Color { Red, Green, Blue }');
   assertContains(js, 'const Color = Object.freeze');
 });
 
-test('generates try/catch', () => {
+await test('generates try/catch', () => {
   const js = gen('try { risky() } catch e { handle(e) }');
   assertContains(js, 'try {');
   assertContains(js, 'catch (e)');
 });
 
-test('generates pipe operator', () => {
+await test('generates pipe operator', () => {
   const js = gen('dec result = items ~> filter(x => x > 0)');
   assertContains(js, '_pipe(');
 });
 
-test('generates runtime helpers at top', () => {
+await test('generates runtime helpers at top', () => {
   const js = gen('dec x = 1');
   assertContains(js, 'function _deepFreeze');
   assertContains(js, 'function _test');
   assertContains(js, 'function _expect');
 });
 
-test('generates named constructor', () => {
+await test('generates named constructor', () => {
   const js = gen('dec x = Confirmed { orderId: 123 }');
   assertContains(js, '_deepFreeze({');
   assertContains(js, '"_type": "Confirmed"');
@@ -680,7 +680,7 @@ function makeFile(spec, testSection, implSection) {
   return `## spec\n\n${spec}\n\n## test\n\n${testSection}\n\n## impl\n\n${implSection}`;
 }
 
-test('compiles a valid .sp file to JavaScript', () => {
+await test('compiles a valid .sp file to JavaScript', () => {
   const compiler = new SpecScriptCompiler();
   const spec = `# Adder\n\n**intent:** Add numbers\n**reason:** Math is useful`;
   const hash = compiler.computeHash(spec);
@@ -695,7 +695,7 @@ test('compiles a valid .sp file to JavaScript', () => {
   assertContains(result.js, 'function add(a, b)');
 });
 
-test('rejects stale test hash', () => {
+await test('rejects stale test hash', () => {
   const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
   const staleHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
   const source = makeFile(
@@ -708,7 +708,7 @@ test('rejects stale test hash', () => {
   assertThrows(() => compiler.compile(source), 'stale');
 });
 
-test('rejects missing test hash', () => {
+await test('rejects missing test hash', () => {
   const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
   const source = makeFile(
     spec,
@@ -720,7 +720,7 @@ test('rejects missing test hash', () => {
   assertThrows(() => compiler.compile(source), 'hash');
 });
 
-test('rejects stale impl hash when test is fresh', () => {
+await test('rejects stale impl hash when test is fresh', () => {
   const compiler = new SpecScriptCompiler();
   const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
   const hash = compiler.computeHash(spec);
@@ -735,7 +735,7 @@ test('rejects stale impl hash when test is fresh', () => {
   assertThrows(() => compiler.compile(source), 'stale');
 });
 
-test('rejects file where test hash is stale but impl hash is fresh (invalid state)', () => {
+await test('rejects file where test hash is stale but impl hash is fresh (invalid state)', () => {
   const compiler = new SpecScriptCompiler();
   const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
   const hash = compiler.computeHash(spec);
@@ -750,7 +750,7 @@ test('rejects file where test hash is stale but impl hash is fresh (invalid stat
   assertThrows(() => compiler.compile(source), 'test');
 });
 
-test('returns parsed spec metadata alongside compiled JS', () => {
+await test('returns parsed spec metadata alongside compiled JS', () => {
   const compiler = new SpecScriptCompiler();
   const spec = `# Calculator\n\n**intent:** Do math\n**reason:** Math needed\n\n### expose add :: (Number, Number) -> Number\n\n**intent:** Add two numbers`;
   const hash = compiler.computeHash(spec);
@@ -769,67 +769,67 @@ test('returns parsed spec metadata alongside compiled JS', () => {
 
 console.log('--- CLI Tests ---');
 
-test('parseArgs recognizes compile command', () => {
+await test('parseArgs recognizes compile command', () => {
   const args = parseArgs(['compile', 'myfile.sp']);
   assertEqual(args.command, 'compile');
   assertEqual(args.file, 'myfile.sp');
 });
 
-test('parseArgs recognizes check command', () => {
+await test('parseArgs recognizes check command', () => {
   const args = parseArgs(['check', 'myfile.sp']);
   assertEqual(args.command, 'check');
 });
 
-test('parseArgs recognizes run command', () => {
+await test('parseArgs recognizes run command', () => {
   const args = parseArgs(['run', 'myfile.sp']);
   assertEqual(args.command, 'run');
 });
 
-test('parseArgs recognizes stale command with directory', () => {
+await test('parseArgs recognizes stale command with directory', () => {
   const args = parseArgs(['stale', './src']);
   assertEqual(args.command, 'stale');
   assertEqual(args.file, './src');
 });
 
-test('parseArgs recognizes regen command with flags', () => {
+await test('parseArgs recognizes regen command with flags', () => {
   const args = parseArgs(['regen', 'myfile.sp', '--test']);
   assertEqual(args.command, 'regen');
   assertEqual(args.regenTarget, 'test');
 });
 
-test('parseArgs recognizes regen --impl', () => {
+await test('parseArgs recognizes regen --impl', () => {
   const args = parseArgs(['regen', 'myfile.sp', '--impl']);
   assertEqual(args.regenTarget, 'impl');
 });
 
-test('parseArgs recognizes regen --all', () => {
+await test('parseArgs recognizes regen --all', () => {
   const args = parseArgs(['regen', 'myfile.sp', '--all']);
   assertEqual(args.regenTarget, 'all');
 });
 
-test('parseArgs recognizes init command', () => {
+await test('parseArgs recognizes init command', () => {
   const args = parseArgs(['init']);
   assertEqual(args.command, 'init');
 });
 
-test('parseArgs recognizes build command', () => {
+await test('parseArgs recognizes build command', () => {
   const args = parseArgs(['build', './src']);
   assertEqual(args.command, 'build');
 });
 
-test('parseArgs recognizes -o output flag', () => {
+await test('parseArgs recognizes -o output flag', () => {
   const args = parseArgs(['compile', 'myfile.sp', '-o', 'dist/out.js']);
   assertEqual(args.output, 'dist/out.js');
 });
 
-test('parseArgs recognizes --debug flag', () => {
+await test('parseArgs recognizes --debug flag', () => {
   const args = parseArgs(['compile', 'myfile.sp', '--debug']);
   assertEqual(args.debug, true);
 });
 
 console.log('--- Dependency Graph Tests ---');
 
-test('registers modules and their spec hashes', () => {
+await test('registers modules and their spec hashes', () => {
   const graph = new DependencyGraph();
   graph.register('order.processor', { hash: 'sha256:aaa', depends: ['inventory.stock'] });
   graph.register('inventory.stock', { hash: 'sha256:bbb', depends: [] });
@@ -837,7 +837,7 @@ test('registers modules and their spec hashes', () => {
   assertEqual(graph.getHash('inventory.stock'), 'sha256:bbb');
 });
 
-test('detects stale consumers when dependency hash changes', () => {
+await test('detects stale consumers when dependency hash changes', () => {
   const graph = new DependencyGraph();
   graph.register('inventory.stock', { hash: 'sha256:old', depends: [] });
   graph.register('order.processor', {
@@ -851,7 +851,7 @@ test('detects stale consumers when dependency hash changes', () => {
   assertEqual(stale[0], 'order.processor');
 });
 
-test('does not flag consumers when dependency hash unchanged', () => {
+await test('does not flag consumers when dependency hash unchanged', () => {
   const graph = new DependencyGraph();
   graph.register('inventory.stock', { hash: 'sha256:same', depends: [] });
   graph.register('order.processor', {
@@ -863,7 +863,7 @@ test('does not flag consumers when dependency hash unchanged', () => {
   assertEqual(stale.length, 0);
 });
 
-test('tracks transitive dependencies', () => {
+await test('tracks transitive dependencies', () => {
   const graph = new DependencyGraph();
   graph.register('storage.db', { hash: 'sha256:111', depends: [] });
   graph.register('inventory.stock', {
@@ -881,7 +881,7 @@ test('tracks transitive dependencies', () => {
   assertContains(stale.join(','), 'inventory.stock');
 });
 
-test('getAllStale returns all stale module paths', () => {
+await test('getAllStale returns all stale module paths', () => {
   const graph = new DependencyGraph();
   graph.register('a', { hash: 'sha256:1', depends: [] });
   graph.register('b', {
@@ -896,7 +896,7 @@ test('getAllStale returns all stale module paths', () => {
 
 console.log('--- Integration Tests ---');
 
-test('full pipeline: compile valid source with correct hashes', () => {
+await test('full pipeline: compile valid source with correct hashes', () => {
   const compiler = new SpecScriptCompiler();
 
   const spec = `# Calculator
@@ -979,7 +979,7 @@ fn multiply(a, b) {
   assertContains(result.js, '_runTests()');
 });
 
-test('full pipeline: spec change invalidates everything', () => {
+await test('full pipeline: spec change invalidates everything', () => {
   const compiler = new SpecScriptCompiler();
   const oldHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -1005,7 +1005,7 @@ fn x() { return 1 }`;
   assertThrows(() => compiler.compile(source), 'stale');
 });
 
-test('full pipeline: rejects file over 500 lines', () => {
+await test('full pipeline: rejects file over 500 lines', () => {
   const lines = ['## spec', '', '# Big', '', '**intent:** x', '**reason:** y'];
   while (lines.length < 495) lines.push('// padding');
   lines.push('', '## test', '', '<!-- spec-hash: sha256:abc123 -->', '', '## impl', '', '<!-- spec-hash: sha256:abc123 -->');
@@ -1018,20 +1018,20 @@ test('full pipeline: rejects file over 500 lines', () => {
 
 console.log('--- Language Reference Tests ---');
 
-test('LANGUAGE_REF contains test syntax', () => {
+await test('LANGUAGE_REF contains test syntax', () => {
   assertContains(LANGUAGE_REF, 'test "description"');
   assertContains(LANGUAGE_REF, 'expect(');
   assertContains(LANGUAGE_REF, '.toBe(');
 });
 
-test('LANGUAGE_REF contains impl syntax', () => {
+await test('LANGUAGE_REF contains impl syntax', () => {
   assertContains(LANGUAGE_REF, 'dec ');
   assertContains(LANGUAGE_REF, 'fn ');
   assertContains(LANGUAGE_REF, '~>');
   assertContains(LANGUAGE_REF, 'enum');
 });
 
-test('LANGUAGE_REF contains file structure info', () => {
+await test('LANGUAGE_REF contains file structure info', () => {
   assertContains(LANGUAGE_REF, '## spec');
   assertContains(LANGUAGE_REF, '## test');
   assertContains(LANGUAGE_REF, '## impl');
@@ -1040,7 +1040,7 @@ test('LANGUAGE_REF contains file structure info', () => {
 
 console.log('--- LLM Module Tests ---');
 
-test('buildGeneratePrompt includes language ref and spec for --all', () => {
+await test('buildGeneratePrompt includes language ref and spec for --all', () => {
   const prompt = buildGeneratePrompt({
     specContent: '# Calculator\n\n**intent:** Math\n**reason:** Need it',
     specHash: 'sha256:abc123',
@@ -1053,7 +1053,7 @@ test('buildGeneratePrompt includes language ref and spec for --all', () => {
   assertContains(prompt, '## impl');
 });
 
-test('buildGeneratePrompt for --test only asks for test section', () => {
+await test('buildGeneratePrompt for --test only asks for test section', () => {
   const prompt = buildGeneratePrompt({
     specContent: '# Mod\n\n**intent:** x\n**reason:** y',
     specHash: 'sha256:abc',
@@ -1063,7 +1063,7 @@ test('buildGeneratePrompt for --test only asks for test section', () => {
   assertContains(prompt, 'ONLY the ## test section');
 });
 
-test('buildGeneratePrompt for --impl includes existing tests', () => {
+await test('buildGeneratePrompt for --impl includes existing tests', () => {
   const prompt = buildGeneratePrompt({
     specContent: '# Mod\n\n**intent:** x\n**reason:** y',
     specHash: 'sha256:abc',
@@ -1075,7 +1075,7 @@ test('buildGeneratePrompt for --impl includes existing tests', () => {
   assertContains(prompt, 'ONLY the ## impl section');
 });
 
-test('buildReviewPrompt includes spec and generated code', () => {
+await test('buildReviewPrompt includes spec and generated code', () => {
   const prompt = buildReviewPrompt({
     specContent: '# Mod\n\n**intent:** x\n**reason:** y',
     generatedContent: '## test\n\ntest "x" {}\n\n## impl\n\nfn x() {}',
@@ -1086,7 +1086,7 @@ test('buildReviewPrompt includes spec and generated code', () => {
   assertContains(prompt, 'ISSUE');
 });
 
-test('buildFixPrompt includes spec, code, and feedback', () => {
+await test('buildFixPrompt includes spec, code, and feedback', () => {
   const prompt = buildFixPrompt({
     specContent: '# Mod\n\n**intent:** x\n**reason:** y',
     specHash: 'sha256:abc',
@@ -1098,7 +1098,7 @@ test('buildFixPrompt includes spec, code, and feedback', () => {
   assertContains(prompt, 'sha256:abc');
 });
 
-test('parseResponse extracts test and impl sections', () => {
+await test('parseResponse extracts test and impl sections', () => {
   const response = `Some preamble text
 
 ## test
@@ -1122,12 +1122,12 @@ fn doIt() {
   assertContains(result.impl, 'fn doIt()');
 });
 
-test('parseResponse returns null when sections missing', () => {
+await test('parseResponse returns null when sections missing', () => {
   const result = parseResponse('just some random text with no sections');
   assertEqual(result, null);
 });
 
-test('parseResponse injects hash if missing', () => {
+await test('parseResponse injects hash if missing', () => {
   const response = `## test
 
 test "x" { expect(1).toBe(1) }
@@ -1141,7 +1141,7 @@ fn x() { return 1 }`;
   assertContains(result.impl, 'spec-hash: sha256:abc123');
 });
 
-test('parseResponse handles test-only response', () => {
+await test('parseResponse handles test-only response', () => {
   const response = `## test
 
 <!-- spec-hash: sha256:abc -->
@@ -1153,7 +1153,7 @@ test "it works" { expect(1).toBe(1) }`;
   assertEqual(result.impl, null);
 });
 
-test('parseResponse handles impl-only response', () => {
+await test('parseResponse handles impl-only response', () => {
   const response = `## impl
 
 <!-- spec-hash: sha256:abc -->
@@ -1163,6 +1163,18 @@ fn doIt() { return 1 }`;
   const result = parseResponse(response);
   assertEqual(result.test, null);
   assertContains(result.impl, 'fn doIt()');
+});
+
+console.log('--- CLI LLM Integration Tests ---');
+
+await test('parseArgs recognizes --yes flag for non-interactive regen', () => {
+  const args = parseArgs(['regen', 'myfile.sp', '--all', '--yes']);
+  assertEqual(args.yes, true);
+});
+
+await test('parseArgs recognizes -y shorthand', () => {
+  const args = parseArgs(['regen', 'myfile.sp', '--all', '-y']);
+  assertEqual(args.yes, true);
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);

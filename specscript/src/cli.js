@@ -9,6 +9,7 @@ import { SpecScriptCompiler } from './index.js';
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
+import { loadConfig, regen } from './llm.js';
 
 export function parseArgs(args) {
   const result = {
@@ -17,6 +18,7 @@ export function parseArgs(args) {
     output: null,
     debug: false,
     regenTarget: null,
+    yes: false,
   };
 
   let i = 0;
@@ -41,6 +43,9 @@ export function parseArgs(args) {
       i++;
     } else if (arg === '--all') {
       result.regenTarget = 'all';
+      i++;
+    } else if (arg === '--yes' || arg === '-y') {
+      result.yes = true;
       i++;
     } else if (!result.file) {
       result.file = arg;
@@ -168,40 +173,30 @@ function extractSpec(source) {
   return specContent;
 }
 
-function cmdRegen(file, target) {
+async function cmdRegen(file, target, autoYes) {
   const source = readFile(file);
-
-  // Extract spec without requiring test/impl sections to exist
   const specContent = extractSpec(source);
-  const spec = parseSpec(specContent);
   const specHash = computeSpecHash(specContent);
 
-  // Try to get existing sections (may not exist for new files)
-  let existingTest = null;
+  let config;
   try {
-    const sections = splitSections(source);
-    existingTest = sections.test;
-  } catch {
-    // File may not have all sections yet — that's fine for regen
+    config = loadConfig(dirname(resolve(file)));
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
   }
 
-  const output = {
-    file,
-    specHash,
-    spec,
+  const result = await regen({
+    filePath: resolve(file),
+    source,
     specContent,
-  };
+    specHash,
+    target,
+    config,
+    autoYes,
+  });
 
-  if (target === 'test' || target === 'all') {
-    output.regenerate = target === 'all' ? 'test and impl' : 'test';
-    output.instructions = `Generate a ## test section for this spec. Include the hash comment: <!-- spec-hash: ${specHash} -->`;
-  } else if (target === 'impl') {
-    output.regenerate = 'impl';
-    output.currentTests = existingTest;
-    output.instructions = `Generate a ## impl section that passes the existing tests. Include the hash comment: <!-- spec-hash: ${specHash} -->`;
-  }
-
-  console.log(JSON.stringify(output, null, 2));
+  if (!result) process.exit(1);
 }
 
 function cmdRun(file, debug) {
@@ -220,12 +215,8 @@ function cmdRun(file, debug) {
 
 function cmdInit() {
   const projectFile = 'project.md';
-  if (existsSync(projectFile)) {
-    console.log('project.md already exists.');
-    return;
-  }
-
-  const template = `# MyProject
+  if (!existsSync(projectFile)) {
+    const template = `# MyProject
 
 **intent:** Describe what this project does
 **reason:** Describe why it exists
@@ -244,9 +235,25 @@ function cmdInit() {
 
 - Add module entries here (e.g., module.name :: Description)
 `;
+    writeFileSync(projectFile, template);
+    console.log('Created project.md');
+  } else {
+    console.log('project.md already exists.');
+  }
 
-  writeFileSync(projectFile, template);
-  console.log('Created project.md');
+  const configFile = 'specscript.config.json';
+  if (!existsSync(configFile)) {
+    const configTemplate = JSON.stringify({
+      llm: {
+        command: 'YOUR_LLM_COMMAND_HERE',
+        maxRetries: 5,
+      },
+    }, null, 2) + '\n';
+    writeFileSync(configFile, configTemplate);
+    console.log('Created specscript.config.json — update llm.command with your LLM command.');
+  } else {
+    console.log('specscript.config.json already exists.');
+  }
 }
 
 function cmdBuild(dir, debug) {
@@ -282,54 +289,55 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(new URL(i
 
 if (isMain) {
   const args = parseArgs(process.argv.slice(2));
-
-  switch (args.command) {
-    case 'init':
-      cmdInit();
-      break;
-    case 'check':
-      if (!args.file) { console.error('Usage: sp check <file>'); process.exit(1); }
-      cmdCheck(args.file);
-      break;
-    case 'compile':
-      if (!args.file) { console.error('Usage: sp compile <file> [-o output]'); process.exit(1); }
-      cmdCompile(args.file, args.output, args.debug);
-      break;
-    case 'stale':
-      if (!args.file) { console.error('Usage: sp stale <file|dir>'); process.exit(1); }
-      cmdStale(args.file);
-      break;
-    case 'regen':
-      if (!args.file || !args.regenTarget) {
-        console.error('Usage: sp regen <file> --test|--impl|--all');
-        process.exit(1);
+  await (async () => {
+    switch (args.command) {
+      case 'init':
+        cmdInit();
+        break;
+      case 'check':
+        if (!args.file) { console.error('Usage: sp check <file>'); process.exit(1); }
+        cmdCheck(args.file);
+        break;
+      case 'compile':
+        if (!args.file) { console.error('Usage: sp compile <file> [-o output]'); process.exit(1); }
+        cmdCompile(args.file, args.output, args.debug);
+        break;
+      case 'stale':
+        if (!args.file) { console.error('Usage: sp stale <file|dir>'); process.exit(1); }
+        cmdStale(args.file);
+        break;
+      case 'regen':
+        if (!args.file || !args.regenTarget) {
+          console.error('Usage: sp regen <file> --test|--impl|--all [--yes]');
+          process.exit(1);
+        }
+        await cmdRegen(args.file, args.regenTarget, args.yes);
+        break;
+      case 'build':
+        cmdBuild(args.file || '.', args.debug);
+        break;
+      case 'run':
+        if (!args.file) { console.error('Usage: sp run <file>'); process.exit(1); }
+        cmdRun(args.file, args.debug);
+        break;
+      case '--version': {
+        const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+        console.log(`SpecScript v${pkg.version}`);
+        break;
       }
-      cmdRegen(args.file, args.regenTarget);
-      break;
-    case 'build':
-      cmdBuild(args.file || '.', args.debug);
-      break;
-    case 'run':
-      if (!args.file) { console.error('Usage: sp run <file>'); process.exit(1); }
-      cmdRun(args.file, args.debug);
-      break;
-    case '--version': {
-      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
-      console.log(`SpecScript v${pkg.version}`);
-      break;
+      default:
+        console.log('SpecScript Compiler\n');
+        console.log('Usage: sp <command> [options]\n');
+        console.log('Commands:');
+        console.log('  init                    Scaffold a new project');
+        console.log('  check <file>            Validate structure and hash freshness');
+        console.log('  compile <file> [-o out]  Compile to JavaScript');
+        console.log('  stale <file|dir>        Report stale files');
+        console.log('  regen <file> --test|--impl|--all [--yes]');
+        console.log('                          Generate test/impl via LLM');
+        console.log('  build <dir>             Compile all .sp files');
+        console.log('  run <file>              Compile and execute');
+        break;
     }
-    default:
-      console.log('SpecScript Compiler\n');
-      console.log('Usage: sp <command> [options]\n');
-      console.log('Commands:');
-      console.log('  init                    Scaffold a new project');
-      console.log('  check <file>            Validate structure and hash freshness');
-      console.log('  compile <file> [-o out]  Compile to JavaScript');
-      console.log('  stale <file|dir>        Report stale files');
-      console.log('  regen <file> --test|--impl|--all');
-      console.log('                          Output regen prompt for LLM');
-      console.log('  build <dir>             Compile all .sp files');
-      console.log('  run <file>              Compile and execute');
-      break;
-  }
+  })();
 }
