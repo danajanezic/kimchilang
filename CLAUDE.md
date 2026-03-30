@@ -76,6 +76,13 @@ KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
 - `assert condition, "message"` — simple assertion
 - Mocking via dependency injection: `as svc dep module({ "dep.path": mock })`
 
+## Validator and LSP
+
+- `src/validator.js` — `KimchiValidator` class with `validate(source)` and `validateAll(files)`. Returns structured diagnostics with line, column, severity, message, and source phase.
+- `src/lsp.js` — LSP server over stdio (JSON-RPC 2.0). Launched via `kimchi lsp`. Supports textDocument/didOpen, didChange, didClose, didSave.
+- `formatDiagnostics(diagnostics)` — formats diagnostic array as human/LLM-readable string. Used by specscript.
+- VS Code extension (`editors/vscode/`) uses vscode-languageclient to connect to `kimchi lsp`.
+
 ## Other Components
 
 - `src/js2km.js` — reverse transpiler (JavaScript → KimchiLang)
