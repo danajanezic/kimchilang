@@ -32,23 +32,23 @@ expose async fn del(url, options) {
 
 // Generic HTTP request function
 expose async fn request(url, options) {
-  dec opts = options ? options : {}
-  dec method = opts.method ? opts.method : "GET"
-  dec headers = opts.headers ? opts.headers : {}
+  guard url != null else { throw "request() requires a url" }
+
+  dec opts = options ?? {}
+  dec method = opts.method ?? "GET"
+  dec headers = opts.headers ?? {}
   dec body = opts.body
-  dec timeout = opts.timeout ? opts.timeout : 30000
-  
+  dec timeout = opts.timeout ?? 30000
+
   // Auto-set content-type for JSON bodies
-  dec finalHeaders = body and not headers["Content-Type"] 
-    ? { ...headers, "Content-Type": "application/json" }
-    : headers
-  
+  dec finalHeaders = { ...headers, "Content-Type": "application/json" }.if(body != null and headers["Content-Type"] == null).else(headers)
+
   dec result = js(url, method, finalHeaders, body, timeout) {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
       const isHttps = urlObj.protocol === 'https:';
       const lib = isHttps ? require('https') : require('http');
-      
+
       const reqOptions = {
         hostname: urlObj.hostname,
         port: urlObj.port || (isHttps ? 443 : 80),
@@ -57,7 +57,7 @@ expose async fn request(url, options) {
         headers: finalHeaders,
         timeout: timeout,
       };
-      
+
       const req = lib.request(reqOptions, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -80,22 +80,22 @@ expose async fn request(url, options) {
           });
         });
       });
-      
+
       req.on('error', (e) => reject(e));
       req.on('timeout', () => {
         req.destroy();
         reject(new Error('Request timeout'));
       });
-      
+
       if (body) {
         const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
         req.write(bodyStr);
       }
-      
+
       req.end();
     });
   }
-  
+
   return result
 }
 
@@ -112,86 +112,33 @@ expose fn queryString(params) {
 // Helper to build URL with query params
 expose fn buildUrl(baseUrl, params) {
   dec qs = queryString(params)
-  if qs {
-    return "${baseUrl}?${qs}"
-  }
-  return baseUrl
+  return "${baseUrl}?${qs}".if(qs != "").else(baseUrl)
 }
 
 // Create a client with default options (base URL, headers, etc.)
 expose fn createClient(baseOptions) {
-  dec baseUrl = baseOptions.baseUrl ? baseOptions.baseUrl : ""
-  dec defaultHeaders = baseOptions.headers ? baseOptions.headers : {}
-  dec defaultTimeout = baseOptions.timeout ? baseOptions.timeout : 30000
-  
-  dec clientGet = (path, options) => {
+  dec baseUrl = baseOptions.baseUrl ?? ""
+  dec defaultHeaders = baseOptions.headers ?? {}
+  dec defaultTimeout = baseOptions.timeout ?? 30000
+
+  dec makeReq = (method, path, body, options) => {
     dec url = "${baseUrl}${path}"
-    dec opts = options ? options : {}
-    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
-    return request(url, { 
-      ...opts, 
-      method: "GET", 
-      headers: mergedHeaders,
-      timeout: opts.timeout ? opts.timeout : defaultTimeout
-    })
-  }
-  
-  dec clientPost = (path, body, options) => {
-    dec url = "${baseUrl}${path}"
-    dec opts = options ? options : {}
-    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
-    return request(url, { 
-      ...opts, 
-      method: "POST", 
+    dec opts = options ?? {}
+    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ?? {}) }
+    return request(url, {
+      ...opts,
+      method: method,
       body: body,
       headers: mergedHeaders,
-      timeout: opts.timeout ? opts.timeout : defaultTimeout
+      timeout: opts.timeout ?? defaultTimeout
     })
   }
-  
-  dec clientPut = (path, body, options) => {
-    dec url = "${baseUrl}${path}"
-    dec opts = options ? options : {}
-    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
-    return request(url, { 
-      ...opts, 
-      method: "PUT", 
-      body: body,
-      headers: mergedHeaders,
-      timeout: opts.timeout ? opts.timeout : defaultTimeout
-    })
-  }
-  
-  dec clientPatch = (path, body, options) => {
-    dec url = "${baseUrl}${path}"
-    dec opts = options ? options : {}
-    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
-    return request(url, { 
-      ...opts, 
-      method: "PATCH", 
-      body: body,
-      headers: mergedHeaders,
-      timeout: opts.timeout ? opts.timeout : defaultTimeout
-    })
-  }
-  
-  dec clientDel = (path, options) => {
-    dec url = "${baseUrl}${path}"
-    dec opts = options ? options : {}
-    dec mergedHeaders = { ...defaultHeaders, ...(opts.headers ? opts.headers : {}) }
-    return request(url, { 
-      ...opts, 
-      method: "DELETE", 
-      headers: mergedHeaders,
-      timeout: opts.timeout ? opts.timeout : defaultTimeout
-    })
-  }
-  
+
   return {
-    get: clientGet,
-    post: clientPost,
-    put: clientPut,
-    patch: clientPatch,
-    del: clientDel
+    get: (path, options) => makeReq("GET", path, null, options),
+    post: (path, body, options) => makeReq("POST", path, body, options),
+    put: (path, body, options) => makeReq("PUT", path, body, options),
+    patch: (path, body, options) => makeReq("PATCH", path, body, options),
+    del: (path, options) => makeReq("DELETE", path, null, options)
   }
 }

@@ -14,9 +14,7 @@ dec LOG_LEVELS = {
 
 fn getLogLevel() {
   dec level = LOG_LEVEL.toLowerCase()
-  dec numLevel = LOG_LEVELS[level]
-  |numLevel == null| => return 1
-  return numLevel
+  return LOG_LEVELS[level] ?? 1
 }
 
 fn shouldLog(level) {
@@ -33,72 +31,68 @@ fn getCallerInfo() {
         const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/);
         if (match) {
           return {
-            fn: match[1] || '<anonymous>',
+            name: match[1] || '<anonymous>',
             module: match[2].replace(/^file:\/\//, '').replace(/.*\//, '').replace(/\.(js|km)$/, ''),
             line: parseInt(match[3], 10),
           };
         }
       }
     }
-    return { fn: '<unknown>', module: '<unknown>', line: 0 };
+    return { name: '<unknown>', module: '<unknown>', line: 0 };
   }
 }
 
 fn formatLog(level, message, data) {
   dec caller = getCallerInfo()
   dec timestamp = js { return new Date().toISOString(); }
-  
+
   dec entry = {
     timestamp: timestamp,
     level: level,
     module: caller.module,
-    function: caller.fn,
+    func: caller.name,
     line: caller.line,
     message: message
   }
-  
+
   |data != null| => {
     js(entry, data) {
       Object.assign(entry, data);
     }
   }
-  
+
   return js(entry) { return JSON.stringify(entry); }
 }
 
 expose fn debug(message, data) {
-  |shouldLog("debug")| => {
-    dec output = formatLog("debug", message, data)
-    js(output) { console.log(output); }
-  }
+  guard shouldLog("debug") else { return null }
+  dec output = formatLog("debug", message, data)
+  js(output) { console.log(output); }
 }
 
 expose fn info(message, data) {
-  |shouldLog("info")| => {
-    dec output = formatLog("info", message, data)
-    js(output) { console.log(output); }
-  }
+  guard shouldLog("info") else { return null }
+  dec output = formatLog("info", message, data)
+  js(output) { console.log(output); }
 }
 
 expose fn warn(message, data) {
-  |shouldLog("warn")| => {
-    dec output = formatLog("warn", message, data)
-    js(output) { console.warn(output); }
-  }
+  guard shouldLog("warn") else { return null }
+  dec output = formatLog("warn", message, data)
+  js(output) { console.warn(output); }
 }
 
 expose fn error(message, data) {
-  |shouldLog("error")| => {
-    dec output = formatLog("error", message, data)
-    js(output) { console.error(output); }
-  }
+  guard shouldLog("error") else { return null }
+  dec output = formatLog("error", message, data)
+  js(output) { console.error(output); }
 }
 
 expose fn child(context) {
   return {
-    debug: (msg, data) => debug(msg, { ...context, ...data }),
-    info: (msg, data) => info(msg, { ...context, ...data }),
-    warn: (msg, data) => warn(msg, { ...context, ...data }),
-    error: (msg, data) => error(msg, { ...context, ...data })
+    debug: (msg, data) => debug(msg, { ...context, ...(data ?? {}) }),
+    info: (msg, data) => info(msg, { ...context, ...(data ?? {}) }),
+    warn: (msg, data) => warn(msg, { ...context, ...(data ?? {}) }),
+    error: (msg, data) => error(msg, { ...context, ...(data ?? {}) })
   }
 }
