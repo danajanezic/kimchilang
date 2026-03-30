@@ -241,7 +241,7 @@ async function runModule(modulePath, moduleArgs, deps, options) {
     
     // Replace "export default function" with just "const _module = function" so we can call it
     const modifiedCode = javascript.replace(
-      /^export default function/m, 
+      /^export default (?:async )?function/m, 
       'const _module = function'
     );
     
@@ -393,7 +393,7 @@ async function getModuleDescription(filePath) {
     
     // Replace export default with const so we can call it
     const modifiedCode = javascript.replace(
-      /^export default function/m, 
+      /^export default (?:async )?function/m, 
       'const _module = function'
     );
     
@@ -732,7 +732,7 @@ async function runTests(filePath, options = {}) {
     const tempFile = join(tempDir, `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
     
     const modifiedCode = javascript.replace(
-      /^export default function/m, 
+      /^export default (?:async )?function/m, 
       'const _module = function'
     );
     
@@ -790,7 +790,7 @@ async function runFile(filePath, options = {}) {
     
     // Replace export default with const so we can call it
     const modifiedCode = javascript.replace(
-      /^export default function/m, 
+      /^export default (?:async )?function/m, 
       'const _module = function'
     );
     

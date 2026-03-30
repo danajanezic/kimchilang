@@ -313,7 +313,7 @@ export class CodeGenerator {
     this.emitLine('toBeLessThan(n) { if (actual >= n) throw new Error(`Expected ${actual} < ${n}`); },');
     this.emitLine('toHaveLength(n) { if (actual.length !== n) throw new Error(`Expected length ${n} but got ${actual.length}`); },');
     this.emitLine('toMatch(pattern) { if (!pattern.test(actual)) throw new Error(`Expected ${JSON.stringify(actual)} to match ${pattern}`); },');
-    this.emitLine('toThrow(msg) { try { actual(); throw new Error("Expected to throw"); } catch(e) { if (msg && !e.message.includes(msg)) throw new Error(`Expected error containing "${msg}" but got "${e.message}"`); } },');
+    this.emitLine('toThrow(msg) { try { actual(); throw new Error("Expected to throw"); } catch(e) { const eMsg = e.message || String(e); if (msg && !eMsg.includes(msg)) throw new Error(`Expected error containing "${msg}" but got "${eMsg}"`); } },');
     this.emitLine('toBeDefined() { if (actual === undefined) throw new Error(`Expected value to be defined but got undefined`); },');
     this.emitLine('toBeUndefined() { if (actual !== undefined) throw new Error(`Expected undefined but got ${JSON.stringify(actual)}`); },');
     this.emitLine('toBeCloseTo(num, digits = 2) { const precision = Math.pow(10, -digits) / 2; if (Math.abs(actual - num) >= precision) throw new Error(`Expected ${actual} to be close to ${num} (precision: ${digits} digits)`); },');
