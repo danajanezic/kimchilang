@@ -608,7 +608,11 @@ export class CodeGenerator {
         this.visitGuardStatement(node);
         break;
       case NodeType.ExpressionStatement:
-        this.emitLine(this.visitExpression(node.expression) + ';');
+        if (node.expression.type === NodeType.MatchBlock) {
+          this.visitMatchBlockStatement(node.expression);
+        } else {
+          this.emitLine(this.visitExpression(node.expression) + ';');
+        }
         break;
       case NodeType.BlockStatement:
         this.visitBlockStatement(node);
@@ -1197,6 +1201,51 @@ export class CodeGenerator {
     } else {
       // Without body: return first match (match[0]) or null
       return `(${regex}.exec(${subject}) || [])[0]`;
+    }
+  }
+
+  visitMatchBlockStatement(node) {
+    const subject = this.visitExpression(node.subject);
+    this.emitLine(`const _subject = ${subject};`);
+
+    let firstCondition = true;
+    for (let i = 0; i < node.arms.length; i++) {
+      const arm = node.arms[i];
+      const isWildcard = arm.pattern.type === NodeType.WildcardPattern || arm.pattern.type === 'WildcardPattern';
+      const { condition, bindings } = this.compileMatchPattern(arm.pattern, arm.guard);
+
+      if (isWildcard) {
+        if (firstCondition) {
+          this.emitLine('{');
+        } else {
+          this.emitLine('} else {');
+        }
+      } else {
+        if (firstCondition) {
+          this.emitLine(`if (${condition}) {`);
+        } else {
+          this.emitLine(`} else if (${condition}) {`);
+        }
+      }
+      firstCondition = false;
+
+      this.pushIndent();
+      for (const [name, expr] of bindings) {
+        this.emitLine(`const ${name} = ${expr};`);
+      }
+
+      if (arm.body.type === 'BlockStatement') {
+        for (const stmt of arm.body.body) {
+          this.visitStatement(stmt);
+        }
+      } else {
+        this.emitLine(this.visitExpression(arm.body) + ';');
+      }
+      this.popIndent();
+    }
+
+    if (node.arms.length > 0) {
+      this.emitLine('}');
     }
   }
 

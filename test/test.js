@@ -1351,6 +1351,18 @@ test('Opt2: number literal known non-null', () => {
   assertEqual(js.includes('x?.toString'), false, 'Number should not use ?.');
 });
 
+test('Opt3: match as statement has no IIFE', () => {
+  const js = generate(parse(tokenize('fn foo(x) {\nmatch x {\n1 => "one"\n_ => "other"\n}\n}')));
+  // Should NOT contain the IIFE wrapper (() =>
+  assertEqual(js.includes('(() => {'), false, 'Statement match should not have IIFE');
+  assertContains(js, 'const _subject');
+});
+
+test('Opt3: match as expression still has IIFE', () => {
+  const js = generate(parse(tokenize('dec result = match x {\n1 => "one"\n_ => "other"\n}')));
+  assertContains(js, '(() => {');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
