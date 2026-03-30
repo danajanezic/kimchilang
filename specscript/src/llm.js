@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
-import { LANGUAGE_REF } from './language-ref.js';
+import { LANGUAGE_REF, STYLE_GUIDANCE } from './language-ref.js';
 import { KimchiCompiler } from '../../src/index.js';
 
 export function loadConfig(startDir) {
@@ -81,9 +81,11 @@ Output ONLY the following two sections, no other text:
 [implementation here]`;
   }
 
-  return `You are generating code for SpecScript, a spec-first language that transpiles to JavaScript.
+  return `You are generating code for SpecScript, a spec-first language that transpiles to JavaScript via KimchiLang.
 
 ${LANGUAGE_REF}
+
+${STYLE_GUIDANCE}
 
 ## Spec to Implement
 

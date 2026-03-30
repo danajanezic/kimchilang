@@ -24,6 +24,44 @@ No classes, no \`this\`, no global scope. All values are deeply immutable by def
 - \`break\` / \`continue\`
 - \`return expression\`
 
+### Guard Statements
+Early-exit precondition checks. The else block must return or throw.
+\`\`\`
+guard isValid(input) else {
+  return Error { message: "invalid input" }
+}
+// continues here only if guard passed
+\`\`\`
+
+### Pattern Matching (inline)
+\`\`\`
+|x > 0| => "positive"
+|x < 0| => "negative"
+|true| => "zero"
+\`\`\`
+
+### Match Expression (structured)
+\`\`\`
+match status {
+  "open" => handleOpen()
+  "closed" => handleClosed()
+  { type: "error", message } => handleError(message)
+  [first, ...rest] => handleList(first, rest)
+  is String => handleString(status)
+  _ when status.length > 10 => handleLong(status)
+  _ => handleDefault()
+}
+\`\`\`
+Patterns: literal values, object destructuring, array destructuring, \`is Type\` checks, \`_\` wildcard.
+Optional \`when\` guard on any arm.
+
+### Conditional Method Expression
+Chain conditionals on any value:
+\`\`\`
+dec label = count.if(c => c == 0).then("none").else("some")
+dec msg = user.name.if(n => n.length > 0).then(user.name).else("Anonymous")
+\`\`\`
+
 ### Error Handling
 - \`try { body } catch (e) { body }\` — parens around catch parameter required
 - \`try { body } catch (e) { body } finally { body }\`
@@ -46,12 +84,14 @@ Enum values are frozen objects with a string value matching the variant name.
 - \`(a, b) => a + b\` — multi-param arrow
 - \`fn greet(name = "World") { ... }\` — default parameters
 - \`fn sum(...nums) { ... }\` — rest parameters
+- \`async memo fn fetch(url) { ... }\` — memoized async function
 
 ### Operators
 - \`==\` / \`!=\` — strict equality (compiles to === / !==)
 - \`and\` / \`or\` / \`not\` — logical operators
+- \`??\` — nullish coalescing: \`value ?? defaultValue\`
 - \`~>\` — pipe operator (eager): \`items ~> filter(fn) ~> map(fn)\`
-- \`>>\` — flow operator (lazy composition)
+- \`>>\` — flow operator (lazy composition): \`dec process = validate >> transform >> save\`
 - \`..\` — range: \`0..5\` produces [0, 1, 2, 3, 4]
 - \`...\` — spread: \`[...arr1, ...arr2]\`
 
@@ -62,6 +102,21 @@ Enum values are frozen objects with a string value matching the variant name.
 - \`obj.property\` — null-safe member access (compiles to \`obj?.property\`)
 - \`dec { a, b } = obj\` — object destructuring
 - \`dec [a, b] = arr\` — array destructuring
+
+### Pipes and Flows
+Pipes (\`~>\`) chain transformations eagerly:
+\`\`\`
+dec result = data
+  ~> filter(x => x.active)
+  ~> map(x => x.name)
+  ~> sort((a, b) => a.localeCompare(b))
+\`\`\`
+
+Flows (\`>>\`) compose functions lazily (returns a new function):
+\`\`\`
+dec process = validate >> transform >> format
+dec output = process(input)
+\`\`\`
 
 ### Testing
 \`\`\`
@@ -101,4 +156,87 @@ Both ## test and ## impl must start with a hash comment:
 - \`expose\` marks functions/values as public API
 - Member access is always null-safe (\`obj.a.b.c\` compiles to \`obj?.a?.b?.c\`)
 - Parentheses are required around catch parameters: \`catch (e)\` not \`catch e\`
+`;
+
+export const STYLE_GUIDANCE = `## KimchiLang Style
+
+Write idiomatic KimchiLang. Prefer these patterns over verbose alternatives:
+
+**Use pipes for data transformation chains:**
+\`\`\`
+// Good
+dec result = items ~> filter(x => x.active) ~> map(x => x.name)
+
+// Avoid
+dec filtered = items.filter(x => x.active)
+dec result = filtered.map(x => x.name)
+\`\`\`
+
+**Use match for multi-branch logic:**
+\`\`\`
+// Good
+match role {
+  "admin" => fullAccess()
+  "member" => limitedAccess()
+  _ => readOnly()
+}
+
+// Avoid
+if role == "admin" { fullAccess() }
+elif role == "member" { limitedAccess() }
+else { readOnly() }
+\`\`\`
+
+**Use guard for preconditions:**
+\`\`\`
+// Good
+guard user.isActive else { return Denied { reason: "inactive" } }
+guard items.length > 0 else { return Empty }
+
+// Avoid
+if not user.isActive { return Denied { reason: "inactive" } }
+if items.length == 0 { return Empty }
+\`\`\`
+
+**Use .if().then().else() for inline conditionals:**
+\`\`\`
+// Good
+dec label = count.if(c => c == 0).then("empty").else("has items")
+
+// Avoid
+dec label = if count == 0 { "empty" } else { "has items" }
+\`\`\`
+
+**Use ?? for defaults:**
+\`\`\`
+// Good
+dec name = user.name ?? "Anonymous"
+
+// Avoid
+dec name = if user.name != null { user.name } else { "Anonymous" }
+\`\`\`
+
+**Use flows for reusable pipelines:**
+\`\`\`
+// Good
+dec processUser = validate >> normalize >> save
+dec result = processUser(input)
+
+// Avoid
+fn processUser(input) {
+  dec validated = validate(input)
+  dec normalized = normalize(validated)
+  return save(normalized)
+}
+\`\`\`
+
+**Use pattern matching for destructuring results:**
+\`\`\`
+// Good
+|result.success| => handleSuccess(result.data)
+|true| => handleError(result.error)
+
+// Avoid
+if result.success { handleSuccess(result.data) } else { handleError(result.error) }
+\`\`\`
 `;
