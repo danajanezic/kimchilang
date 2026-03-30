@@ -1328,6 +1328,29 @@ test('Opt1b: dec var in js expression is frozen', () => {
   assertContains(js, 'Object.freeze(nums)');
 });
 
+test('Opt2: known literal dec uses . not ?.', () => {
+  const js = compile('dec obj = { name: "Alice" }\nprint obj.name');
+  assertContains(js, 'obj.name');
+  assertEqual(js.includes('obj?.name'), false, 'Known object should use . not ?.');
+});
+
+test('Opt2: nested known shape uses . throughout', () => {
+  const js = compile('dec obj = { a: { b: 1 } }\nprint obj.a.b');
+  assertContains(js, 'obj.a.b');
+  assertEqual(js.includes('obj?.'), false, 'Fully known shape should not use obj?.');
+  assertEqual(js.includes('obj.a?.'), false, 'Fully known nested shape should not use obj.a?.');
+});
+
+test('Opt2: unknown property uses ?.', () => {
+  const js = compile('fn foo(x) { return x.name }');
+  assertContains(js, '?.name');
+});
+
+test('Opt2: number literal known non-null', () => {
+  const js = compile('dec x = 42\nprint x.toString()');
+  assertEqual(js.includes('x?.toString'), false, 'Number should not use ?.');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

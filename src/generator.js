@@ -30,6 +30,33 @@ export class CodeGenerator {
     this.output = '';
     this.options = options;
     this.decVariables = new Set();
+    this.knownShapes = new Map(); // Map<name, shapeTree> for ?. optimization
+  }
+
+  buildShapeTree(node) {
+    if (!node) return true;
+
+    if (node.type === NodeType.Literal || node.type === NodeType.TemplateLiteral) {
+      return true; // primitive — non-null
+    }
+
+    if (node.type === NodeType.ArrayExpression) {
+      return true; // array — non-null, elements unknown
+    }
+
+    if (node.type === NodeType.ObjectExpression) {
+      const shape = {};
+      for (const prop of node.properties) {
+        if (prop.type === NodeType.SpreadElement) continue;
+        const key = typeof prop.key === 'string' ? prop.key : (prop.key && (prop.key.name || prop.key.value));
+        if (key) {
+          shape[key] = this.buildShapeTree(prop.value);
+        }
+      }
+      return shape;
+    }
+
+    return true; // other known expressions
   }
 
   generate(ast) {
@@ -624,6 +651,8 @@ export class CodeGenerator {
     } else {
       this.emitLine(`const ${node.name} = ${init};`);
       this.decVariables.add(node.name);
+      const shape = this.buildShapeTree(node.init);
+      if (shape) this.knownShapes.set(node.name, shape);
     }
   }
 
@@ -648,6 +677,8 @@ export class CodeGenerator {
       }
     } else {
       this.emitLine(`let ${node.name} = ${init};`);
+      const shape = this.buildShapeTree(node.init);
+      if (shape) this.knownShapes.set(node.name, shape);
     }
   }
 
@@ -868,6 +899,19 @@ export class CodeGenerator {
     }
     this.popIndent();
     this.emitLine('}');
+
+    // Track non-null after guard: guard x != null else { ... }
+    if (node.test.type === NodeType.BinaryExpression &&
+        node.test.operator === '!=' &&
+        node.test.right &&
+        node.test.right.type === NodeType.Literal &&
+        node.test.right.value === null &&
+        node.test.left &&
+        node.test.left.type === NodeType.Identifier) {
+      if (!this.knownShapes.has(node.test.left.name)) {
+        this.knownShapes.set(node.test.left.name, true);
+      }
+    }
   }
 
   visitIfStatement(node, isElseIf = false) {
@@ -1362,13 +1406,52 @@ export class CodeGenerator {
 
   visitMemberExpression(node) {
     const object = this.visitExpression(node.object);
+
     if (node.computed) {
       const property = this.visitExpression(node.property);
-      // Use optional chaining for safe access
-      return `${object}?.[${property}]`;
+      const safe = this.isKnownNonNull(node.object, null);
+      return safe ? `${object}[${property}]` : `${object}?.[${property}]`;
     }
-    // Use optional chaining for safe access
-    return `${object}?.${node.property}`;
+
+    const safe = this.isKnownNonNull(node.object, node.property);
+    return safe ? `${object}.${node.property}` : `${object}?.${node.property}`;
+  }
+
+  isKnownNonNull(objectNode, propertyName) {
+    if (objectNode.type === NodeType.Identifier) {
+      const shape = this.knownShapes.get(objectNode.name);
+      if (!shape) return false;
+      if (propertyName === null) return true; // computed — root is enough
+      if (shape === true) return true; // root non-null, no sub-shape detail
+      if (typeof shape === 'object' && propertyName in shape) return true;
+      return false;
+    }
+
+    if (objectNode.type === NodeType.MemberExpression && !objectNode.computed) {
+      const parentShape = this.getNestedShape(objectNode);
+      if (parentShape === null) return false;
+      if (propertyName === null) return true;
+      if (parentShape === true) return false; // parent exists but no sub-shape
+      if (typeof parentShape === 'object' && propertyName in parentShape) return true;
+      return false;
+    }
+
+    return false;
+  }
+
+  getNestedShape(node) {
+    if (node.type === NodeType.Identifier) {
+      return this.knownShapes.get(node.name) || null;
+    }
+    if (node.type === NodeType.MemberExpression && !node.computed) {
+      const parentShape = this.getNestedShape(node.object);
+      if (parentShape === null || parentShape === true) return null;
+      if (typeof parentShape === 'object' && node.property in parentShape) {
+        return parentShape[node.property];
+      }
+      return null;
+    }
+    return null;
   }
 
   visitArrayExpression(node) {
