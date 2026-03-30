@@ -997,6 +997,35 @@ test('Generate expect with .not', () => {
   assertContains(js, '.not.toBe(');
 });
 
+test('Parse test.only', () => {
+  const ast = parse(tokenize('test.only "critical" { assert true }'));
+  assertEqual(ast.body[0].type, 'TestBlock');
+  assertEqual(ast.body[0].modifier, 'only');
+});
+
+test('Parse test.skip', () => {
+  const ast = parse(tokenize('test.skip "todo" { assert true }'));
+  assertEqual(ast.body[0].type, 'TestBlock');
+  assertEqual(ast.body[0].modifier, 'skip');
+});
+
+test('Parse test without modifier', () => {
+  const ast = parse(tokenize('test "normal" { assert true }'));
+  assertEqual(ast.body[0].modifier, null);
+});
+
+test('Parse describe.only', () => {
+  const ast = parse(tokenize('describe.only "Auth" { test "login" { assert true } }'));
+  assertEqual(ast.body[0].type, 'DescribeBlock');
+  assertEqual(ast.body[0].modifier, 'only');
+});
+
+test('Parse describe.skip', () => {
+  const ast = parse(tokenize('describe.skip "Legacy" { test "old" { assert true } }'));
+  assertEqual(ast.body[0].type, 'DescribeBlock');
+  assertEqual(ast.body[0].modifier, 'skip');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

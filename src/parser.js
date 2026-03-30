@@ -2136,37 +2136,51 @@ export class Parser {
   // Testing framework parsing
   parseTestBlock() {
     this.expect(TokenType.TEST, 'Expected test');
-    
-    // Test name (string)
+
+    // Check for .only or .skip modifier
+    let modifier = null;
+    if (this.match(TokenType.DOT)) {
+      const mod = this.expect(TokenType.IDENTIFIER, 'Expected only or skip after test.').value;
+      if (mod !== 'only' && mod !== 'skip') {
+        this.error('Expected only or skip after test., got ' + mod);
+      }
+      modifier = mod;
+    }
+
     const name = this.expect(TokenType.STRING, 'Expected test name').value;
-    
     this.skipNewlines();
-    
-    // Test body
     const body = this.parseBlock();
-    
+
     return {
       type: NodeType.TestBlock,
       name,
       body,
+      modifier,
     };
   }
-  
+
   parseDescribeBlock() {
     this.expect(TokenType.DESCRIBE, 'Expected describe');
-    
-    // Describe name (string)
+
+    // Check for .only or .skip modifier
+    let modifier = null;
+    if (this.match(TokenType.DOT)) {
+      const mod = this.expect(TokenType.IDENTIFIER, 'Expected only or skip after describe.').value;
+      if (mod !== 'only' && mod !== 'skip') {
+        this.error('Expected only or skip after describe., got ' + mod);
+      }
+      modifier = mod;
+    }
+
     const name = this.expect(TokenType.STRING, 'Expected describe name').value;
-    
     this.skipNewlines();
-    
-    // Describe body (contains tests and other statements)
     const body = this.parseBlock();
-    
+
     return {
       type: NodeType.DescribeBlock,
       name,
       body,
+      modifier,
     };
   }
   
