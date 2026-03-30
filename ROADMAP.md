@@ -7,7 +7,7 @@
 
 ## Language Design
 
-- [ ] Require all-implicit or all-explicit enum values (disallow mixed auto-increment like `Low, Medium, High = 10, Critical`)
+- [x] ~~Require all-implicit or all-explicit enum values~~ — mixed is now a parse error
 - [ ] Algebraic data types / tagged unions for richer domain modeling
 - [x] ~~Exhaustiveness checking on match patterns~~ — implemented for enum variant matching
 - [ ] Union types (`string | null`)
