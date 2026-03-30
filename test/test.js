@@ -1254,6 +1254,33 @@ test('Type checker: partial KMDoc — some params annotated', () => {
   assertEqual(errors.length, 0, 'Partial annotation should work without errors');
 });
 
+test('Type checker: @type on dec validates init value', () => {
+  const source = '/** @type {string} */\ndec x = 42';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const typeError = errors.find(e => e.message.includes('declared as'));
+  assertEqual(typeError !== undefined, true, 'Should error when init type mismatches @type');
+});
+
+test('Type checker: @type on dec accepts matching type', () => {
+  const source = '/** @type {number} */\ndec x = 42';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('declared as'));
+  assertEqual(typeErrors.length, 0, 'Matching type should not error');
+});
+
+test('Type checker: @type on mut', () => {
+  const source = '/** @type {number} */\nmut count = 0';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('declared as'));
+  assertEqual(typeErrors.length, 0, 'Matching mut type should not error');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

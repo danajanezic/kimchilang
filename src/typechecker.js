@@ -454,10 +454,25 @@ export class TypeChecker {
 
   visitDecDeclaration(node) {
     const initType = this.visitExpression(node.init);
-    
+
+    // KMDoc @type validation and override
+    let effectiveType = initType;
+    if (node.kmdoc && node.kmdoc.type) {
+      const declaredType = this.parseTypeString(node.kmdoc.type);
+      if (initType.kind !== Type.Unknown && initType.kind !== Type.Any &&
+          declaredType.kind !== Type.Any && declaredType.kind !== Type.Unknown &&
+          initType.kind !== declaredType.kind) {
+        this.addError(
+          `Variable '${node.name}' declared as ${node.kmdoc.type} but initialized with ${initType.kind}`,
+          node
+        );
+      }
+      effectiveType = declaredType;
+    }
+
     // Track exposed declarations for module export type
     if (node.exposed) {
-      this.moduleExports[node.name] = initType;
+      this.moduleExports[node.name] = effectiveType;
     }
     
     if (node.destructuring) {
@@ -490,12 +505,27 @@ export class TypeChecker {
         }
       }
     } else {
-      this.defineVariable(node.name, initType);
+      this.defineVariable(node.name, effectiveType);
     }
   }
 
   visitMutDeclaration(node) {
     const initType = this.visitExpression(node.init);
+
+    // KMDoc @type validation and override
+    let effectiveType = initType;
+    if (node.kmdoc && node.kmdoc.type) {
+      const declaredType = this.parseTypeString(node.kmdoc.type);
+      if (initType.kind !== Type.Unknown && initType.kind !== Type.Any &&
+          declaredType.kind !== Type.Any && declaredType.kind !== Type.Unknown &&
+          initType.kind !== declaredType.kind) {
+        this.addError(
+          `Variable '${node.name}' declared as ${node.kmdoc.type} but initialized with ${initType.kind}`,
+          node
+        );
+      }
+      effectiveType = declaredType;
+    }
 
     if (node.destructuring) {
       if (node.pattern.type === NodeType.ObjectPattern) {
@@ -512,7 +542,7 @@ export class TypeChecker {
         }
       }
     } else {
-      this.defineVariable(node.name, initType);
+      this.defineVariable(node.name, effectiveType);
       this.mutVariables.add(node.name);
     }
   }
