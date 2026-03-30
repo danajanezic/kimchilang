@@ -14,6 +14,7 @@
 - [ ] Generic/parameterized types
 - [x] ~~Compound assignment operators for mut (`+=`, `-=`, `*=`, `/=`)~~ — already supported
 - [ ] Remove `js { }` interop in favor of native bindings / extern declarations
+- [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords.
 
 ## Tooling
 
