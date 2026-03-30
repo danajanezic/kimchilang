@@ -48,6 +48,16 @@ export class TypeChecker {
     this.defineVariable('error', this.createType(Type.Function));
     this.defineVariable('_obj', this.createType(Type.Object));
     this.defineVariable('_secret', this.createType(Type.Function));
+    // JavaScript globals used in KimchiLang code
+    this.defineVariable('new', this.createType(Type.Any));
+    this.defineVariable('typeof', this.createType(Type.Any));
+    this.defineVariable('Number', this.createType(Type.Function));
+    this.defineVariable('String', this.createType(Type.Function));
+    this.defineVariable('Boolean', this.createType(Type.Function));
+    this.defineVariable('parseInt', this.createType(Type.Function));
+    this.defineVariable('parseFloat', this.createType(Type.Function));
+    this.defineVariable('isNaN', this.createType(Type.Function));
+    this.defineVariable('isFinite', this.createType(Type.Function));
   }
 
   // Static methods for module type registry
