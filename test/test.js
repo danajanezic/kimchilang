@@ -1363,6 +1363,38 @@ test('Opt3: match as expression still has IIFE', () => {
   assertContains(js, '(() => {');
 });
 
+test('Opt4: hello world has no _pipe or _flow', () => {
+  const js = compile('print "hello"');
+  assertEqual(js.includes('function _pipe'), false, 'Should not emit _pipe');
+  assertEqual(js.includes('function _flow'), false, 'Should not emit _flow');
+  assertEqual(js.includes('function _shell'), false, 'Should not emit _shell');
+  assertEqual(js.includes('class _Secret'), false, 'Should not emit _Secret');
+  assertEqual(js.includes('const _tests'), false, 'Should not emit test runtime');
+});
+
+test('Opt4: pipe code includes _pipe but not _flow', () => {
+  const js = compile('fn double(x) { return x * 2 }\ndec result = 5 ~> double');
+  assertContains(js, 'function _pipe');
+  assertEqual(js.includes('function _flow'), false, 'Should not emit _flow when unused');
+});
+
+test('Opt4: test code includes test runtime', () => {
+  const js = generate(parse(tokenize('test "x" { expect(1).toBe(1) }')));
+  assertContains(js, 'const _tests');
+  assertContains(js, 'function _expect');
+});
+
+test('Opt4: secret code includes _Secret', () => {
+  const js = generate(parse(tokenize('secret dec key = "abc"')));
+  assertContains(js, 'class _Secret');
+});
+
+test('Opt4: flow code includes _flow but not _pipe', () => {
+  const js = compile('fn double(x) { return x * 2 }\ntransform >> double');
+  assertContains(js, 'function _flow');
+  assertEqual(js.includes('function _pipe'), false, 'Should not emit _pipe when unused');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

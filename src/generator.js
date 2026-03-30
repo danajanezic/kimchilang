@@ -59,6 +59,27 @@ export class CodeGenerator {
     return true; // other known expressions
   }
 
+  scanUsedFeatures(ast) {
+    const features = new Set();
+    const scan = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type) features.add(node.type);
+      if (node.secret) features.add('secret');
+      for (const key of Object.keys(node)) {
+        const val = node[key];
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item && typeof item === 'object') scan(item);
+          }
+        } else if (val && typeof val === 'object' && val.type) {
+          scan(val);
+        }
+      }
+    };
+    scan(ast);
+    return features;
+  }
+
   generate(ast) {
     this.output = '';
     this.visitProgram(ast);
@@ -151,6 +172,7 @@ export class CodeGenerator {
     this.emitLine();
     
     // Secret wrapper class - masks value when converted to string
+    if (this.usedFeatures && this.usedFeatures.has('secret')) {
     this.emitLine('class _Secret {');
     this.pushIndent();
     this.emitLine('constructor(value) { this._value = value; }');
@@ -162,9 +184,11 @@ export class CodeGenerator {
     this.emitLine('}');
     this.emitLine('function _secret(value) { return new _Secret(value); }');
     this.emitLine();
+    }
     
     
     // Async-aware pipe helper - awaits each step in the chain
+    if (this.usedFeatures && this.usedFeatures.has('PipeExpression')) {
     this.emitLine('function _pipe(value, ...fns) {');
     this.pushIndent();
     this.emitLine('let result = value;');
@@ -178,8 +202,10 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
+    }
     
     // Async-aware flow helper - creates an async composed function
+    if (this.usedFeatures && this.usedFeatures.has('FlowExpression')) {
     this.emitLine('function _flow(...fns) {');
     this.pushIndent();
     this.emitLine('const composed = (...args) => {');
@@ -198,8 +224,10 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
+    }
 
     // Shell execution helper (async)
+    if (this.usedFeatures && this.usedFeatures.has('ShellBlock')) {
     this.emitLine('async function _shell(command, inputs = {}) {');
     this.pushIndent();
     this.emitLine('const { exec } = await import("child_process");');
@@ -225,8 +253,20 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
+    }
     
     // Testing framework runtime
+    const hasTests = this.usedFeatures && (
+      this.usedFeatures.has('TestBlock') ||
+      this.usedFeatures.has('DescribeBlock') ||
+      this.usedFeatures.has('ExpectStatement') ||
+      this.usedFeatures.has('AssertStatement') ||
+      this.usedFeatures.has('BeforeAllBlock') ||
+      this.usedFeatures.has('AfterAllBlock') ||
+      this.usedFeatures.has('BeforeEachBlock') ||
+      this.usedFeatures.has('AfterEachBlock')
+    );
+    if (hasTests) {
     this.emitLine('// Testing framework');
     this.emitLine('const _tests = [];');
     this.emitLine('let _currentDescribe = null;');
@@ -363,6 +403,7 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
+    } // end if (hasTests)
   }
 
   visit(node) {
@@ -417,6 +458,9 @@ export class CodeGenerator {
       this.emitLine();
     }
     
+    // Scan AST for used features to tree-shake runtime helpers
+    this.usedFeatures = this.scanUsedFeatures(node);
+
     // Emit stdlib prototype extensions
     this.emitRuntimeExtensions();
     
