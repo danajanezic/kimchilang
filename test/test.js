@@ -139,7 +139,8 @@ console.log('\n--- Code Generator Tests ---\n');
 
 test('Generate dec declaration', () => {
   const js = compile('dec x = 42');
-  assertContains(js, '_deepFreeze(42)');
+  assertContains(js, 'const x = 42;');
+  assertEqual(js.includes('_deepFreeze'), false, 'Should not use _deepFreeze');
 });
 
 test('Generate function declaration', () => {
@@ -383,10 +384,11 @@ test('Parse dec declaration', () => {
   assertEqual(ast.body[0].name, 'config');
 });
 
-test('Generate dec with deepFreeze', () => {
+test('Generate dec with object', () => {
   const js = compile('dec config = { foo: "bar" }');
-  assertContains(js, 'function _deepFreeze(obj)');
-  assertContains(js, 'const config = _deepFreeze({ foo: "bar" })');
+  assertEqual(js.includes('function _deepFreeze'), false, 'Should not emit _deepFreeze function');
+  assertContains(js, 'const config =');
+  assertEqual(js.includes('_deepFreeze'), false, 'Should not use _deepFreeze');
 });
 
 test('Compile-time error on dec reassignment', () => {
@@ -1279,6 +1281,26 @@ test('Type checker: @type on mut', () => {
   const errors = checker.check(ast);
   const typeErrors = errors.filter(e => e.message.includes('declared as'));
   assertEqual(typeErrors.length, 0, 'Matching mut type should not error');
+});
+
+// --- Codegen Optimization Tests ---
+console.log('\n--- Codegen Optimization Tests ---\n');
+
+test('Opt1: dec emits const without _deepFreeze', () => {
+  const js = compile('dec x = 42');
+  assertContains(js, 'const x = 42;');
+  assertEqual(js.includes('_deepFreeze'), false, 'Should not use _deepFreeze');
+});
+
+test('Opt1: dec object emits const without _deepFreeze', () => {
+  const js = compile('dec obj = { a: 1 }');
+  assertContains(js, 'const obj =');
+  assertEqual(js.includes('_deepFreeze'), false, 'Should not use _deepFreeze on objects');
+});
+
+test('Opt1: _deepFreeze function not in output', () => {
+  const js = compile('dec x = 1');
+  assertEqual(js.includes('function _deepFreeze'), false, 'Should not emit _deepFreeze function');
 });
 
 // Summary

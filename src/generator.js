@@ -135,15 +135,6 @@ export class CodeGenerator {
     this.emitLine('function _secret(value) { return new _Secret(value); }');
     this.emitLine();
     
-    // Deep freeze helper for dec declarations
-    this.emitLine('function _deepFreeze(obj) {');
-    this.pushIndent();
-    this.emitLine('if (obj === null || typeof obj !== "object") return obj;');
-    this.emitLine('Object.keys(obj).forEach(key => _deepFreeze(obj[key]));');
-    this.emitLine('return Object.freeze(obj);');
-    this.popIndent();
-    this.emitLine('}');
-    this.emitLine();
     
     // Async-aware pipe helper - awaits each step in the chain
     this.emitLine('function _pipe(value, ...fns) {');
@@ -600,7 +591,7 @@ export class CodeGenerator {
   }
 
   visitDecDeclaration(node) {
-    // dec creates deeply immutable variables using Object.freeze recursively
+    // dec creates immutable bindings (compile-time enforced)
     let init = this.visitExpression(node.init);
     
     // Wrap with _secret() if marked as secret
@@ -611,24 +602,24 @@ export class CodeGenerator {
     if (node.destructuring) {
       // Handle destructuring patterns
       if (node.pattern.type === NodeType.ObjectPattern) {
-        // Object destructuring: const { a, b } = _deepFreeze(obj);
+        // Object destructuring: const { a, b } = obj;
         const props = node.pattern.properties.map(p => {
           if (p.key === p.value) {
             return p.key;
           }
           return `${p.key}: ${p.value}`;
         }).join(', ');
-        this.emitLine(`const { ${props} } = _deepFreeze(${init});`);
+        this.emitLine(`const { ${props} } = ${init};`);
       } else if (node.pattern.type === NodeType.ArrayPattern) {
-        // Array destructuring: const [x, y] = _deepFreeze(arr);
+        // Array destructuring: const [x, y] = arr;
         const elems = node.pattern.elements.map(e => {
           if (e === null) return '';
           return e.name;
         }).join(', ');
-        this.emitLine(`const [${elems}] = _deepFreeze(${init});`);
+        this.emitLine(`const [${elems}] = ${init};`);
       }
     } else {
-      this.emitLine(`const ${node.name} = _deepFreeze(${init});`);
+      this.emitLine(`const ${node.name} = ${init};`);
     }
   }
 
