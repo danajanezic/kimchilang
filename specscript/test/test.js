@@ -892,5 +892,127 @@ test('getAllStale returns all stale module paths', () => {
   assertContains(all.join(','), 'b');
 });
 
+console.log('--- Integration Tests ---');
+
+test('full pipeline: compile valid source with correct hashes', () => {
+  const compiler = new SpecScriptCompiler();
+
+  const spec = `# Calculator
+
+**intent:** Provide basic arithmetic operations
+**reason:** Foundation for math-dependent modules
+
+### requires
+
+- Support addition of two numbers
+- Support subtraction of two numbers
+- Support multiplication of two numbers
+- Return numeric results for all operations
+
+### types
+
+- Operation :: Add | Subtract | Multiply
+
+### expose add :: (Number, Number) -> Number
+
+**intent:** Add two numbers together
+
+### expose subtract :: (Number, Number) -> Number
+
+**intent:** Subtract second number from first
+
+### expose multiply :: (Number, Number) -> Number
+
+**intent:** Multiply two numbers together`;
+
+  const hash = compiler.computeHash(spec);
+
+  const source = `## spec
+
+${spec}
+
+## test
+
+<!-- spec-hash: ${hash} -->
+
+test "add returns sum" {
+  expect(add(2, 3)).toBe(5)
+}
+
+test "subtract returns difference" {
+  expect(subtract(10, 4)).toBe(6)
+}
+
+test "multiply returns product" {
+  expect(multiply(3, 4)).toBe(12)
+}
+
+## impl
+
+<!-- spec-hash: ${hash} -->
+
+fn add(a, b) {
+  return a + b
+}
+
+fn subtract(a, b) {
+  return a - b
+}
+
+fn multiply(a, b) {
+  return a * b
+}`;
+
+  const result = compiler.compile(source);
+
+  assertEqual(result.spec.module, 'Calculator');
+  assertEqual(result.spec.functions.length, 3);
+  assertEqual(result.spec.requires.length, 4);
+
+  assertContains(result.js, 'function add(a, b)');
+  assertContains(result.js, 'function subtract(a, b)');
+  assertContains(result.js, 'function multiply(a, b)');
+  assertContains(result.js, '_test(');
+  assertContains(result.js, '_deepFreeze');
+  assertContains(result.js, '_runTests()');
+});
+
+test('full pipeline: spec change invalidates everything', () => {
+  const compiler = new SpecScriptCompiler();
+  const oldHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
+  const source = `## spec
+
+# Changed
+
+**intent:** This was modified
+**reason:** Testing staleness
+
+## test
+
+<!-- spec-hash: ${oldHash} -->
+
+test "x" { expect(1).toBe(1) }
+
+## impl
+
+<!-- spec-hash: ${oldHash} -->
+
+fn x() { return 1 }`;
+
+  assertThrows(() => compiler.compile(source), 'stale');
+});
+
+test('full pipeline: rejects file over 500 lines', () => {
+  const lines = ['## spec', '', '# Big', '', '**intent:** x', '**reason:** y'];
+  while (lines.length < 495) lines.push('// padding');
+  lines.push('', '## test', '', '<!-- spec-hash: sha256:abc123 -->', '', '## impl', '', '<!-- spec-hash: sha256:abc123 -->');
+
+  assertThrows(() => {
+    const compiler = new SpecScriptCompiler();
+    compiler.compile(lines.join('\n'));
+  }, '500');
+});
+
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
 if (failed > 0) process.exit(1);
