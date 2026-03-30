@@ -47,6 +47,7 @@ export class Linter {
         'max-line-length': false, // Disabled by default (set to number to enable)
         'newline-after-function': true, // Require blank line after function declarations
         'no-multiple-empty-lines': true, // Max 1 consecutive empty line
+        'mut-never-reassigned': true,
         ...options.rules,
       },
       // Severity overrides
@@ -66,6 +67,7 @@ export class Linter {
         'max-line-length': Severity.Warning,
         'newline-after-function': Severity.Info,
         'no-multiple-empty-lines': Severity.Info,
+        'mut-never-reassigned': Severity.Warning,
         ...options.severity,
       },
       // Formatting options
@@ -241,6 +243,13 @@ export class Linter {
         }
       }
     }
+    if (this.isRuleEnabled('mut-never-reassigned')) {
+      for (const [name, info] of scope.variables) {
+        if (info.isMut && !info.reassigned && !name.startsWith('_')) {
+          this.addMessage('mut-never-reassigned', `Variable '${name}' is declared as mut but never reassigned. Use 'dec' instead.`, info.node);
+        }
+      }
+    }
     return scope;
   }
 
@@ -314,6 +323,12 @@ export class Linter {
         this.defineVariable(stmt.name, stmt);
       } else if (stmt.type === NodeType.EnvDeclaration) {
         this.defineVariable(stmt.name, stmt);
+      } else if (stmt.type === NodeType.MutDeclaration) {
+        if (stmt.destructuring) {
+          this.collectDestructuringNames(stmt.pattern, stmt);
+        } else {
+          this.defineVariable(stmt.name, stmt);
+        }
       }
     }
   }
@@ -345,6 +360,19 @@ export class Linter {
     switch (node.type) {
       case NodeType.DecDeclaration:
         this.analyzeExpression(node.init);
+        return { returns: false, breaks: false };
+
+      case NodeType.MutDeclaration:
+        this.analyzeExpression(node.init);
+        if (!node.destructuring && node.name) {
+          this.defineVariable(node.name, node);
+          const scope = this.currentScope();
+          const varInfo = scope.variables.get(node.name);
+          if (varInfo) {
+            varInfo.isMut = true;
+            varInfo.reassigned = false;
+          }
+        }
         return { returns: false, breaks: false };
 
       case NodeType.FunctionDeclaration:
@@ -644,6 +672,15 @@ export class Linter {
       case NodeType.AssignmentExpression:
         this.analyzeExpression(node.left);
         this.analyzeExpression(node.right);
+        if (node.left && node.left.type === NodeType.Identifier) {
+          for (let i = this.scopes.length - 1; i >= 0; i--) {
+            const varInfo = this.scopes[i].variables.get(node.left.name);
+            if (varInfo && varInfo.isMut) {
+              varInfo.reassigned = true;
+              break;
+            }
+          }
+        }
         break;
 
       case NodeType.AwaitExpression:
@@ -741,10 +778,18 @@ export class Linter {
         // Skip exposed variables and those starting with _
         if (info.node && info.node.exposed) continue;
         if (name.startsWith('_')) continue;
-        
+
         if (!info.used) {
-          this.addMessage('unused-variable', 
+          this.addMessage('unused-variable',
             `Variable '${name}' is declared but never used`, info.node);
+        }
+      }
+    }
+
+    if (this.isRuleEnabled('mut-never-reassigned')) {
+      for (const [name, info] of topScope.variables) {
+        if (info.isMut && !info.reassigned && !name.startsWith('_')) {
+          this.addMessage('mut-never-reassigned', `Variable '${name}' is declared as mut but never reassigned. Use 'dec' instead.`, info.node);
         }
       }
     }

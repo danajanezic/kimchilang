@@ -2,6 +2,7 @@
 
 import { compile, tokenize, parse, generate, KimchiCompiler } from '../src/index.js';
 import { TypeChecker } from '../src/typechecker.js';
+import { Linter } from '../src/linter.js';
 
 let passed = 0;
 let failed = 0;
@@ -664,6 +665,15 @@ test('Type checker: mut variable without closure is fine', () => {
   // Filter out errors unrelated to mut
   const mutErrors = errors.filter(e => e.message.includes('mut') || e.message.includes('capture'));
   assertEqual(mutErrors.length, 0, 'No mut-related errors for simple mut usage');
+});
+
+test('Linter: warns on mut never reassigned', () => {
+  const source = 'mut x = 5\nprint x';
+  const ast = parse(tokenize(source));
+  const linter = new Linter({ rules: { 'mut-never-reassigned': true } });
+  const messages = linter.lint(ast, source);
+  const hasMutWarning = messages.some(m => m.rule === 'mut-never-reassigned');
+  assertEqual(hasMutWarning, true, 'Should warn about mut variable never reassigned');
 });
 
 // Summary
