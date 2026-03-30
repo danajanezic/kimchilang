@@ -56,11 +56,12 @@ Patterns: literal values, object destructuring, array destructuring, \`is Type\`
 Optional \`when\` guard on any arm.
 
 ### Conditional Method Expression
-Chain conditionals on any value:
+Chain conditionals on any value — returns the receiver if condition is true, else the fallback:
 \`\`\`
-dec label = count.if(c => c == 0).then("none").else("some")
-dec msg = user.name.if(n => n.length > 0).then(user.name).else("Anonymous")
+dec label = "none".if(count == 0).else("some")
+dec name = user.name.if(user.name.length > 0).else("Anonymous")
 \`\`\`
+\`.if(condition)\` returns the receiver if condition is truthy. \`.else(fallback)\` provides the alternative.
 
 ### Error Handling
 - \`try { body } catch (e) { body }\` — parens around catch parameter required
@@ -198,10 +199,10 @@ if not user.isActive { return Denied { reason: "inactive" } }
 if items.length == 0 { return Empty }
 \`\`\`
 
-**Use .if().then().else() for inline conditionals:**
+**Use .if().else() for inline conditionals:**
 \`\`\`
 // Good
-dec label = count.if(c => c == 0).then("empty").else("has items")
+dec label = "empty".if(count == 0).else("has items")
 
 // Avoid
 dec label = if count == 0 { "empty" } else { "has items" }
