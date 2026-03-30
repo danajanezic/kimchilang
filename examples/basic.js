@@ -193,46 +193,101 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
+  const name = _deepFreeze("World");
+  const PI = _deepFreeze(3.14159);
+  console.log("Hello, KimchiLang!");
+  console.log(name);
+  function greet(person) {
+    return (("Hello, " + person) + "!");
+  }
+  
   function add(a, b) {
     return (a + b);
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
+  console.log(greet("Alice"));
+  console.log(add(5, 3));
+  const double = _deepFreeze(x => (x * 2));
+  const multiply = _deepFreeze((a, b) => (a * b));
+  console.log(double(21));
+  console.log(multiply(6, 7));
   const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
+  const fruits = _deepFreeze(["apple", "banana", "cherry"]);
+  console.log(numbers);
+  console.log(fruits?.[0]);
+  const person = _deepFreeze({ name: "Bob", age: 30, city: "New York" });
+  console.log(person?.name);
+  console.log(person?.["age"]);
+  const score = _deepFreeze(85);
+  const grade = _deepFreeze((() => {
+    const _subject = score;
+    if ((() => { const n = _subject; return (n >= 90); })()) {
+      const n = _subject;
+      return "A";
+    } else if ((() => { const n = _subject; return (n >= 80); })()) {
+      const n = _subject;
+      return "B";
+    } else if ((() => { const n = _subject; return (n >= 70); })()) {
+      const n = _subject;
+      return "C";
+    } else {
+      return "F";
+    }
+  })());
+  console.log(`Grade: ${grade}`);
+  for (const item of fruits) {
+    console.log(item);
+  }
+  for (const i of Array.from({ length: 5 - 0 }, (_, i) => 0 + i)) {
+    console.log(i);
+  }
+  function addOne(x) {
+    return (x + 1);
   }
   
-  for (const num of numbers) {
-    console.log(num);
+  function square(x) {
+    return (x * x);
   }
+  
+  const transform = _flow(addOne, square);
+  const result = _deepFreeze(transform(5));
+  console.log(`transform(5) = ${result}`);
+  const pipeResult = _deepFreeze(_pipe(5, addOne, square));
+  console.log(`5 ~> addOne ~> square = ${pipeResult}`);
+  const config = _deepFreeze({ timeout: null });
+  const timeout = _deepFreeze((config?.timeout ?? 3000));
+  console.log(`Timeout: ${timeout}`);
+  const status = _deepFreeze((((score >= 80)) ? "premium" : "standard"));
+  console.log(`Status: ${status}`);
+  function sumArray(arr) {
+    let total = 0;
+    for (const n of arr) {
+      total = (total + n);
+    }
+    return total;
+  }
+  
+  console.log(`Sum: ${sumArray(numbers)}`);
+  function safeDivide(a, b) {
+    if (!((b !== 0))) {
+      return null;
+    }
+    return (a / b);
+  }
+  
+  console.log(`10 / 3 = ${safeDivide(10, 3)}`);
+  console.log(`10 / 0 = ${safeDivide(10, 0)}`);
+  const arr1 = _deepFreeze([1, 2, 3]);
+  const arr2 = _deepFreeze([...arr1, 4, 5, 6]);
+  console.log(arr2);
+  function riskyOperation() {
+    throw "Something went wrong!";
+  }
+  
+  try {
+    riskyOperation();
+  } catch (e) {
+    console.log(("Caught error: " + e));
+  }
+  console.log("Program completed successfully!");
 }

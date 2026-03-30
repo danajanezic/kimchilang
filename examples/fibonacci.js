@@ -193,46 +193,17 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
-  
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
+  function fibonacci(n) {
+    if ((n <= 1)) {
+      return n;
     }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+    return (fibonacci((n - 1)) + fibonacci((n - 2)));
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
+  console.log("Fibonacci Sequence:");
+  for (const i of Array.from({ length: 10 - 0 }, (_, i) => 0 + i)) {
+    console.log(fibonacci(i));
   }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  console.log("Fibonacci of 15:");
+  console.log(fibonacci(15));
 }

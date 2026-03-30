@@ -193,46 +193,124 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
   function add(a, b) {
     return (a + b);
   }
   
+  function multiply(a, b) {
+    return (a * b);
+  }
+  
   function greet(name) {
-    console.log(("Hello, " + name));
+    return `Hello, ${name}!`;
   }
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
+  function safeDivide(a, b) {
+    if (!((b !== 0))) {
+      throw "Cannot divide by zero";
     }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+    return (a / b);
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  _test("addition works", async () => {
+    _expect(add(2, 3)).toBe(5);
+    _expect(add(-1, 1)).toBe(0);
+  });
+  _test("multiplication works", async () => {
+    _expect(multiply(3, 4)).toBe(12);
+    _expect(multiply(0, 100)).toBe(0);
+  });
+  _describe("String functions", () => {
+    _test("greet returns correct message", async () => {
+      _expect(greet("World")).toBe("Hello, World!");
+    });
+    _test("string contains check", async () => {
+      const message = _deepFreeze(greet("Alice"));
+      _expect(message).toContain("Alice");
+    });
+  });
+  _describe("Array operations", () => {
+    _test("array length", async () => {
+      const arr = _deepFreeze([1, 2, 3, 4, 5]);
+      _expect(arr).toHaveLength(5);
+    });
+    _test("array contains", async () => {
+      const fruits = _deepFreeze(["apple", "banana", "cherry"]);
+      _expect(fruits).toContain("banana");
+    });
+  });
+  _test("assert examples", async () => {
+    _assert(((1 + 1) === 2), "Basic math should work");
+    _assert(true, "True should be truthy");
+  });
+  _test("comparison matchers", async () => {
+    _expect(10).toBeGreaterThan(5);
+    _expect(3).toBeLessThan(7);
+  });
+  _test("truthy and falsy", async () => {
+    _expect(true).toBeTruthy();
+    _expect(false).toBeFalsy();
+    _expect(null).toBeFalsy();
+    _expect("hello").toBeTruthy();
+  });
+  _describe("New matchers", () => {
+    _test("toBeDefined and toBeUndefined", async () => {
+      _expect(42).toBeDefined();
+      const obj = _deepFreeze({ a: 1 });
+      _expect(obj?.b).toBeUndefined();
+    });
+    _test("toBeCloseTo for floating point", async () => {
+      const result = _deepFreeze((0.1 + 0.2));
+      _expect(result).toBeCloseTo(0.3);
+    });
+  });
+  _describe("Not modifier", () => {
+    _test("not.toBe", async () => {
+      _expect(1).not.toBe(2);
+    });
+    _test("not.toContain", async () => {
+      const arr = _deepFreeze([1, 2, 3]);
+      _expect(arr).not.toContain(4);
+    });
+    _test("not.toBeNull", async () => {
+      _expect("hello").not.toBeNull();
+    });
+  });
+  _test("future feature", async () => {
+    _assert(false, "This should not run");
+  }, "skip");
+  _describe("Guard validation", () => {
+    _test("safeDivide works", async () => {
+      _expect(safeDivide(10, 2)).toBe(5);
+    });
+    _test("safeDivide throws on zero", async () => {
+      _expect(() => safeDivide(10, 0)).toThrow("Cannot divide by zero");
+    });
+  });
+  _describe("Match expressions", () => {
+    _test("match returns correct value", async () => {
+      const result = _deepFreeze((() => {
+        const _subject = 200;
+        if (_subject === 200) {
+          return "OK";
+        } else if (_subject === 404) {
+          return "Not Found";
+        } else {
+          return "Unknown";
+        }
+      })());
+      _expect(result).toBe("OK");
+    });
+    _test("match with wildcard", async () => {
+      const result = _deepFreeze((() => {
+        const _subject = 999;
+        if (_subject === 200) {
+          return "OK";
+        } else {
+          return "Unknown";
+        }
+      })());
+      _expect(result).toBe("Unknown");
+    });
+  });
 }

@@ -1,16 +1,41 @@
 // Example test file demonstrating KimchiLang's built-in testing framework
 
-// Helper function to test
+// Helper functions to test
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 fn add(a, b) {
   return a + b
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 fn multiply(a, b) {
   return a * b
 }
 
+/**
+ * @param {string} name
+ * @returns {string}
+ */
 fn greet(name) {
   return "Hello, ${name}!"
+}
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
+fn safeDivide(a, b) {
+  guard b != 0 else { throw "Cannot divide by zero" }
+  return a / b
 }
 
 // Simple tests
@@ -29,7 +54,7 @@ describe "String functions" {
   test "greet returns correct message" {
     expect(greet("World")).toBe("Hello, World!")
   }
-  
+
   test "string contains check" {
     dec message = greet("Alice")
     expect(message).toContain("Alice")
@@ -41,7 +66,7 @@ describe "Array operations" {
     dec arr = [1, 2, 3, 4, 5]
     expect(arr).toHaveLength(5)
   }
-  
+
   test "array contains" {
     dec fruits = ["apple", "banana", "cherry"]
     expect(fruits).toContain("banana")
@@ -66,4 +91,70 @@ test "truthy and falsy" {
   expect(false).toBeFalsy()
   expect(null).toBeFalsy()
   expect("hello").toBeTruthy()
+}
+
+// New matchers
+describe "New matchers" {
+  test "toBeDefined and toBeUndefined" {
+    expect(42).toBeDefined()
+    dec obj = { a: 1 }
+    expect(obj.b).toBeUndefined()
+  }
+
+  test "toBeCloseTo for floating point" {
+    dec result = 0.1 + 0.2
+    expect(result).toBeCloseTo(0.3)
+  }
+}
+
+// .not modifier
+describe "Not modifier" {
+  test "not.toBe" {
+    expect(1).not.toBe(2)
+  }
+
+  test "not.toContain" {
+    dec arr = [1, 2, 3]
+    expect(arr).not.toContain(4)
+  }
+
+  test "not.toBeNull" {
+    expect("hello").not.toBeNull()
+  }
+}
+
+// .skip modifier
+test.skip "future feature" {
+  assert false, "This should not run"
+}
+
+// Guard in tests
+describe "Guard validation" {
+  test "safeDivide works" {
+    expect(safeDivide(10, 2)).toBe(5)
+  }
+
+  test "safeDivide throws on zero" {
+    expect(() => safeDivide(10, 0)).toThrow("Cannot divide by zero")
+  }
+}
+
+// Match expression in tests
+describe "Match expressions" {
+  test "match returns correct value" {
+    dec result = match 200 {
+      200 => "OK"
+      404 => "Not Found"
+      _ => "Unknown"
+    }
+    expect(result).toBe("OK")
+  }
+
+  test "match with wildcard" {
+    dec result = match 999 {
+      200 => "OK"
+      _ => "Unknown"
+    }
+    expect(result).toBe("Unknown")
+  }
 }

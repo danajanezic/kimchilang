@@ -193,46 +193,49 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
+  function double(x) {
+    return (x * 2);
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
+  function addOne(x) {
+    return (x + 1);
   }
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+  function square(x) {
+    return (x * x);
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
+  async function fetchUser(id) {
+    return { id, name: ("User" + id) };
   }
   
-  for (const num of numbers) {
-    console.log(num);
+  async function enrichUser(user) {
+    return { ...user, email: (user?.name + "@example.com") };
   }
+  
+  async function formatUser(user) {
+    return ((("Name: " + user?.name) + ", Email: ") + user?.email);
+  }
+  
+  async function main() {
+    console.log("=== Async Pipe Operator (~>) ===");
+    const userInfo = _deepFreeze(await _pipe(1, fetchUser, enrichUser, formatUser));
+    console.log(userInfo);
+    const result = _deepFreeze(await _pipe(5, double, addOne));
+    console.log(`5 ~> double ~> addOne = ${result}`);
+    console.log("");
+    console.log("=== Async Flow Operator (>>) ===");
+    const processUser = _flow(fetchUser, enrichUser, formatUser);
+    const user1 = _deepFreeze(await processUser(1));
+    const user2 = _deepFreeze(await processUser(2));
+    console.log(`User 1: ${user1}`);
+    console.log(`User 2: ${user2}`);
+    const transform = _flow(double, addOne, square);
+    const transformed = _deepFreeze(await transform(5));
+    console.log(`transform(5) = ${transformed}`);
+    console.log("");
+    console.log("Done!");
+  }
+  
+  main();
 }

@@ -193,46 +193,26 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
+  const fibonacci = (() => {
+    const _cache = new Map();
+    return function(n) {
+      const _key = JSON.stringify([...arguments]);
+      if (_cache.has(_key)) return _cache.get(_key);
+      const _result = (() => {
+        if ((n <= 1)) {
+          return n;
+        }
+        return (fibonacci((n - 1)) + fibonacci((n - 2)));
+      })();
+      _cache.set(_key, _result);
+      return _result;
+    };
+  })();
   
-  function greet(name) {
-    console.log(("Hello, " + name));
+  console.log("Memoized Fibonacci Sequence:");
+  for (const i of Array.from({ length: 20 - 0 }, (_, i) => 0 + i)) {
+    console.log(`fib(${i}) = ${fibonacci(i)}`);
   }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  console.log("\nFibonacci of 35 (would be slow without memo):");
+  console.log(`fib(35) = ${fibonacci(35)}`);
 }

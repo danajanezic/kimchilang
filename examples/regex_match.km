@@ -4,6 +4,8 @@
 // 2. Match with body: expr ~ /regex/ => { return value } - returns the body result
 
 // Simple match - returns the matched portion
+
+/** @type {string} */
 dec input = "hello world 123"
 dec matched = input ~ /hello/
 print "Simple match result: ${matched}"
@@ -26,11 +28,23 @@ print greeting
 dec emailPattern = /^[\w.-]+@[\w.-]+\.\w+$/
 dec phonePattern = /^\d{3}-\d{3}-\d{4}$/
 
+/**
+ * Validates an email address against a regex pattern.
+ * @param {string} email - Email to validate
+ * @returns {boolean} True if valid
+ */
 fn validateEmail(email) {
+  guard email != null else { return false }
   return emailPattern.test(email)
 }
 
+/**
+ * Validates a phone number against a regex pattern.
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} True if valid
+ */
 fn validatePhone(phone) {
+  guard phone != null else { return false }
   return phonePattern.test(phone)
 }
 
@@ -42,5 +56,11 @@ print "Is '555-123-4567' a valid phone? ${validatePhone('555-123-4567')}"
 // Conditional based on match result
 dec logLine = "ERROR: Connection failed"
 dec level = logLine ~ /^(ERROR|WARN|INFO|DEBUG)/
+
+dec severity = match level {
+  "ERROR" => "CRITICAL"
+  "WARN" => "WARNING"
+  _ => "OK"
+}
 print ""
-print "Log level: ${level}"
+print "Log level: ${level} (${severity})"

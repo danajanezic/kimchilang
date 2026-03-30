@@ -193,46 +193,62 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
-  
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
+  const transactions = _deepFreeze([{ type: "credit", amount: 100 }, { type: "debit", amount: 50 }, { type: "credit", amount: 200 }, { type: "debit", amount: 75 }, { type: "refund", amount: 25 }]);
+  function transactionReducer(acc, tx) {
+    if ((tx?.type === "credit")) {
+      return (acc + tx?.amount);
+      return;
+    } else if ((tx?.type === "debit")) {
+      return (acc - tx?.amount);
+      return;
+    } else if ((tx?.type === "refund")) {
+      return (acc + tx?.amount);
+      return;
+    } else if (true) {
+      return acc;
+      return;
     }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
+  const balance = _deepFreeze(transactions?.reduce(transactionReducer, 0));
+  console.log(`Final balance: $${balance}`);
+  const items = _deepFreeze([{ name: "apple", category: "fruit" }, { name: "carrot", category: "vegetable" }, { name: "banana", category: "fruit" }, { name: "broccoli", category: "vegetable" }, { name: "orange", category: "fruit" }]);
+  function groupReducer(acc, item) {
+    if ((item?.category === "fruit")) {
+      return { fruits: [...acc?.fruits, item?.name], vegetables: acc?.vegetables };
+      return;
+    } else if ((item?.category === "vegetable")) {
+      return { fruits: acc?.fruits, vegetables: [...acc?.vegetables, item?.name] };
+      return;
+    } else if (true) {
+      return acc;
+      return;
+    }
   }
   
-  for (const num of numbers) {
-    console.log(num);
-  }
+  const grouped = _deepFreeze(items?.reduce(groupReducer, { fruits: [], vegetables: [] }));
+  console.log("\nGrouped items:");
+  console.log(`Fruits: ${grouped?.fruits?.join(", ")}`);
+  console.log(`Vegetables: ${grouped?.vegetables?.join(", ")}`);
+  const events = _deepFreeze(["start", "pause", "resume", "stop", "start"]);
+  const finalState = _deepFreeze(events?.reduce((state, event) => {
+    if ((event === "start")) {
+      return "running";
+      return;
+    } else if (((event === "pause") && (state === "running"))) {
+      return "paused";
+      return;
+    } else if (((event === "resume") && (state === "paused"))) {
+      return "running";
+      return;
+    } else if ((event === "stop")) {
+      return "stopped";
+      return;
+    } else if (true) {
+      return state;
+      return;
+    }
+  }, "idle"));
+  console.log(`
+Final state: ${finalState}`);
 }

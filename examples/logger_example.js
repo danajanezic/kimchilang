@@ -1,3 +1,5 @@
+import _dep_log from './stdlib/logger.km';
+
 // KimchiLang stdlib extensions
 if (!Array.prototype._kmExtended) {
   Array.prototype._kmExtended = true;
@@ -193,46 +195,22 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
+  const log = _opts["stdlib.logger"] || _dep_log();
+  
+  log?.info("Application started");
+  log?.debug("Debug information", { userId: 123 });
+  log?.warn("This is a warning");
+  log?.error("Something went wrong", { code: "ERR_001" });
+  const userLog = _deepFreeze(log?.child({ userId: 456, session: "abc123" }));
+  userLog?.info("User logged in");
+  userLog?.debug("Processing request");
+  function processOrder(orderId) {
+    log?.info("Processing order", { orderId });
+    log?.debug("Validating order");
+    log?.debug("Charging payment");
+    log?.info("Order completed", { orderId, status: "success" });
+    return true;
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  processOrder(789);
 }

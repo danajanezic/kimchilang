@@ -193,46 +193,24 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
+  (() => {
+    console.log("Hello from raw JavaScript!");
+  })();
   
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
+  const name = _deepFreeze("Alice");
+  const count = _deepFreeze(5);
+  ((name, count) => {
+    const greeting = `Hello, ${name}! Count: ${count}`;
+    console.log(greeting);
+  })(name, count);
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
+  const doubled = _deepFreeze(((count) => { return count * 2; })(count));
+  console.log(`Doubled: ${doubled}`);
   const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  const sum = _deepFreeze(((numbers) => { return numbers.reduce((a, b) => a + b, 0); })(numbers));
+  console.log(`Sum: ${sum}`);
+  const timestamp = _deepFreeze((() => { return Date.now(); })());
+  console.log(`Timestamp: ${timestamp}`);
+  const result = _deepFreeze(((name) => { const upper = name.toUpperCase(); const reversed = upper.split('').reverse().join(''); return reversed; })(name));
+  console.log(`Reversed uppercase: ${result}`);
 }

@@ -1,7 +1,12 @@
-// Test file for new features: String Interpolation and Pipe Operator
+// KimchiLang Feature Showcase
+// Demonstrates string interpolation, pipe, flow, and new features
 
 // ===== String Interpolation =====
+
+/** @type {string} */
 dec name = "Alice"
+
+/** @type {number} */
 dec age = 30
 
 print "Hello, ${name}!"
@@ -17,8 +22,23 @@ dec user = { name: "Bob", score: 95 }
 print "${user.name} scored ${user.score}%"
 
 // ===== Pipe Operator (~>) =====
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn double(x) { return x * 2 }
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn addOne(x) { return x + 1 }
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn square(x) { return x * x }
 
 // Basic pipe chain - passes value through functions left to right
@@ -26,10 +46,17 @@ dec result = 5 ~> double ~> addOne ~> square
 print "5 ~> double ~> addOne ~> square = ${result}"
 
 // Pipe with array operations
+
+/** @param {number[]} arr */
 fn sumArray(arr) { return arr.sum() }
+
+/** @param {number[]} arr */
 fn doubleAll(arr) { return arr.map(x => x * 2) }
+
+/** @param {number[]} arr */
 fn filterBig(arr) { return arr.filter(x => x > 5) }
 
+/** @type {number[]} */
 dec numbers = [1, 2, 3, 4, 5]
 dec processed = numbers ~> doubleAll ~> filterBig ~> sumArray
 print "Processed array result: ${processed}"
@@ -40,7 +67,7 @@ print message
 
 // ===== Flow Operator (>>) =====
 // Creates a composed function that can be called later
-dec transform >> double addOne square
+transform >> double addOne square
 
 // Now call the composed function
 dec flowResult = transform(5)
@@ -50,3 +77,52 @@ print "transform(5) = ${flowResult}"
 processArray >> doubleAll filterBig sumArray
 dec flowArrayResult = processArray(numbers)
 print "processArray([1,2,3,4,5]) = ${flowArrayResult}"
+
+// ===== Nullish Coalescing (??) =====
+dec config = { timeout: null, retries: 3 }
+dec timeout = config.timeout ?? 5000
+dec retries = config.retries ?? 1
+print "Timeout: ${timeout}, Retries: ${retries}"
+
+// ===== Guard =====
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
+fn divide(a, b) {
+  guard b != 0 else { return null }
+  return a / b
+}
+
+print "10 / 3 = ${divide(10, 3)}"
+print "10 / 0 = ${divide(10, 0)}"
+
+// ===== Match Expression =====
+dec status = 200
+
+dec statusMessage = match status {
+  200 => "OK"
+  404 => "Not Found"
+  500 => "Server Error"
+  _ => "Unknown"
+}
+print "Status ${status}: ${statusMessage}"
+
+// ===== .if().else() =====
+dec score = 85
+dec tier = "Gold".if(score >= 90).else("Silver".if(score >= 80).else("Bronze"))
+print "Tier: ${tier}"
+
+// ===== Mut =====
+fn buildList(n) {
+  mut squares = []
+  for i in 0..n {
+    squares = [...squares, i * i]
+  }
+  return squares
+}
+
+dec squares = buildList(5)
+print "Squares: ${squares}"

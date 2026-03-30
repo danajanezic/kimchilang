@@ -193,46 +193,251 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
+  console.log("Hello, KimchiLang!");
+  function greet(name) {
+    return (("Welcome, " + name) + "!");
+  }
+  
+  console.log(greet("Developer"));
+  const name = _deepFreeze("Alice");
+  const PI = _deepFreeze(3.14159);
+  const config = _deepFreeze({ api: { url: "https://api.example.com", timeout: 5000 } });
+  const person = _deepFreeze({ name: "Alice", age: 30, city: "NYC" });
+  const { name: personName, age } = _deepFreeze(person);
+  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
+  const [first, second, third] = _deepFreeze(numbers);
+  const internalConfig = _deepFreeze({ key: "hidden" });
+  function helperFn() {
+    return "internal";
+  }
+  
+  const API_VERSION = _deepFreeze("1.0");
+  function greetExposed(n) {
+    return ("Hello, " + n);
+  }
+  
   function add(a, b) {
     return (a + b);
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
+  function greetDefault(n = "World") {
+    return ("Hello, " + n);
   }
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+  console.log(greetDefault());
+  console.log(greetDefault("Alice"));
+  function sum(...nums) {
+    return nums?.reduce((acc, n) => (acc + n), 0);
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
+  console.log(sum(1, 2, 3, 4, 5));
+  function log(prefix, separator = ": ", ...messages) {
+    return ((prefix + separator) + messages?.join(", "));
+  }
+  
+  const Color = Object.freeze({
+    Red: 0,
+    Green: 1,
+    Blue: 2
+  });
+  
+  console.log(Color?.Red);
+  console.log(Color?.Green);
+  const HttpStatus = Object.freeze({
+    OK: 200,
+    NotFound: 404,
+    ServerError: 500
+  });
+  
+  const Priority = Object.freeze({
+    Low: 0,
+    Medium: 1,
+    High: 10,
+    Critical: 11
+  });
+  
+  function getStatusMessage(status) {
+    return (() => {
       const _subject = status;
       if (_subject === 200) {
-        return "OK";
+        return "Success";
       } else if (_subject === 404) {
         return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
       } else {
         return "Unknown";
       }
-    })());
-    console.log(message);
+    })();
   }
   
-  for (const num of numbers) {
-    console.log(num);
+  console.log(getStatusMessage(200));
+  const double = _deepFreeze(x => (x * 2));
+  const addArrow = _deepFreeze((a, b) => (a + b));
+  const process = _deepFreeze(x => {
+    const result = _deepFreeze((x * 2));
+    return (result + 1);
+  });
+  const numbersArr = _deepFreeze([1, 2, 3, 4, 5]);
+  const doubled = _deepFreeze(numbersArr?.map(x => (x * 2)));
+  const sumArr = _deepFreeze(numbersArr?.reduce((acc, n) => (acc + n), 0));
+  const score = _deepFreeze(85);
+  const grade = _deepFreeze((() => {
+    const _subject = score;
+    if ((() => { const n = _subject; return (n >= 90); })()) {
+      const n = _subject;
+      return "A";
+    } else if ((() => { const n = _subject; return (n >= 80); })()) {
+      const n = _subject;
+      return "B";
+    } else if ((() => { const n = _subject; return (n >= 70); })()) {
+      const n = _subject;
+      return "C";
+    } else {
+      return "F";
+    }
+  })());
+  console.log(grade);
+  const items = _deepFreeze(["a", "b", "c"]);
+  for (const item of items) {
+    console.log(item);
   }
+  for (const i of Array.from({ length: 5 - 0 }, (_, i) => 0 + i)) {
+    console.log(i);
+  }
+  function addOne(x) {
+    return (x + 1);
+  }
+  
+  function doubleNum(x) {
+    return (x * 2);
+  }
+  
+  function square(x) {
+    return (x * x);
+  }
+  
+  const transform = _flow(addOne, doubleNum, square);
+  const flowResult = _deepFreeze(transform(5));
+  console.log(`Flow result: ${flowResult}`);
+  function handleStatus(status) {
+    if ((status === 200)) {
+      console.log("OK");
+      return;
+    } else if ((status === 404)) {
+      console.log("Not Found");
+      return;
+    } else if ((status === 500)) {
+      console.log("Server Error");
+      return;
+    } else if (true) {
+      console.log("Unknown");
+      return;
+    }
+  }
+  
+  handleStatus(200);
+  const nums = _deepFreeze([1, 2, 3, 4, 5]);
+  const personObj = _deepFreeze({ name: "Bob", age: 30 });
+  const more = _deepFreeze([...nums, 6, 7, 8]);
+  const updated = _deepFreeze({ ...personObj, age: 31 });
+  const obj = _deepFreeze({ a: { b: { c: 1 } } });
+  console.log(obj?.a?.b?.c);
+  const userName = _deepFreeze("Alice");
+  const userAge = _deepFreeze(30);
+  console.log(`Hello, ${userName}!`);
+  console.log(`${userName} is ${userAge} years old`);
+  const itemsCount = _deepFreeze([1, 2, 3]);
+  console.log(`Count: ${itemsCount?.length}`);
+  const pipeResult1 = _deepFreeze(square(addOne(doubleNum(5))));
+  const pipeResult2 = _deepFreeze(_pipe(5, doubleNum, addOne, square));
+  console.log(`Pipe result: ${pipeResult2}`);
+  const fib = (() => {
+    const _cache = new Map();
+    return function(n) {
+      const _key = JSON.stringify([...arguments]);
+      if (_cache.has(_key)) return _cache.get(_key);
+      const _result = (() => {
+        if ((n <= 1)) {
+          return n;
+          return;
+        } else if (true) {
+          return (fib((n - 1)) + fib((n - 2)));
+          return;
+        }
+      })();
+      _cache.set(_key, _result);
+      return _result;
+    };
+  })();
+  
+  console.log(`fib(10) = ${fib(10)}`);
+  const NotFoundError = _deepFreeze(error?.create("NotFoundError"));
+  const ValidationError = _deepFreeze(error?.create("ValidationError"));
+  function fetchUser(id) {
+    if (!((id !== 0))) {
+      throw NotFoundError(`User ${id} not found`);
+    }
+    return { id, name: "Alice" };
+  }
+  
+  function handleRequest(id) {
+    try {
+      return fetchUser(id);
+    } catch (e) {
+      if ((e?._id === NotFoundError?._id)) {
+        console.log(`Not found: ${e?.message}`);
+        return null;
+        return;
+      } else if ((e?._id === ValidationError?._id)) {
+        console.log(`Invalid: ${e?.message}`);
+        return null;
+        return;
+      } else if (true) {
+        throw e;
+        return;
+      }
+    }
+  }
+  
+  const user = _deepFreeze(handleRequest(1));
+  console.log(`User: ${user?.name}`);
+  const timeout = _deepFreeze((config?.api?.timeout ?? 3000));
+  console.log(`Timeout: ${timeout}`);
+  const label = _deepFreeze((((score >= 80)) ? "premium" : "standard"));
+  console.log(`Label: ${label}`);
+  function countItems(arr) {
+    let total = 0;
+    for (const item of arr) {
+      total = (total + 1);
+    }
+    return total;
+  }
+  
+  console.log(`Count: ${countItems(items)}`);
+  function divide(a, b) {
+    if (!((b !== 0))) {
+      throw "Cannot divide by zero";
+    }
+    return (a / b);
+  }
+  
+  console.log(`10 / 3 = ${divide(10, 3)}`);
+  (() => {
+    console.log("Hello from raw JavaScript!");
+  })();
+  
+  const jsName = _deepFreeze("Alice");
+  const jsCount = _deepFreeze(5);
+  ((jsName, jsCount) => {
+    const greeting = `Hello, ${jsName}! Count: ${jsCount}`;
+    console.log(greeting);
+  })(jsName, jsCount);
+  
+  const jsNumbers = _deepFreeze([1, 2, 3, 4, 5]);
+  const jsSum = _deepFreeze(((jsNumbers) => { return jsNumbers.reduce((a, b) => a + b, 0); })(jsNumbers));
+  console.log(`JS Sum: ${jsSum}`);
+  const timestamp = _deepFreeze((() => { return Date.now(); })());
+  console.log(`Timestamp: ${timestamp}`);
+  console.log("All README examples validated successfully!");
+  
+  return { API_VERSION, greetExposed, add };
 }

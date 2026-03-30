@@ -193,46 +193,20 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
+  async function listFiles() {
+    const result = _deepFreeze(await _shell("ls -la"));
+    console.log(result?.stdout);
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
+  async function getDate() {
+    const result = _deepFreeze(await _shell("date"));
+    return result?.stdout;
   }
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+  async function findFiles(pattern) {
+    const result = _deepFreeze(await _shell("find . -name \"$pattern\"", { pattern }));
+    return result?.stdout;
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  listFiles();
 }

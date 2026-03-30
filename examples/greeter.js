@@ -193,46 +193,20 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
+  if (_opts["name"] === undefined) throw new Error("Required argument 'name' not provided");
+  
+  const name = _opts["name"];
+  const greeting = _opts["greeting"] !== undefined ? _opts["greeting"] : "Hello";
+  
+  function _describe() {
+    return "A simple greeting module";
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
+  function greet() {
+    console.log(`${greeting}, ${name}!`);
   }
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
+  greet();
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  return { _describe, greet };
 }

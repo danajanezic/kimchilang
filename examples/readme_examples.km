@@ -4,6 +4,10 @@
 // === Quick Start ===
 print "Hello, KimchiLang!"
 
+/**
+ * @param {string} name
+ * @returns {string}
+ */
 fn greet(name) {
   return "Welcome, " + name + "!"
 }
@@ -11,8 +15,13 @@ fn greet(name) {
 print greet("Developer")
 
 // === Variables ===
+
+/** @type {string} */
 dec name = "Alice"
+
+/** @type {number} */
 dec PI = 3.14159
+
 dec config = {
   api: {
     url: "https://api.example.com",
@@ -25,17 +34,25 @@ dec person = { name: "Alice", age: 30, city: "NYC" }
 dec { name: personName, age } = person
 
 // Array destructuring
+
+/** @type {number[]} */
 dec numbers = [1, 2, 3, 4, 5]
 dec [first, second, third] = numbers
 
 // === Module Visibility ===
-dec internalConfig = { secret: "hidden" }
+dec internalConfig = { key: "hidden" }
 fn helperFn() { return "internal" }
 
 expose dec API_VERSION = "1.0"
 expose fn greetExposed(n) { return "Hello, " + n }
 
 // === Functions ===
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 expose fn add(a, b) {
   return a + b
 }
@@ -49,6 +66,7 @@ print greetDefault()
 print greetDefault("Alice")
 
 // Rest parameters
+
 fn sum(...nums) {
   return nums.reduce((acc, n) => acc + n, 0)
 }
@@ -83,10 +101,17 @@ enum Priority {
   Critical
 }
 
+/**
+ * Returns a message for an HTTP status code using match.
+ * @param {number} status - HTTP status code
+ * @returns {string} Status message
+ */
 fn getStatusMessage(status) {
-  |status == HttpStatus.OK| => { return "Success" }
-  |status == HttpStatus.NotFound| => { return "Not Found" }
-  |true| => { return "Unknown" }
+  return match status {
+    200 => "Success"
+    404 => "Not Found"
+    _ => "Unknown"
+  }
 }
 
 print getStatusMessage(200)
@@ -106,13 +131,15 @@ dec sumArr = numbersArr.reduce((acc, n) => acc + n, 0)
 
 // === Control Flow ===
 dec score = 85
-if score >= 90 {
-  print "A"
-} elif score >= 80 {
-  print "B"
-} else {
-  print "C"
+
+// Match expression for multi-branch value selection
+dec grade = match score {
+  n when n >= 90 => "A"
+  n when n >= 80 => "B"
+  n when n >= 70 => "C"
+  _ => "F"
 }
+print grade
 
 // For loop
 dec items = ["a", "b", "c"]
@@ -126,8 +153,23 @@ for i in 0..5 {
 }
 
 // === Flow Operator ===
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn addOne(x) { return x + 1 }
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn doubleNum(x) { return x * 2 }
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn square(x) { return x * x }
 
 transform >> addOne doubleNum square
@@ -135,6 +177,10 @@ dec flowResult = transform(5)
 print "Flow result: ${flowResult}"
 
 // === Pattern Matching ===
+
+/**
+ * @param {number} status
+ */
 fn handleStatus(status) {
   |status == 200| => { print "OK" }
   |status == 404| => { print "Not Found" }
@@ -174,6 +220,11 @@ dec pipeResult2 = 5 ~> doubleNum ~> addOne ~> square
 print "Pipe result: ${pipeResult2}"
 
 // === Memoized Functions ===
+
+/**
+ * @param {number} n
+ * @returns {number}
+ */
 memo fib(n) {
   |n <= 1| => { return n }
   |true| => { return fib(n - 1) + fib(n - 2) }
@@ -185,10 +236,13 @@ print "fib(10) = ${fib(10)}"
 dec NotFoundError = error.create("NotFoundError")
 dec ValidationError = error.create("ValidationError")
 
+/**
+ * Fetches a user by ID, using guard for validation.
+ * @param {number} id - User ID
+ * @returns {any} User object
+ */
 fn fetchUser(id) {
-  if id == 0 {
-    throw NotFoundError("User ${id} not found")
-  }
+  guard id != 0 else { throw NotFoundError("User ${id} not found") }
   return { id: id, name: "Alice" }
 }
 
@@ -212,6 +266,31 @@ fn handleRequest(id) {
 
 dec user = handleRequest(1)
 print "User: ${user.name}"
+
+// === Nullish Coalescing ===
+dec timeout = config.api.timeout ?? 3000
+print "Timeout: ${timeout}"
+
+// === Conditional Method ===
+dec label = "premium".if(score >= 80).else("standard")
+print "Label: ${label}"
+
+// === Mut Variables ===
+fn countItems(arr) {
+  mut total = 0
+  for item in arr {
+    total = total + 1
+  }
+  return total
+}
+print "Count: ${countItems(items)}"
+
+// === Guard ===
+fn divide(a, b) {
+  guard b != 0 else { throw "Cannot divide by zero" }
+  return a / b
+}
+print "10 / 3 = ${divide(10, 3)}"
 
 // === JavaScript Interop ===
 js {

@@ -193,46 +193,23 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
+  function _describe() {
+    return "Test that literals have stdlib methods";
   }
   
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
+  const nums = _deepFreeze([1, 2, 3, 4, 5]);
+  console.log("Array tests:");
+  console.log(`first: ${nums?.first()}`);
+  console.log(`last: ${nums?.last()}`);
+  console.log(`sum: ${nums?.sum()}`);
+  console.log(`average: ${nums?.average()}`);
+  console.log(`max: ${nums?.max()}`);
+  console.log(`min: ${nums?.min()}`);
+  const text = _deepFreeze("hello world");
+  console.log("\nString tests:");
+  console.log(`capitalize: ${text?.capitalize()}`);
+  console.log(`isEmpty: ${text?.isEmpty()}`);
+  console.log(`isBlank: ${"   "?.isBlank()}`);
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  return { _describe };
 }

@@ -193,46 +193,116 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
-  
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
+  const tasks = _deepFreeze([{ name: "lint", status: "pending", priority: 3, runner: "eslint", timeout: null }, { name: "typecheck", status: "pending", priority: 2, runner: "tsc", timeout: 30 }, { name: "test", status: "pending", priority: 1, runner: "jest", timeout: 60 }, { name: "build", status: "pending", priority: 1, runner: null, timeout: 120 }, { name: "deploy", status: "skipped", priority: 4, runner: "rsync", timeout: 300 }]);
+  const TaskError = _deepFreeze(error?.create("TaskError"));
+  const ValidationError = _deepFreeze(error?.create("ValidationError"));
+  function validateTask(task) {
+    if (!((task !== null))) {
+      throw ValidationError("Task is null");
     }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+    if (!((task?.name !== null))) {
+      throw ValidationError("Task missing name");
+    }
+    if (!((task?.status !== null))) {
+      throw ValidationError("Task missing status");
+    }
+    return task;
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
+  function getTimeoutLabel(task) {
+    const seconds = _deepFreeze((task?.timeout ?? 30));
+    return (() => {
+      const _subject = seconds;
+      if ((() => { const n = _subject; return (n <= 10); })()) {
+        const n = _subject;
+        return "fast";
+      } else if ((() => { const n = _subject; return (n <= 60); })()) {
+        const n = _subject;
+        return "normal";
+      } else if ((() => { const n = _subject; return (n > 60); })()) {
+        const n = _subject;
+        return "slow";
       } else {
-        return "Unknown";
+        return "unknown";
       }
-    })());
-    console.log(message);
+    })();
   }
   
-  for (const num of numbers) {
-    console.log(num);
+  function describeTask(task) {
+    const runner = _deepFreeze((task?.runner ?? "default"));
+    const timeout = _deepFreeze((task?.timeout ?? 30));
+    const speed = _deepFreeze(getTimeoutLabel(task));
+    const urgent = _deepFreeze((((task?.priority === 1)) ? "URGENT" : ""));
+    return { name: task?.name, runner, timeout, speed, urgent, status: task?.status };
   }
+  
+  function shouldRun(task) {
+    return (() => {
+      const _subject = task?.status;
+      if (_subject === "pending") {
+        return true;
+      } else if (_subject === "failed") {
+        return true;
+      } else {
+        return false;
+      }
+    })();
+  }
+  
+  function runTask(task) {
+    const described = _deepFreeze(describeTask(task));
+    const prefix = _deepFreeze((((described?.urgent !== "")) ? `[${described?.urgent}]` : "[  ]"));
+    console.log(`${prefix} Running ${described?.name} (${described?.runner}, ${described?.speed})`);
+    return (() => {
+      const _subject = task;
+      if (_subject?.runner === null && 'name' in (_subject || {})) {
+        const name = _subject.name;
+        console.log(`  WARNING: no runner for '${name}', using fallback`);
+        return { ...described, status: "done", note: "used fallback runner" };
+      } else if (_subject?.priority === 1) {
+        console.log("  Priority task — running with extra checks");
+        return { ...described, status: "done", note: "priority run" };
+      } else {
+        return { ...described, status: "done", note: null };
+      }
+    })();
+  }
+  
+  function main() {
+    console.log("=== Task Runner ===");
+    console.log("");
+    const validated = _deepFreeze(tasks?.map(t => validateTask(t)));
+    const runnable = _deepFreeze(validated?.filter(t => shouldRun(t)));
+    console.log(`Tasks to run: ${runnable?.length} of ${tasks?.length}`);
+    console.log("");
+    let results = [];
+    let passed = 0;
+    let failed = 0;
+    for (const task of runnable) {
+      try {
+        const result = _deepFreeze(runTask(task));
+        results = [...results, result];
+        passed = (passed + 1);
+      } catch (e) {
+        console.log(`  FAILED: ${e?.message}`);
+        failed = (failed + 1);
+        results = [...results, { name: task?.name, status: "failed" }];
+      }
+    }
+    console.log("");
+    console.log("=== Results ===");
+    console.log(`Passed: ${passed}`);
+    console.log(`Failed: ${failed}`);
+    console.log("");
+    for (const result of results) {
+      const note = _deepFreeze((result?.note ?? "no notes"));
+      const marker = _deepFreeze((((result?.status === "done")) ? "*" : "x"));
+      console.log(`  [${marker}] ${result?.name}: ${note}`);
+    }
+    console.log("");
+    const allPassed = _deepFreeze((((failed === 0)) ? "ALL TASKS PASSED" : "SOME TASKS FAILED"));
+    console.log(allPassed);
+  }
+  
+  main();
 }

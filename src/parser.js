@@ -1921,7 +1921,12 @@ export class Parser {
             column: this.tokens[this.pos - 1].column,
           };
         } else {
-          const property = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
+          // Accept identifiers and keywords as property names (e.g., .test, .match, .is)
+          const token = this.advance();
+          const property = token.value;
+          if (typeof property !== 'string') {
+            this.error('Expected property name');
+          }
           expr = {
             type: NodeType.MemberExpression,
             object: expr,

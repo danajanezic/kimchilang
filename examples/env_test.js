@@ -193,46 +193,27 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
+  const name = _opts["name"] !== undefined ? _opts["name"] : "World";
+  const password = _secret(_opts["password"] !== undefined ? _opts["password"] : "default-pass");
   
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
+  const HOME = process.env["HOME"];
+  const DEBUG = process.env["DEBUG"] !== undefined ? process.env["DEBUG"] : "false";
+  const API_TOKEN = _secret(process.env["API_TOKEN"] !== undefined ? process.env["API_TOKEN"] : "default-token-123");
   
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
-    }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
-  }
-  
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
-  }
-  
-  for (const num of numbers) {
-    console.log(num);
-  }
+  const apiKey = _deepFreeze(_secret("sk-12345-secret-key"));
+  const normalValue = _deepFreeze("visible-value");
+  console.log("=== Arguments ===");
+  console.log(`Name: ${name}`);
+  console.log(`Password: ${password}`);
+  console.log("");
+  console.log("=== Environment Variables ===");
+  console.log(`HOME: ${HOME}`);
+  console.log(`DEBUG: ${DEBUG}`);
+  console.log("");
+  console.log("=== Secret Values (should be masked) ===");
+  console.log(`API Token: ${API_TOKEN}`);
+  console.log(`API Key: ${apiKey}`);
+  console.log("");
+  console.log("=== Normal Values (should be visible) ===");
+  console.log(`Normal: ${normalValue}`);
 }

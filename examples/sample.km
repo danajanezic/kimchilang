@@ -1,14 +1,32 @@
+/** @type {string} */
 dec API_URL = "https://api.example.com"
+
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 fn add(a, b) {
   return a + b
 }
 
+/**
+ * @param {string} name
+ */
 fn greet(name) {
   print "Hello, " + name
 }
 
 // Converted from class UserService
+
+/**
+ * Creates a user service with API methods.
+ * @param {string} apiKey - API key for authentication
+ * @returns {any} Service object with getUser and createUser methods
+ */
 fn createUserService(apiKey) {
+  guard apiKey != null else { throw "apiKey is required" }
+
   return {
     getUser: (id) => {
       return "${apiKey}/users/${id}"
@@ -20,18 +38,22 @@ fn createUserService(apiKey) {
   }
 }
 
+/** @type {number[]} */
 dec numbers = [1, 2, 3, 4, 5]
 dec doubled = numbers.map(x => x * 2)
+
+/**
+ * Handles an HTTP status code.
+ * @param {number} status - HTTP status code
+ */
 fn processStatus(status) {
-  |status == 200| => {
-    print "OK"
+  dec message = match status {
+    200 => "OK"
+    404 => "Not Found"
+    500 => "Server Error"
+    _ => "Unknown"
   }
-  |status == 404| => {
-    print "Not Found"
-  }
-  |true| => {
-    print "Unknown"
-  }
+  print message
 }
 
 for num in numbers {

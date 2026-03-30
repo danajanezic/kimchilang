@@ -193,46 +193,47 @@ async function _runTests() {
 }
 
 export default function(_opts = {}) {
-  const API_URL = _deepFreeze("https://api.example.com");
-  function add(a, b) {
-    return (a + b);
-  }
-  
-  function greet(name) {
-    console.log(("Hello, " + name));
-  }
-  
-  function createUserService(apiKey) {
-    if (!((apiKey !== null))) {
-      throw "apiKey is required";
+  const input = _deepFreeze("hello world 123");
+  const matched = _deepFreeze((/hello/.exec(input) || [])[0]);
+  console.log(`Simple match result: ${matched}`);
+  const transformed = _deepFreeze((($match) => { return $match?.[2]; })(/(\w+) (\w+)/.exec(input)));
+  console.log(`Transformed (second word): ${transformed}`);
+  const numbers = _deepFreeze((/\d+\.\d+/.exec("Price: $42.99") || [])[0]);
+  console.log(`Extracted number: ${numbers}`);
+  const greeting = _deepFreeze((($match) => { return `Welcome, ${$match?.[1]}!`; })(/Hello, (\w+)!/.exec("Hello, John!")));
+  console.log(greeting);
+  const emailPattern = _deepFreeze(/^[\w.-]+@[\w.-]+\.\w+$/);
+  const phonePattern = _deepFreeze(/^\d{3}-\d{3}-\d{4}$/);
+  function validateEmail(email) {
+    if (!((email !== null))) {
+      return false;
     }
-    return { getUser: id => {
-      return `${apiKey}/users/${id}`;
-    }, createUser: (name, email) => {
-      console.log(`Creating user: ${name}`);
-      return { name, email };
-    } };
+    return emailPattern?.test(email);
   }
   
-  const numbers = _deepFreeze([1, 2, 3, 4, 5]);
-  const doubled = _deepFreeze(numbers?.map(x => (x * 2)));
-  function processStatus(status) {
-    const message = _deepFreeze((() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })());
-    console.log(message);
+  function validatePhone(phone) {
+    if (!((phone !== null))) {
+      return false;
+    }
+    return phonePattern?.test(phone);
   }
   
-  for (const num of numbers) {
-    console.log(num);
-  }
+  console.log("");
+  console.log("=== Validation Examples ===");
+  console.log(`Is 'test@example.com' a valid email? ${validateEmail("test@example.com")}`);
+  console.log(`Is '555-123-4567' a valid phone? ${validatePhone("555-123-4567")}`);
+  const logLine = _deepFreeze("ERROR: Connection failed");
+  const level = _deepFreeze((/^(ERROR|WARN|INFO|DEBUG)/.exec(logLine) || [])[0]);
+  const severity = _deepFreeze((() => {
+    const _subject = level;
+    if (_subject === "ERROR") {
+      return "CRITICAL";
+    } else if (_subject === "WARN") {
+      return "WARNING";
+    } else {
+      return "OK";
+    }
+  })());
+  console.log("");
+  console.log(`Log level: ${level} (${severity})`);
 }
