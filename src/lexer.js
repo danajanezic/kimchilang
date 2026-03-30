@@ -46,6 +46,8 @@ export const TokenType = {
   ASSERT: 'ASSERT',
   MUT: 'MUT',
   GUARD: 'GUARD',
+  MATCH_KEYWORD: 'MATCH_KEYWORD',
+  WHEN: 'WHEN',
 
   // Operators
   PLUS: 'PLUS',
@@ -136,6 +138,8 @@ const KEYWORDS = {
   'assert': TokenType.ASSERT,
   'mut': TokenType.MUT,
   'guard': TokenType.GUARD,
+  'match': TokenType.MATCH_KEYWORD,
+  'when': TokenType.WHEN,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,

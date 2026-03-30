@@ -58,6 +58,9 @@ export const NodeType = {
   MatchExpression: 'MatchExpression',
   
   GuardStatement: 'GuardStatement',
+  MatchBlock: 'MatchBlock',
+  MatchArm: 'MatchArm',
+  WildcardPattern: 'WildcardPattern',
 
   // Interop
   JSBlock: 'JSBlock',
@@ -83,6 +86,7 @@ export class Parser {
     this.pos = 0;
     this.decVariables = new Set(); // Track deeply immutable variables
     this.secretVariables = new Set(); // Track secret variables
+    this.inMatchArmBody = false; // Track when inside match arm body to limit expression parsing
   }
 
   isSignificantNewline(token) {
@@ -672,6 +676,203 @@ export class Parser {
       alternate,
       line: guardToken.line,
       column: guardToken.column,
+    };
+  }
+
+  parseMatchBlock() {
+    this.expect(TokenType.MATCH_KEYWORD, 'Expected match');
+    const subject = this.parseExpression();
+    this.expect(TokenType.LBRACE, 'Expected { after match subject');
+
+    const arms = [];
+    this.skipNewlines();
+
+    while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+      const arm = this.parseMatchArm();
+      arms.push(arm);
+      this.skipNewlines();
+    }
+
+    this.expect(TokenType.RBRACE, 'Expected } to close match');
+
+    return {
+      type: NodeType.MatchBlock,
+      subject,
+      arms,
+      line: this.tokens[this.pos - 1].line,
+      column: this.tokens[this.pos - 1].column,
+    };
+  }
+
+  parseMatchArm() {
+    const pattern = this.parseMatchPattern();
+
+    // Optional when guard
+    let guard = null;
+    if (this.check(TokenType.WHEN)) {
+      this.advance();
+      guard = this.parseExpression();
+    }
+
+    this.expect(TokenType.FAT_ARROW, 'Expected => after pattern');
+
+    // Body: either a block or a single expression
+    let body;
+    if (this.check(TokenType.LBRACE)) {
+      body = this.parseBlock();
+    } else {
+      // Set flag to prevent [ from being consumed as computed member access
+      // since newlines are stripped and [ could be the start of the next arm's pattern
+      const prevInMatchArmBody = this.inMatchArmBody;
+      this.inMatchArmBody = true;
+      body = this.parseExpression();
+      this.inMatchArmBody = prevInMatchArmBody;
+    }
+
+    return {
+      type: NodeType.MatchArm,
+      pattern,
+      guard,
+      body,
+      line: this.tokens[this.pos - 1].line,
+      column: this.tokens[this.pos - 1].column,
+    };
+  }
+
+  parseMatchPattern() {
+    // Wildcard: _
+    if (this.check(TokenType.IDENTIFIER) && this.tokens[this.pos].value === '_') {
+      this.advance();
+      return { type: NodeType.WildcardPattern };
+    }
+
+    // is TypeCheck
+    if (this.check(TokenType.IS)) {
+      this.advance();
+      const typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name after is').value;
+      return {
+        type: 'IsPattern',
+        typeName,
+      };
+    }
+
+    // Object destructuring pattern: { key: value, key2 }
+    if (this.check(TokenType.LBRACE)) {
+      return this.parseMatchObjectPattern();
+    }
+
+    // Array destructuring pattern: [a, b, c]
+    if (this.check(TokenType.LBRACKET)) {
+      return this.parseMatchArrayPattern();
+    }
+
+    // Literal value or binding variable
+    if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
+        this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {
+      const token = this.advance();
+      let value = token.value;
+      if (token.type === TokenType.NUMBER) {
+        value = parseFloat(value);
+      } else if (token.type === TokenType.BOOLEAN) {
+        value = token.value === 'true';
+      } else if (token.type === TokenType.NULL) {
+        value = null;
+      }
+      return {
+        type: 'LiteralPattern',
+        value,
+        raw: token.value,
+      };
+    }
+
+    // Identifier — binding variable (like n in: n when n >= 90)
+    if (this.check(TokenType.IDENTIFIER)) {
+      const name = this.advance().value;
+      return {
+        type: 'BindingPattern',
+        name,
+      };
+    }
+
+    this.error('Expected match pattern');
+  }
+
+  parseMatchObjectPattern() {
+    this.expect(TokenType.LBRACE, 'Expected {');
+    const properties = [];
+
+    while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+      this.skipNewlines();
+      if (this.check(TokenType.RBRACE)) break;
+
+      const key = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
+
+      let value = null;
+      if (this.match(TokenType.COLON)) {
+        // { key: pattern } — value is a literal or binding
+        if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
+            this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {
+          const token = this.advance();
+          let val = token.value;
+          if (token.type === TokenType.NUMBER) val = parseFloat(val);
+          else if (token.type === TokenType.BOOLEAN) val = token.value === 'true';
+          else if (token.type === TokenType.NULL) val = null;
+          value = { type: 'LiteralPattern', value: val, raw: token.value };
+        } else if (this.check(TokenType.IDENTIFIER)) {
+          value = { type: 'BindingPattern', name: this.advance().value };
+        }
+      }
+
+      properties.push({ key, value });
+
+      if (!this.check(TokenType.RBRACE)) {
+        this.match(TokenType.COMMA);
+      }
+    }
+
+    this.expect(TokenType.RBRACE, 'Expected }');
+
+    return {
+      type: 'ObjectDestructurePattern',
+      properties,
+    };
+  }
+
+  parseMatchArrayPattern() {
+    this.expect(TokenType.LBRACKET, 'Expected [');
+    const elements = [];
+
+    while (!this.check(TokenType.RBRACKET) && !this.check(TokenType.EOF)) {
+      this.skipNewlines();
+      if (this.check(TokenType.RBRACKET)) break;
+
+      if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
+          this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {
+        const token = this.advance();
+        let value = token.value;
+        if (token.type === TokenType.NUMBER) value = parseFloat(value);
+        else if (token.type === TokenType.BOOLEAN) value = token.value === 'true';
+        else if (token.type === TokenType.NULL) value = null;
+        elements.push({ type: 'LiteralPattern', value, raw: token.value });
+      } else if (this.check(TokenType.IDENTIFIER)) {
+        const name = this.advance().value;
+        if (name === '_') {
+          elements.push({ type: NodeType.WildcardPattern });
+        } else {
+          elements.push({ type: 'BindingPattern', name });
+        }
+      }
+
+      if (!this.check(TokenType.RBRACKET)) {
+        this.match(TokenType.COMMA);
+      }
+    }
+
+    this.expect(TokenType.RBRACKET, 'Expected ]');
+
+    return {
+      type: 'ArrayDestructurePattern',
+      elements,
     };
   }
 
@@ -1611,7 +1812,7 @@ export class Parser {
           property,
           computed: false,
         };
-      } else if (this.match(TokenType.LBRACKET)) {
+      } else if (!this.inMatchArmBody && this.match(TokenType.LBRACKET)) {
         const property = this.parseExpression();
         this.expect(TokenType.RBRACKET, 'Expected ]');
         expr = {
@@ -1641,6 +1842,10 @@ export class Parser {
   }
 
   parsePrimary() {
+    if (this.check(TokenType.MATCH_KEYWORD)) {
+      return this.parseMatchBlock();
+    }
+
     // Literals
     if (this.check(TokenType.NUMBER)) {
       const token = this.advance();

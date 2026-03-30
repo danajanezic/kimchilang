@@ -743,6 +743,64 @@ test('Type checker: guard with return is fine', () => {
   assertEqual(guardError, false, 'Should not error when guard else has return');
 });
 
+// --- Match Expression Tests ---
+console.log('\n--- Match Expression (new) Tests ---\n');
+
+test('Tokenize match keyword', () => {
+  const tokens = tokenize('match x { 1 => "one" }');
+  assertEqual(tokens[0].type, 'MATCH_KEYWORD');
+});
+
+test('Tokenize when keyword', () => {
+  const tokens = tokenize('n when n >= 90');
+  assertEqual(tokens[1].type, 'WHEN');
+});
+
+test('Parse match with literal patterns', () => {
+  const source = 'dec result = match status {\n200 => "OK"\n404 => "Not Found"\n_ => "Unknown"\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.type, 'MatchBlock');
+  assertEqual(matchExpr.arms.length, 3);
+  assertEqual(matchExpr.arms[0].pattern.type, 'LiteralPattern');
+  assertEqual(matchExpr.arms[0].pattern.value, 200);
+  assertEqual(matchExpr.arms[2].pattern.type, 'WildcardPattern');
+});
+
+test('Parse match with when guard', () => {
+  const source = 'dec tier = match score {\nn when n >= 90 => "A"\n_ => "F"\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.arms[0].pattern.type, 'BindingPattern');
+  assertEqual(matchExpr.arms[0].pattern.name, 'n');
+  assertEqual(matchExpr.arms[0].guard !== null, true, 'First arm should have a guard');
+});
+
+test('Parse match with object destructuring', () => {
+  const source = 'dec r = match obj {\n{ status: 200, data } => data\n_ => null\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.arms[0].pattern.type, 'ObjectDestructurePattern');
+  assertEqual(matchExpr.arms[0].pattern.properties.length, 2);
+  assertEqual(matchExpr.arms[0].pattern.properties[0].key, 'status');
+});
+
+test('Parse match with is pattern', () => {
+  const source = 'dec r = match err {\nis NotFoundError => "not found"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.arms[0].pattern.type, 'IsPattern');
+  assertEqual(matchExpr.arms[0].pattern.typeName, 'NotFoundError');
+});
+
+test('Parse match with array destructuring', () => {
+  const source = 'dec label = match point {\n[0, 0] => "origin"\n[x, y] => "point"\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.arms[0].pattern.type, 'ArrayDestructurePattern');
+  assertEqual(matchExpr.arms[0].pattern.elements.length, 2);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
