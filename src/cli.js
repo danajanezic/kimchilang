@@ -2,7 +2,7 @@
 
 // KimchiLang CLI - Command line interface for the KimchiLang compiler
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, copyFileSync } from 'fs';
 import { resolve, dirname, basename, extname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync, spawn } from 'child_process';
@@ -731,11 +731,11 @@ async function runTests(filePath, options = {}) {
     const tempDir = os.default.tmpdir();
     const tempFile = join(tempDir, `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
     
-    const modifiedCode = javascript.replace(
-      /^export default (?:async )?function/m, 
-      'const _module = function'
-    );
-    
+    const runtimeAbsPath = new URL('./runtime.js', import.meta.url).href;
+    const modifiedCode = javascript
+      .replace(/^export default (?:async )?function/m, 'const _module = function')
+      .replace(/from '\.\/kimchi-runtime\.js'/, `from '${runtimeAbsPath}'`);
+
     const wrappedCode = `
 ${modifiedCode}
 
@@ -789,11 +789,12 @@ async function runFile(filePath, options = {}) {
     const tempFile = join(tempDir, `kimchi_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
     
     // Replace export default with const so we can call it
-    const modifiedCode = javascript.replace(
-      /^export default (?:async )?function/m, 
-      'const _module = function'
-    );
-    
+    // Replace relative runtime import with absolute path for temp file execution
+    const runtimeAbsPath = new URL('./runtime.js', import.meta.url).href;
+    const modifiedCode = javascript
+      .replace(/^export default (?:async )?function/m, 'const _module = function')
+      .replace(/from '\.\/kimchi-runtime\.js'/, `from '${runtimeAbsPath}'`);
+
     const wrappedCode = `
 ${modifiedCode}
 
@@ -1085,13 +1086,21 @@ async function main() {
         }
       } else {
         const javascript = compileFile(filePath, options);
+        let outputPath;
         if (options.output) {
-          writeFileSync(options.output, javascript);
+          outputPath = resolve(options.output);
+          writeFileSync(outputPath, javascript);
           console.log(`Compiled: ${options.file} -> ${options.output}`);
         } else {
-          const outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
+          outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
           writeFileSync(outputPath, javascript);
           console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
+        }
+        // Copy runtime to output directory if not present
+        const runtimeDest = join(dirname(outputPath), 'kimchi-runtime.js');
+        if (!existsSync(runtimeDest)) {
+          const runtimeSrc = new URL('./runtime.js', import.meta.url);
+          copyFileSync(runtimeSrc, runtimeDest);
         }
       }
       break;

@@ -106,70 +106,13 @@ export class CodeGenerator {
     this.indent--;
   }
 
+  emitRuntimeImport() {
+    // Import shared runtime (stdlib extensions, _obj, error)
+    const runtimePath = this.options.runtimePath || './kimchi-runtime.js';
+    this.emitLine(`import { _obj, error } from '${runtimePath}';`);
+  }
+
   emitRuntimeExtensions() {
-    // Extend Array prototype with stdlib methods
-    this.emitLine('// KimchiLang stdlib extensions');
-    this.emitLine('if (!Array.prototype._kmExtended) {');
-    this.pushIndent();
-    this.emitLine('Array.prototype._kmExtended = true;');
-    this.emitLine('Array.prototype.first = function() { return this[0]; };');
-    this.emitLine('Array.prototype.last = function() { return this[this.length - 1]; };');
-    this.emitLine('Array.prototype.isEmpty = function() { return this.length === 0; };');
-    this.emitLine('Array.prototype.sum = function() { return this.reduce((a, b) => a + b, 0); };');
-    this.emitLine('Array.prototype.product = function() { return this.reduce((a, b) => a * b, 1); };');
-    this.emitLine('Array.prototype.average = function() { return this.reduce((a, b) => a + b, 0) / this.length; };');
-    this.emitLine('Array.prototype.max = function() { return Math.max(...this); };');
-    this.emitLine('Array.prototype.min = function() { return Math.min(...this); };');
-    this.emitLine('Array.prototype.take = function(n) { return this.slice(0, n); };');
-    this.emitLine('Array.prototype.drop = function(n) { return this.slice(n); };');
-    this.emitLine('Array.prototype.flatten = function() { return this.flat(Infinity); };');
-    this.emitLine('Array.prototype.unique = function() { return [...new Set(this)]; };');
-    this.popIndent();
-    this.emitLine('}');
-    
-    // Extend String prototype with stdlib methods
-    this.emitLine('if (!String.prototype._kmExtended) {');
-    this.pushIndent();
-    this.emitLine('String.prototype._kmExtended = true;');
-    this.emitLine('String.prototype.isEmpty = function() { return this.length === 0; };');
-    this.emitLine('String.prototype.isBlank = function() { return this.trim().length === 0; };');
-    this.emitLine('String.prototype.toChars = function() { return this.split(""); };');
-    this.emitLine('String.prototype.toLines = function() { return this.split("\\n"); };');
-    this.emitLine('String.prototype.capitalize = function() { return this.length === 0 ? this : this[0].toUpperCase() + this.slice(1); };');
-    this.popIndent();
-    this.emitLine('}');
-    
-    // Add Object utility functions (can't extend Object.prototype safely)
-    this.emitLine('const _obj = {');
-    this.pushIndent();
-    this.emitLine('keys: (o) => Object.keys(o),');
-    this.emitLine('values: (o) => Object.values(o),');
-    this.emitLine('entries: (o) => Object.entries(o),');
-    this.emitLine('fromEntries: (arr) => Object.fromEntries(arr),');
-    this.emitLine('has: (o, k) => Object.hasOwn(o, k),');
-    this.emitLine('freeze: (o) => Object.freeze(o),');
-    this.emitLine('isEmpty: (o) => Object.keys(o).length === 0,');
-    this.emitLine('size: (o) => Object.keys(o).length,');
-    this.popIndent();
-    this.emitLine('};');
-    this.emitLine();
-    
-    // Add error helper function for typed errors
-    this.emitLine('function error(message, _id = "Error") {');
-    this.pushIndent();
-    this.emitLine('const e = new Error(message);');
-    this.emitLine('e._id = _id;');
-    this.emitLine('return e;');
-    this.popIndent();
-    this.emitLine('}');
-    this.emitLine('error.create = (_id) => {');
-    this.pushIndent();
-    this.emitLine('const fn = (message) => error(message, _id);');
-    this.emitLine('fn._id = _id;');
-    this.emitLine('return fn;');
-    this.popIndent();
-    this.emitLine('};');
-    this.emitLine();
     
     // Secret wrapper class - masks value when converted to string
     if (this.usedFeatures && this.usedFeatures.has('secret')) {
@@ -461,7 +404,11 @@ export class CodeGenerator {
     // Scan AST for used features to tree-shake runtime helpers
     this.usedFeatures = this.scanUsedFeatures(node);
 
-    // Emit stdlib prototype extensions
+    // Import shared runtime (stdlib extensions, _obj, error)
+    this.emitRuntimeImport();
+    this.emitLine();
+
+    // Emit conditional runtime helpers (only those actually used)
     this.emitRuntimeExtensions();
     
     // Export default async factory function
