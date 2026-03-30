@@ -1,4 +1,5 @@
 // specscript/test/test.js
+import { SpecScriptCompiler } from '../src/index.js';
 import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
@@ -667,6 +668,99 @@ test('generates named constructor', () => {
   const js = gen('dec x = Confirmed { orderId: 123 }');
   assertContains(js, '_deepFreeze({');
   assertContains(js, '"_type": "Confirmed"');
+});
+
+console.log('--- Compiler Tests ---');
+
+function makeFile(spec, testSection, implSection) {
+  return `## spec\n\n${spec}\n\n## test\n\n${testSection}\n\n## impl\n\n${implSection}`;
+}
+
+test('compiles a valid .sp file to JavaScript', () => {
+  const compiler = new SpecScriptCompiler();
+  const spec = `# Adder\n\n**intent:** Add numbers\n**reason:** Math is useful`;
+  const hash = compiler.computeHash(spec);
+
+  const source = makeFile(
+    spec,
+    `<!-- spec-hash: ${hash} -->\n\ntest "adds" { expect(add(1, 2)).toBe(3) }`,
+    `<!-- spec-hash: ${hash} -->\n\nfn add(a, b) { return a + b }`
+  );
+
+  const result = compiler.compile(source);
+  assertContains(result.js, 'function add(a, b)');
+});
+
+test('rejects stale test hash', () => {
+  const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
+  const staleHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+  const source = makeFile(
+    spec,
+    `<!-- spec-hash: ${staleHash} -->\n\ntest "x" { expect(1).toBe(1) }`,
+    `<!-- spec-hash: ${staleHash} -->\n\nfn x() { return 1 }`
+  );
+
+  const compiler = new SpecScriptCompiler();
+  assertThrows(() => compiler.compile(source), 'stale');
+});
+
+test('rejects missing test hash', () => {
+  const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
+  const source = makeFile(
+    spec,
+    'test "x" { expect(1).toBe(1) }',
+    '<!-- spec-hash: sha256:abc -->\n\nfn x() { return 1 }'
+  );
+
+  const compiler = new SpecScriptCompiler();
+  assertThrows(() => compiler.compile(source), 'hash');
+});
+
+test('rejects stale impl hash when test is fresh', () => {
+  const compiler = new SpecScriptCompiler();
+  const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
+  const hash = compiler.computeHash(spec);
+  const staleHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
+  const source = makeFile(
+    spec,
+    `<!-- spec-hash: ${hash} -->\n\ntest "x" { expect(1).toBe(1) }`,
+    `<!-- spec-hash: ${staleHash} -->\n\nfn x() { return 1 }`
+  );
+
+  assertThrows(() => compiler.compile(source), 'stale');
+});
+
+test('rejects file where test hash is stale but impl hash is fresh (invalid state)', () => {
+  const compiler = new SpecScriptCompiler();
+  const spec = `# Mod\n\n**intent:** x\n**reason:** y`;
+  const hash = compiler.computeHash(spec);
+  const staleHash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
+  const source = makeFile(
+    spec,
+    `<!-- spec-hash: ${staleHash} -->\n\ntest "x" { expect(1).toBe(1) }`,
+    `<!-- spec-hash: ${hash} -->\n\nfn x() { return 1 }`
+  );
+
+  assertThrows(() => compiler.compile(source), 'test');
+});
+
+test('returns parsed spec metadata alongside compiled JS', () => {
+  const compiler = new SpecScriptCompiler();
+  const spec = `# Calculator\n\n**intent:** Do math\n**reason:** Math needed\n\n### expose add :: (Number, Number) -> Number\n\n**intent:** Add two numbers`;
+  const hash = compiler.computeHash(spec);
+
+  const source = makeFile(
+    spec,
+    `<!-- spec-hash: ${hash} -->\n\ntest "adds" { expect(add(1, 2)).toBe(3) }`,
+    `<!-- spec-hash: ${hash} -->\n\nfn add(a, b) { return a + b }`
+  );
+
+  const result = compiler.compile(source);
+  assertEqual(result.spec.module, 'Calculator');
+  assertEqual(result.spec.functions.length, 1);
+  assertEqual(result.hash, hash);
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
