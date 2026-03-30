@@ -173,20 +173,12 @@ function extractSpec(source) {
   return specContent;
 }
 
-async function cmdRegen(file, target, autoYes) {
+async function regenFile(file, target, config, autoYes) {
   const source = readFile(file);
   const specContent = extractSpec(source);
   const specHash = computeSpecHash(specContent);
 
-  let config;
-  try {
-    config = loadConfig(dirname(resolve(file)));
-  } catch (e) {
-    console.error(e.message);
-    process.exit(1);
-  }
-
-  const result = await regen({
+  return await regen({
     filePath: resolve(file),
     source,
     specContent,
@@ -195,8 +187,55 @@ async function cmdRegen(file, target, autoYes) {
     config,
     autoYes,
   });
+}
 
-  if (!result) process.exit(1);
+async function cmdRegen(fileOrDir, target, autoYes) {
+  const resolved = resolve(fileOrDir);
+  let files;
+
+  try {
+    const stat = statSync(resolved);
+    files = stat.isDirectory() ? findSpFiles(resolved) : [resolved];
+  } catch {
+    files = [resolved];
+  }
+
+  if (files.length === 0) {
+    console.error('No .sp files found.');
+    process.exit(1);
+  }
+
+  let config;
+  try {
+    config = loadConfig(dirname(files[0]));
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const file of files) {
+    console.log(`\n--- ${file} ---\n`);
+    try {
+      const result = await regenFile(file, target, config, autoYes);
+      if (result) {
+        succeeded++;
+      } else {
+        failed++;
+      }
+    } catch (e) {
+      console.error(`Error: ${e.message}`);
+      failed++;
+    }
+  }
+
+  if (files.length > 1) {
+    console.log(`\n--- ${succeeded} succeeded, ${failed} failed ---`);
+  }
+
+  if (failed > 0 && succeeded === 0) process.exit(1);
 }
 
 function cmdRun(file, debug) {
