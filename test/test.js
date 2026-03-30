@@ -676,6 +676,34 @@ test('Linter: warns on mut never reassigned', () => {
   assertEqual(hasMutWarning, true, 'Should warn about mut variable never reassigned');
 });
 
+// --- Nullish Coalescing Tests ---
+console.log('\n--- Nullish Coalescing Tests ---\n');
+
+test('Tokenize ?? operator', () => {
+  const tokens = tokenize('a ?? b');
+  assertEqual(tokens[1].type, 'NULLISH');
+  assertEqual(tokens[1].value, '??');
+});
+
+test('Parse ?? expression', () => {
+  const ast = parse(tokenize('dec x = a ?? b'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'BinaryExpression');
+  assertEqual(init.operator, '??');
+});
+
+test('Generate ?? operator', () => {
+  const js = compile('dec x = a ?? "default"', { skipTypeCheck: true });
+  assertContains(js, '??');
+  assertContains(js, '"default"');
+});
+
+test('Chained ?? operators', () => {
+  const ast = parse(tokenize('dec x = a ?? b ?? c'));
+  assertEqual(ast.body[0].init.type, 'BinaryExpression');
+  assertEqual(ast.body[0].init.operator, '??');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

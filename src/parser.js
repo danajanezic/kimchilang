@@ -1356,10 +1356,10 @@ export class Parser {
   }
 
   parseOr() {
-    let left = this.parseAnd();
-    
+    let left = this.parseNullish();
+
     while (this.match(TokenType.OR)) {
-      const right = this.parseAnd();
+      const right = this.parseNullish();
       left = {
         type: NodeType.BinaryExpression,
         operator: '||',
@@ -1367,7 +1367,23 @@ export class Parser {
         right,
       };
     }
-    
+
+    return left;
+  }
+
+  parseNullish() {
+    let left = this.parseAnd();
+
+    while (this.match(TokenType.NULLISH)) {
+      const right = this.parseAnd();
+      left = {
+        type: NodeType.BinaryExpression,
+        operator: '??',
+        left,
+        right,
+      };
+    }
+
     return left;
   }
 

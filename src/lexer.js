@@ -74,6 +74,7 @@ export const TokenType = {
   PIPE: 'PIPE',
   MATCH: 'MATCH',
   QUESTION: 'QUESTION',
+  NULLISH: 'NULLISH',
   COLON: 'COLON',
   DOUBLE_COLON: 'DOUBLE_COLON',
   RANGE: 'RANGE',
@@ -761,7 +762,11 @@ export class Lexer {
           }
           break;
         case '?':
-          this.tokens.push(new Token(TokenType.QUESTION, '?', startLine, startColumn));
+          if (this.match('?')) {
+            this.tokens.push(new Token(TokenType.NULLISH, '??', startLine, startColumn));
+          } else {
+            this.tokens.push(new Token(TokenType.QUESTION, '?', startLine, startColumn));
+          }
           break;
         case ':':
           if (this.match(':')) {
