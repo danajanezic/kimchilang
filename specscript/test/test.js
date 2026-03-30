@@ -1,5 +1,6 @@
 // specscript/test/test.js
 import { SpecScriptCompiler } from '../src/index.js';
+import { parseArgs } from '../src/cli.js';
 import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
@@ -761,6 +762,66 @@ test('returns parsed spec metadata alongside compiled JS', () => {
   assertEqual(result.spec.module, 'Calculator');
   assertEqual(result.spec.functions.length, 1);
   assertEqual(result.hash, hash);
+});
+
+console.log('--- CLI Tests ---');
+
+test('parseArgs recognizes compile command', () => {
+  const args = parseArgs(['compile', 'myfile.sp']);
+  assertEqual(args.command, 'compile');
+  assertEqual(args.file, 'myfile.sp');
+});
+
+test('parseArgs recognizes check command', () => {
+  const args = parseArgs(['check', 'myfile.sp']);
+  assertEqual(args.command, 'check');
+});
+
+test('parseArgs recognizes run command', () => {
+  const args = parseArgs(['run', 'myfile.sp']);
+  assertEqual(args.command, 'run');
+});
+
+test('parseArgs recognizes stale command with directory', () => {
+  const args = parseArgs(['stale', './src']);
+  assertEqual(args.command, 'stale');
+  assertEqual(args.file, './src');
+});
+
+test('parseArgs recognizes regen command with flags', () => {
+  const args = parseArgs(['regen', 'myfile.sp', '--test']);
+  assertEqual(args.command, 'regen');
+  assertEqual(args.regenTarget, 'test');
+});
+
+test('parseArgs recognizes regen --impl', () => {
+  const args = parseArgs(['regen', 'myfile.sp', '--impl']);
+  assertEqual(args.regenTarget, 'impl');
+});
+
+test('parseArgs recognizes regen --all', () => {
+  const args = parseArgs(['regen', 'myfile.sp', '--all']);
+  assertEqual(args.regenTarget, 'all');
+});
+
+test('parseArgs recognizes init command', () => {
+  const args = parseArgs(['init']);
+  assertEqual(args.command, 'init');
+});
+
+test('parseArgs recognizes build command', () => {
+  const args = parseArgs(['build', './src']);
+  assertEqual(args.command, 'build');
+});
+
+test('parseArgs recognizes -o output flag', () => {
+  const args = parseArgs(['compile', 'myfile.sp', '-o', 'dist/out.js']);
+  assertEqual(args.output, 'dist/out.js');
+});
+
+test('parseArgs recognizes --debug flag', () => {
+  const args = parseArgs(['compile', 'myfile.sp', '--debug']);
+  assertEqual(args.debug, true);
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
