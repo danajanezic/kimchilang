@@ -282,7 +282,35 @@ export class TypeChecker {
       case NodeType.ContinueStatement:
         // No type checking needed
         break;
+      case NodeType.GuardStatement:
+        this.visitGuardStatement(node);
+        break;
     }
+  }
+
+  visitGuardStatement(node) {
+    this.visitExpression(node.test);
+
+    const hasExit = this.blockHasExit(node.alternate);
+    if (!hasExit) {
+      this.addError('guard else block must contain a return or throw statement', node);
+    }
+
+    this.pushScope();
+    for (const stmt of node.alternate.body) {
+      this.visitStatement(stmt);
+    }
+    this.popScope();
+  }
+
+  blockHasExit(block) {
+    if (!block || !block.body) return false;
+    for (const stmt of block.body) {
+      if (stmt.type === NodeType.ReturnStatement || stmt.type === NodeType.ThrowStatement) {
+        return true;
+      }
+    }
+    return false;
   }
 
   visitDepStatement(node) {

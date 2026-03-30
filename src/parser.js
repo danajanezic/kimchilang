@@ -57,6 +57,8 @@ export const NodeType = {
   RegexLiteral: 'RegexLiteral',
   MatchExpression: 'MatchExpression',
   
+  GuardStatement: 'GuardStatement',
+
   // Interop
   JSBlock: 'JSBlock',
   ShellBlock: 'ShellBlock',
@@ -262,6 +264,10 @@ export class Parser {
     }
     
     // Control flow
+    if (this.check(TokenType.GUARD)) {
+      return this.parseGuardStatement();
+    }
+
     if (this.check(TokenType.IF)) {
       return this.parseIfStatement();
     }
@@ -647,6 +653,25 @@ export class Parser {
     return {
       type: NodeType.BlockStatement,
       body,
+    };
+  }
+
+  parseGuardStatement() {
+    const guardToken = this.expect(TokenType.GUARD, 'Expected guard');
+    const test = this.parseExpression();
+
+    if (!this.match(TokenType.ELSE)) {
+      this.error('guard requires an else block');
+    }
+
+    const alternate = this.parseBlock();
+
+    return {
+      type: NodeType.GuardStatement,
+      test,
+      alternate,
+      line: guardToken.line,
+      column: guardToken.column,
     };
   }
 

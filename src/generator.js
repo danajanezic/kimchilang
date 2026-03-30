@@ -498,6 +498,9 @@ export class CodeGenerator {
       case NodeType.AssertStatement:
         this.visitAssertStatement(node);
         break;
+      case NodeType.GuardStatement:
+        this.visitGuardStatement(node);
+        break;
       case NodeType.ExpressionStatement:
         this.emitLine(this.visitExpression(node.expression) + ';');
         break;
@@ -762,6 +765,17 @@ export class CodeGenerator {
     this.emitLine('{');
     this.pushIndent();
     for (const stmt of node.body) {
+      this.visitStatement(stmt);
+    }
+    this.popIndent();
+    this.emitLine('}');
+  }
+
+  visitGuardStatement(node) {
+    const test = this.visitExpression(node.test);
+    this.emitLine(`if (!(${test})) {`);
+    this.pushIndent();
+    for (const stmt of node.alternate.body) {
       this.visitStatement(stmt);
     }
     this.popIndent();

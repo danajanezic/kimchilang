@@ -704,6 +704,45 @@ test('Chained ?? operators', () => {
   assertEqual(ast.body[0].init.operator, '??');
 });
 
+// --- Guard Tests ---
+console.log('\n--- Guard Tests ---\n');
+
+test('Tokenize guard keyword', () => {
+  const tokens = tokenize('guard x else { return null }');
+  assertEqual(tokens[0].type, 'GUARD');
+});
+
+test('Parse guard statement', () => {
+  const ast = parse(tokenize('guard x != null else { return null }'));
+  assertEqual(ast.body[0].type, 'GuardStatement');
+  assertEqual(ast.body[0].test.type, 'BinaryExpression');
+  assertEqual(ast.body[0].alternate.type, 'BlockStatement');
+});
+
+test('Generate guard statement', () => {
+  const js = compile('fn foo(x) {\n  guard x != null else { return null }\n  return x\n}');
+  assertContains(js, 'if (!(');
+  assertContains(js, 'return null');
+});
+
+test('Type checker: guard else must have return or throw', () => {
+  const source = 'guard x != null else { print "oops" }';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const guardError = errors.some(e => e.message.includes('guard') && e.message.includes('return'));
+  assertEqual(guardError, true, 'Should error when guard else has no exit');
+});
+
+test('Type checker: guard with return is fine', () => {
+  const source = 'fn foo(x) {\n  guard x != null else { return null }\n  return x\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const guardError = errors.some(e => e.message.includes('guard'));
+  assertEqual(guardError, false, 'Should not error when guard else has return');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

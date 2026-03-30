@@ -426,6 +426,15 @@ export class Linter {
         }
         return { returns: false, breaks: false };
 
+      case NodeType.GuardStatement:
+        this.analyzeExpression(node.test);
+        this.pushScope();
+        for (const stmt of node.alternate.body) {
+          this.analyzeStatement(stmt);
+        }
+        this.popScope();
+        return { returns: true, breaks: false };
+
       default:
         return { returns: false, breaks: false };
     }
