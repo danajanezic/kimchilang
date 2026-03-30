@@ -47,7 +47,8 @@ export const NodeType = {
   FlowExpression: 'FlowExpression',
   PipeExpression: 'PipeExpression',
   TemplateLiteral: 'TemplateLiteral',
-  
+  ConditionalMethodExpression: 'ConditionalMethodExpression',
+
   // Patterns
   Property: 'Property',
   MatchCase: 'MatchCase',
@@ -1805,13 +1806,43 @@ export class Parser {
           arguments: args,
         };
       } else if (this.match(TokenType.DOT)) {
-        const property = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
-        expr = {
-          type: NodeType.MemberExpression,
-          object: expr,
-          property,
-          computed: false,
-        };
+        // Check for .if() conditional method
+        if (this.check(TokenType.IF)) {
+          this.advance(); // consume 'if'
+          this.expect(TokenType.LPAREN, 'Expected ( after .if');
+          const condition = this.parseExpression();
+          this.expect(TokenType.RPAREN, 'Expected ) after .if condition');
+
+          // Check for optional .else()
+          let fallback = null;
+          if (this.check(TokenType.DOT)) {
+            const nextPos = this.pos + 1;
+            if (nextPos < this.tokens.length && this.tokens[nextPos].type === TokenType.ELSE) {
+              this.advance(); // consume '.'
+              this.advance(); // consume 'else'
+              this.expect(TokenType.LPAREN, 'Expected ( after .else');
+              fallback = this.parseExpression();
+              this.expect(TokenType.RPAREN, 'Expected ) after .else value');
+            }
+          }
+
+          expr = {
+            type: NodeType.ConditionalMethodExpression,
+            receiver: expr,
+            condition,
+            fallback,
+            line: this.tokens[this.pos - 1].line,
+            column: this.tokens[this.pos - 1].column,
+          };
+        } else {
+          const property = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
+          expr = {
+            type: NodeType.MemberExpression,
+            object: expr,
+            property,
+            computed: false,
+          };
+        }
       } else if (!this.inMatchArmBody && this.match(TokenType.LBRACKET)) {
         const property = this.parseExpression();
         this.expect(TokenType.RBRACKET, 'Expected ]');

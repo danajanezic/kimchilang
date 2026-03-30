@@ -862,6 +862,37 @@ test('Full compile: match expression works end-to-end', () => {
   assertContains(js, '"OK"');
 });
 
+// --- Conditional Method (.if/.else) Tests ---
+console.log('\n--- Conditional Method (.if/.else) Tests ---\n');
+
+test('Parse .if() expression', () => {
+  const source = 'dec x = 5.if(true)';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].init.type, 'ConditionalMethodExpression');
+  assertEqual(ast.body[0].init.fallback, null);
+});
+
+test('Parse .if().else() expression', () => {
+  const source = 'dec x = "yes".if(true).else("no")';
+  const ast = parse(tokenize(source));
+  const expr = ast.body[0].init;
+  assertEqual(expr.type, 'ConditionalMethodExpression');
+  assertEqual(expr.fallback.value, 'no');
+});
+
+test('Generate .if().else()', () => {
+  const js = compile('dec x = "premium".if(true).else("standard")');
+  assertContains(js, '?');
+  assertContains(js, '"premium"');
+  assertContains(js, '"standard"');
+});
+
+test('Generate .if() without else returns null', () => {
+  const js = compile('dec x = 500.if(true)');
+  assertContains(js, '?');
+  assertContains(js, 'null');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

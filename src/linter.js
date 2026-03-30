@@ -726,6 +726,12 @@ export class Linter {
           }
         }
         break;
+
+      case NodeType.ConditionalMethodExpression:
+        this.analyzeExpression(node.receiver);
+        this.analyzeExpression(node.condition);
+        if (node.fallback) this.analyzeExpression(node.fallback);
+        break;
     }
   }
 

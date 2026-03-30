@@ -996,9 +996,18 @@ export class CodeGenerator {
         return this.visitMatchExpression(node);
       case NodeType.MatchBlock:
         return this.visitMatchBlock(node);
+      case NodeType.ConditionalMethodExpression:
+        return this.visitConditionalMethodExpression(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
+  }
+
+  visitConditionalMethodExpression(node) {
+    const receiver = this.visitExpression(node.receiver);
+    const condition = this.visitExpression(node.condition);
+    const fallback = node.fallback ? this.visitExpression(node.fallback) : 'null';
+    return `((${condition}) ? ${receiver} : ${fallback})`;
   }
 
   visitLiteral(node) {

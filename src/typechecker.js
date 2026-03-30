@@ -651,6 +651,12 @@ export class TypeChecker {
         return this.visitMatchExpression(node);
       case NodeType.MatchBlock:
         return this.visitMatchBlock(node);
+      case NodeType.ConditionalMethodExpression: {
+        this.visitExpression(node.condition);
+        const receiverType = this.visitExpression(node.receiver);
+        if (node.fallback) this.visitExpression(node.fallback);
+        return receiverType;
+      }
       default:
         return this.createType(Type.Unknown);
     }
