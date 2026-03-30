@@ -173,9 +173,57 @@ export class Parser {
     };
   }
 
+  parseKMDoc(text) {
+    const lines = text.split('\n').map(line => line.replace(/^\s*\*\s?/, '').trim());
+    const result = { description: '', params: [], returns: null };
+
+    const descLines = [];
+    for (const line of lines) {
+      if (line.startsWith('@')) break;
+      if (line) descLines.push(line);
+    }
+    result.description = descLines.join(' ').trim();
+
+    for (const line of lines) {
+      const paramMatch = line.match(/^@param\s+\{([^}]+)\}\s+(\w+)(?:\s*-\s*(.+))?/);
+      if (paramMatch) {
+        result.params.push({
+          type: paramMatch[1].trim(),
+          name: paramMatch[2],
+          description: paramMatch[3] ? paramMatch[3].trim() : null,
+        });
+        continue;
+      }
+
+      const returnsMatch = line.match(/^@returns?\s+\{([^}]+)\}(?:\s+(.+))?/);
+      if (returnsMatch) {
+        result.returns = {
+          type: returnsMatch[1].trim(),
+          description: returnsMatch[2] ? returnsMatch[2].trim() : null,
+        };
+        continue;
+      }
+
+      const typeMatch = line.match(/^@type\s+\{([^}]+)\}/);
+      if (typeMatch) {
+        result.type = typeMatch[1].trim();
+      }
+    }
+
+    return result;
+  }
+
   parseStatement() {
     this.skipNewlines();
-    
+
+    // Capture doc comment if present
+    let kmdoc = undefined;
+    if (this.check(TokenType.DOC_COMMENT)) {
+      const docToken = this.advance();
+      kmdoc = this.parseKMDoc(docToken.value);
+      this.skipNewlines();
+    }
+
     // Check for expose modifier
     let exposed = false;
     if (this.check(TokenType.EXPOSE)) {
@@ -195,6 +243,7 @@ export class Parser {
       const decl = this.parseDecDeclaration();
       decl.exposed = exposed;
       decl.secret = secret;
+      if (kmdoc) decl.kmdoc = kmdoc;
       // Track secret variables
       if (secret && decl.name) {
         this.secretVariables.add(decl.name);
@@ -204,6 +253,7 @@ export class Parser {
 
     if (this.check(TokenType.MUT)) {
       const decl = this.parseMutDeclaration();
+      if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
     }
 
@@ -213,12 +263,14 @@ export class Parser {
         const decl = this.parseFunctionDeclaration();
         decl.async = true;
         decl.exposed = exposed;
+        if (kmdoc) decl.kmdoc = kmdoc;
         return decl;
       }
       if (this.check(TokenType.MEMO)) {
         const decl = this.parseMemoDeclaration();
         decl.async = true;
         decl.exposed = exposed;
+        if (kmdoc) decl.kmdoc = kmdoc;
         return decl;
       }
       this.error('async must be followed by fn or memo');
@@ -227,18 +279,21 @@ export class Parser {
     if (this.check(TokenType.FN)) {
       const decl = this.parseFunctionDeclaration();
       decl.exposed = exposed;
+      if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
     }
-    
+
     if (this.check(TokenType.MEMO)) {
       const decl = this.parseMemoDeclaration();
       decl.exposed = exposed;
+      if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
     }
-    
+
     if (this.check(TokenType.ENUM)) {
       const decl = this.parseEnumDeclaration();
       decl.exposed = exposed;
+      if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
     }
     

@@ -1131,6 +1131,52 @@ test('Lexer: multiline doc comment', () => {
   assertContains(docToken.value, 'string');
 });
 
+test('Parser: attach kmdoc to function declaration', () => {
+  const source = '/** @param {number} a */\nfn add(a) { return a }';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0];
+  assertEqual(fn.type, 'FunctionDeclaration');
+  assertEqual(fn.kmdoc !== undefined, true, 'Should have kmdoc');
+  assertEqual(fn.kmdoc.params.length, 1);
+  assertEqual(fn.kmdoc.params[0].name, 'a');
+  assertEqual(fn.kmdoc.params[0].type, 'number');
+});
+
+test('Parser: attach kmdoc with @returns', () => {
+  const source = '/**\n * @param {string} name\n * @returns {string}\n */\nfn greet(name) { return "Hi " + name }';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0];
+  assertEqual(fn.kmdoc.returns.type, 'string');
+});
+
+test('Parser: attach @type to dec', () => {
+  const source = '/** @type {number[]} */\ndec nums = [1, 2, 3]';
+  const ast = parse(tokenize(source));
+  const dec = ast.body[0];
+  assertEqual(dec.kmdoc.type, 'number[]');
+});
+
+test('Parser: kmdoc with description', () => {
+  const source = '/**\n * Adds two numbers.\n * @param {number} a - First\n * @param {number} b - Second\n * @returns {number} The sum\n */\nfn add(a, b) { return a + b }';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0];
+  assertEqual(fn.kmdoc.description, 'Adds two numbers.');
+  assertEqual(fn.kmdoc.params.length, 2);
+  assertEqual(fn.kmdoc.params[0].description, 'First');
+  assertEqual(fn.kmdoc.returns.description, 'The sum');
+});
+
+test('Parser: no kmdoc when no doc comment', () => {
+  const ast = parse(tokenize('fn add(a, b) { return a + b }'));
+  assertEqual(ast.body[0].kmdoc, undefined);
+});
+
+test('Parser: kmdoc before expose fn', () => {
+  const source = '/** @param {number} x */\nexpose fn double(x) { return x * 2 }';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].kmdoc.params[0].type, 'number');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
