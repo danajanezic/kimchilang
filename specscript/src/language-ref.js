@@ -27,9 +27,8 @@ No classes, no \`this\`, no global scope. All values are deeply immutable by def
 ### Guard Statements
 Early-exit precondition checks. The else block must return or throw.
 \`\`\`
-guard isValid(input) else {
-  return Error { message: "invalid input" }
-}
+guard isValid(input) else { return null }
+guard user != null else { throw ValidationError("User required") }
 // continues here only if guard passed
 \`\`\`
 
@@ -46,14 +45,14 @@ match status {
   "open" => handleOpen()
   "closed" => handleClosed()
   { type: "error", message } => handleError(message)
-  [first, ...rest] => handleList(first, rest)
-  is String => handleString(status)
+  [first, second] => handlePair(first, second)
+  is NotFoundError => handleNotFound(status)
   _ when status.length > 10 => handleLong(status)
   _ => handleDefault()
 }
 \`\`\`
-Patterns: literal values, object destructuring, array destructuring, \`is Type\` checks, \`_\` wildcard.
-Optional \`when\` guard on any arm.
+Patterns: literal values, object destructuring, array destructuring, \`is ErrorType\` checks (compares \`._id\`), \`_\` wildcard, binding variables (\`n when n > 0\`).
+Optional \`when\` guard on any arm. Returns \`null\` if no arm matches.
 
 ### Conditional Method Expression
 Chain conditionals on any value — returns the receiver if condition is true, else the fallback:
@@ -71,13 +70,21 @@ dec name = user.name.if(user.name.length > 0).else("Anonymous")
 ### Enums
 \`\`\`
 enum Status { Open, InProgress, Done }
-enum TaskError {
-  InvalidTitle { reason: String },
-  InvalidTransition { from: Status, to: Status }
-}
+enum HttpStatus { OK = 200, NotFound = 404, Error = 500 }
 \`\`\`
-Access variants as \`Status.Open\`, \`TaskError.InvalidTitle { reason: "too long" }\`.
-Enum values are frozen objects with a string value matching the variant name.
+Enums are numeric constants. Access as \`Status.Open\` (0), \`Status.Done\` (2). Enums are frozen objects.
+
+### Custom Error Types
+\`\`\`
+dec NotFoundError = error.create("NotFoundError")
+dec ValidationError = error.create("ValidationError")
+throw NotFoundError("User not found")
+\`\`\`
+Use \`error.create(name)\` for typed errors. Check with \`e is NotFoundError\`. Errors have \`.message\`, \`._id\`, \`.stack\`.
+To carry extra data, pass it as an object: \`throw ValidationError(JSON.stringify({ reason: "too long" }))\` or use a wrapper function:
+\`\`\`
+fn invalidTitle(reason) { return { error: "InvalidTitle", reason: reason } }
+\`\`\`
 
 ### Functions and Arrows
 - \`fn add(a, b) { return a + b }\`
@@ -121,19 +128,36 @@ dec output = process(input)
 
 ### Testing
 \`\`\`
-test "description" {
-  expect(expression).toBe(expected)
-  expect(expression).toEqual(expected)
-  expect(expression).toBeTruthy()
-  expect(expression).toBeFalsy()
-  expect(expression).toContain(item)
-  expect(expression).toHaveLength(n)
-  expect(expression).toBeGreaterThan(n)
-  expect(expression).toBeLessThan(n)
-  expect(expression).toBeNull()
-  expect(expression).toMatch(regex)
-  expect(fn).toThrow(message)
+describe "Module" {
+  beforeEach { /* runs before each test */ }
+  afterEach { /* runs after each test */ }
+  beforeAll { /* runs once before all tests */ }
+  afterAll { /* runs once after all tests */ }
+
+  test "description" {
+    expect(expression).toBe(expected)
+    expect(expression).toEqual(expected)
+    expect(expression).toBeTruthy()
+    expect(expression).toBeFalsy()
+    expect(expression).toContain(item)
+    expect(expression).toHaveLength(n)
+    expect(expression).toBeGreaterThan(n)
+    expect(expression).toBeLessThan(n)
+    expect(expression).toBeNull()
+    expect(expression).toBeDefined()
+    expect(expression).toBeUndefined()
+    expect(expression).toBeCloseTo(number)
+    expect(expression).toBeInstanceOf(errorType)
+    expect(expression).toMatch(regex)
+    expect(fn).toThrow(message)
+    expect(expression).not.toBe(unexpected)
+    assert condition, "message"
+  }
+
+  test.skip "not yet implemented" { }
+  test.only "run only this" { }
 }
+describe.skip "disabled suite" { }
 \`\`\`
 
 ### JS Interop
@@ -191,12 +215,12 @@ else { readOnly() }
 **Use guard for preconditions:**
 \`\`\`
 // Good
-guard user.isActive else { return Denied { reason: "inactive" } }
-guard items.length > 0 else { return Empty }
+guard user.isActive else { return null }
+guard items.length > 0 else { throw ValidationError("No items") }
 
 // Avoid
-if not user.isActive { return Denied { reason: "inactive" } }
-if items.length == 0 { return Empty }
+if not user.isActive { return null }
+if items.length == 0 { throw ValidationError("No items") }
 \`\`\`
 
 **Use .if().else() for inline conditionals:**
