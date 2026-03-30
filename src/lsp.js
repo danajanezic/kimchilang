@@ -41,9 +41,9 @@ export function serializeMessage(obj) {
  * Convert validator diagnostics to LSP diagnostics.
  * Validator uses 1-based lines; LSP uses 0-based.
  */
-function toLspDiagnostics(diagnostics) {
+function toLspDiagnostics(diagnostics, lineOffset = 0) {
   return diagnostics.map(d => {
-    const line = (d.line || 1) - 1;
+    const line = (d.line || 1) - 1 + lineOffset;
     const character = (d.column || 1) - 1;
     let severity;
     switch (d.severity) {
@@ -65,11 +65,55 @@ function toLspDiagnostics(diagnostics) {
 }
 
 /**
+ * For .sp files, extract the code from ## test and ## impl sections,
+ * stripping the spec section, HTML comments, and code fences.
+ * Returns { code, lineOffset } where lineOffset is the number of lines
+ * before the code starts in the original file (for mapping diagnostics back).
+ */
+function extractSpCode(text) {
+  const testMatch = text.match(/^## test\s*$/m);
+  if (!testMatch) return null;
+
+  const codeStart = testMatch.index;
+  const lineOffset = text.slice(0, codeStart).split('\n').length - 1;
+
+  let code = text.slice(codeStart);
+  // Strip section headings, HTML comments, code fences, markdown comments
+  code = code
+    .replace(/^## (test|impl)\s*$/gm, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^```\w*\s*$/gm, '')
+    .replace(/^# .+$/gm, (m) => '//' + m.slice(1))
+    .trim();
+
+  return { code, lineOffset };
+}
+
+/**
  * Publish diagnostics for a given document URI.
  */
 function publishDiagnostics(uri, text) {
-  const result = validator.validate(text);
-  const diagnostics = toLspDiagnostics(result.diagnostics);
+  const isSp = uri.endsWith('.sp');
+  let result;
+  let lineOffset = 0;
+
+  if (isSp) {
+    const extracted = extractSpCode(text);
+    if (!extracted || !extracted.code) {
+      // No code sections yet — clear diagnostics
+      return {
+        jsonrpc: '2.0',
+        method: 'textDocument/publishDiagnostics',
+        params: { uri, diagnostics: [] },
+      };
+    }
+    result = validator.validate(extracted.code);
+    lineOffset = extracted.lineOffset;
+  } else {
+    result = validator.validate(text);
+  }
+
+  const diagnostics = toLspDiagnostics(result.diagnostics, lineOffset);
   return {
     jsonrpc: '2.0',
     method: 'textDocument/publishDiagnostics',
