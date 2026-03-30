@@ -9,7 +9,7 @@ import { SpecScriptCompiler } from './index.js';
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
-import { loadConfig, regen, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, invokeLlmAsync, parseResponse, showDiff } from './llm.js';
+import { loadConfig, loadLearnedRules, regen, analyzeAndLearn, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, invokeLlmAsync, parseResponse, showDiff } from './llm.js';
 
 export function parseArgs(args) {
   const result = {
@@ -220,6 +220,10 @@ async function cmdRegen(fileOrDir, target, autoYes) {
   if (files.length === 1) {
     const result = await regenFile(files[0], target, config, autoYes, log);
     writeRegenLog(log, dirname(files[0]));
+    if (log.length > 0) {
+      console.log('Analyzing errors to improve future prompts...');
+      await analyzeAndLearn(log, dirname(resolve(files[0])), config.command);
+    }
     if (!result) process.exit(1);
     return;
   }
@@ -230,6 +234,9 @@ async function cmdRegen(fileOrDir, target, autoYes) {
   // Step 1: Generate all files in parallel
   const fileData = new Map();
   let genFailed = 0;
+
+  // Load learned rules for generation prompts
+  const learnedRules = loadLearnedRules(dirname(files[0]));
 
   // Prepare all generation requests
   const genTasks = files.map(file => {
@@ -248,7 +255,7 @@ async function cmdRegen(fileOrDir, target, autoYes) {
       }
     }
 
-    const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests });
+    const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests, learnedRules });
     return { file, source, specContent, specHash, genPrompt };
   });
 
@@ -471,6 +478,10 @@ async function cmdRegen(fileOrDir, target, autoYes) {
   }
 
   writeRegenLog(log, dirname(files[0]));
+  if (log.length > 0) {
+    console.log('Analyzing errors to improve future prompts...');
+    await analyzeAndLearn(log, dirname(resolve(files[0])), config.command);
+  }
   console.log('\nDone.');
 }
 
@@ -610,6 +621,41 @@ if (isMain) {
         if (!args.file) { console.error('Usage: sp run <file>'); process.exit(1); }
         cmdRun(args.file, args.debug);
         break;
+      case 'analyze': {
+        const targetDir = resolve(args.file || '.');
+        const logPath = resolve(targetDir, '.regen-log.json');
+        if (!existsSync(logPath)) {
+          console.error('No .regen-log.json found. Run sp regen first.');
+          process.exit(1);
+        }
+        let config;
+        try { config = loadConfig(targetDir); } catch (e) { console.error(e.message); process.exit(1); }
+        const logData = JSON.parse(readFileSync(logPath, 'utf-8'));
+        const allErrors = logData.flatMap(entry => entry.errors);
+        if (allErrors.length === 0) {
+          console.log('No errors in log. Nothing to analyze.');
+          break;
+        }
+        console.log(`Analyzing ${allErrors.length} errors from ${logData.length} regen runs...`);
+        await analyzeAndLearn(allErrors, targetDir, config.command);
+
+        const rulesPath = resolve(targetDir, '.prompt-rules');
+        if (existsSync(rulesPath)) {
+          console.log('\nCurrent rules:\n');
+          console.log(readFileSync(rulesPath, 'utf-8'));
+        }
+        break;
+      }
+      case 'rules': {
+        const targetDir = resolve(args.file || '.');
+        const rulesPath = resolve(targetDir, '.prompt-rules');
+        if (!existsSync(rulesPath)) {
+          console.log('No .prompt-rules file found. Rules are generated after regen errors.');
+        } else {
+          console.log(readFileSync(rulesPath, 'utf-8'));
+        }
+        break;
+      }
       case '--version': {
         const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
         console.log(`SpecScript v${pkg.version}`);
@@ -627,6 +673,8 @@ if (isMain) {
         console.log('                          Generate test/impl via LLM');
         console.log('  build <dir>             Compile all .sp files');
         console.log('  run <file>              Compile and execute');
+        console.log('  analyze [dir]           Analyze regen errors and improve prompt rules');
+        console.log('  rules [dir]             Show current learned prompt rules');
         break;
     }
   })();

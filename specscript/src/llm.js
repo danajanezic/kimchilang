@@ -34,7 +34,89 @@ export function loadConfig(startDir) {
   );
 }
 
-export function buildGeneratePrompt({ specContent, specHash, target, existingTests }) {
+export function loadLearnedRules(startDir) {
+  let dir = resolve(startDir);
+  while (true) {
+    const rulesPath = resolve(dir, '.prompt-rules');
+    if (existsSync(rulesPath)) {
+      return readFileSync(rulesPath, 'utf-8').trim();
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return '';
+    dir = parent;
+  }
+}
+
+export function buildAnalyzePrompt(errors) {
+  const errorList = errors.map((e, i) => {
+    if (e.phase === 'transpile') {
+      return `${i + 1}. [TRANSPILE ERROR] ${e.file}\n   ${e.error}`;
+    }
+    return `${i + 1}. [REVIEW REJECTION] ${e.file}\n   ${e.feedback}`;
+  }).join('\n\n');
+
+  return `You are improving a code generation prompt for KimchiLang (a language that transpiles to JavaScript).
+
+The following errors occurred when an LLM generated KimchiLang code. Analyze them and produce a concise list of rules that would prevent these errors in the future.
+
+## Errors
+
+${errorList}
+
+## Instructions
+
+Output ONLY a list of rules, one per line, starting with "- ". Each rule should be:
+- Specific and actionable (not vague)
+- About KimchiLang syntax or patterns the LLM got wrong
+- Short (one sentence)
+
+Do not repeat rules that say the same thing. Do not include preamble or explanation. Output only the rules.`;
+}
+
+export async function analyzeAndLearn(log, configDir, llmCommand) {
+  if (log.length === 0) return;
+
+  const rulesPath = resolve(configDir, '.prompt-rules');
+  const existingRules = existsSync(rulesPath)
+    ? readFileSync(rulesPath, 'utf-8').trim()
+    : '';
+
+  const prompt = buildAnalyzePrompt(log);
+  const result = await invokeLlmAsync(llmCommand, prompt);
+
+  if (!result.success) {
+    console.error('Could not analyze errors: ' + result.error);
+    return;
+  }
+
+  // Extract rules (lines starting with "- ")
+  const newRules = result.output
+    .split('\n')
+    .filter(line => line.trim().startsWith('- '))
+    .map(line => line.trim())
+    .join('\n');
+
+  if (!newRules) return;
+
+  // Deduplicate against existing rules
+  const existingSet = new Set(existingRules.split('\n').filter(Boolean));
+  const dedupedNew = newRules
+    .split('\n')
+    .filter(rule => !existingSet.has(rule))
+    .join('\n');
+
+  if (!dedupedNew) return;
+
+  const combined = existingRules
+    ? existingRules + '\n' + dedupedNew
+    : dedupedNew;
+
+  writeFileSync(rulesPath, combined + '\n');
+  const count = combined.split('\n').filter(Boolean).length;
+  console.log(`Updated .prompt-rules (${count} rules total)`);
+}
+
+export function buildGeneratePrompt({ specContent, specHash, target, existingTests, learnedRules }) {
   let instructions;
   if (target === 'test') {
     instructions = `Generate ONLY the ## test section for this spec.
@@ -81,12 +163,16 @@ Output ONLY the following two sections. Do NOT wrap code in markdown code fences
 [implementation here]`;
   }
 
+  const rulesSection = learnedRules
+    ? `\n## IMPORTANT: Learned Rules (from previous errors)\n\n${learnedRules}\n`
+    : '';
+
   return `You are generating code for SpecScript, a spec-first language that transpiles to JavaScript via KimchiLang.
 
 ${LANGUAGE_REF}
 
 ${STYLE_GUIDANCE}
-
+${rulesSection}
 ## Spec to Implement
 
 ${specContent}
@@ -391,9 +477,12 @@ export async function regen({ filePath, source, specContent, specHash, target, c
     }
   }
 
+  // Load learned rules from previous errors
+  const learnedRules = loadLearnedRules(dirname(filePath));
+
   // Pass 1: Generate
   console.log('Generating test and implementation...');
-  const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests });
+  const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests, learnedRules });
   const genResult = invokeLlm(config.command, genPrompt);
 
   if (!genResult.success) {
