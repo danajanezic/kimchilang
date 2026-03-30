@@ -31,13 +31,16 @@
 - [ ] Package registry (beyond GitHub-based dependency management)
 - [ ] Version resolution and lockfile for dependencies
 
-## Concurrency
+## Concurrency (I/O)
 
-- [ ] First-class concurrent execution syntax — `parallel { callable1, callable2, callable3 }` compiling to `Promise.all`
-- [ ] `parallel.every` variant for `Promise.allSettled` — collect all results even if some fail
-- [ ] `race` syntax for `Promise.race` — first to resolve wins
-- [ ] Process spawning — `spawn { command }` for running child processes without blocking, returning a handle with `stdout`, `stderr`, `pid`, `kill()`
-- [ ] Worker threads — `worker { code }` for CPU-bound parallel execution
+- [ ] `collect [callable1, callable2]` — concurrent I/O, fail fast (`Promise.all`). Returns array of results. Destructurable: `dec [a, b] = collect [fn1, fn2]`
+- [ ] `hoard [callable1, callable2]` — concurrent I/O, get everything even failures (`Promise.allSettled`). Returns array of `{ status, value/reason }`.
+- [ ] `race [callable1, callable2]` — concurrent I/O, first to finish wins (`Promise.race`). Returns single result.
+
+## Parallel Computation
+
+- [ ] `worker { code }` — run CPU-bound code on a separate thread (`worker_threads`). Data serialized in/out, no shared memory. Returns Promise.
+- [ ] `spawn { command }` — async child process (non-blocking `shell`), returns handle with `stdout`, `stderr`, `pid`, `kill()`
 - [ ] Channel-based communication between workers
 
 ## Runtime
