@@ -961,6 +961,23 @@ test('All features combined', () => {
   assertContains(js, '_subject');
 });
 
+// --- Testing Framework Enhancement Tests ---
+console.log('\n--- Testing Framework Enhancements ---\n');
+
+test('Runtime: new matchers in compiled output', () => {
+  const js = generate(parse(tokenize('test "x" { expect(1).toBeDefined() }')));
+  assertContains(js, 'toBeDefined');
+  assertContains(js, 'toBeUndefined');
+  assertContains(js, 'toBeCloseTo');
+  assertContains(js, 'toBeInstanceOf');
+});
+
+test('Runtime: .not modifier in compiled output', () => {
+  const js = generate(parse(tokenize('test "x" { expect(1).toBe(1) }')));
+  assertContains(js, 'not');
+  assertContains(js, 'notMatchers');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
