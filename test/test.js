@@ -801,6 +801,51 @@ test('Parse match with array destructuring', () => {
   assertEqual(matchExpr.arms[0].pattern.elements.length, 2);
 });
 
+// --- Match Expression Generator Tests ---
+console.log('\n--- Match Expression Generator Tests ---\n');
+
+test('Generate match with literal patterns', () => {
+  const source = 'dec msg = match 200 {\n200 => "OK"\n404 => "Not Found"\n_ => "Unknown"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '_subject === 200');
+  assertContains(js, '"OK"');
+  assertContains(js, '"Not Found"');
+  assertContains(js, '"Unknown"');
+});
+
+test('Generate match with when guard', () => {
+  const source = 'dec tier = match 95 {\nn when n >= 90 => "A"\n_ => "F"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '>= 90');
+  assertContains(js, '"A"');
+});
+
+test('Generate match with object destructuring', () => {
+  const source = 'dec r = match obj {\n{ status: 200, data } => data\n_ => null\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '=== 200');
+  assertContains(js, 'data');
+});
+
+test('Generate match with is pattern', () => {
+  const source = 'dec r = match err {\nis NotFoundError => "not found"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '_id');
+});
+
+test('Generate match with array destructuring', () => {
+  const source = 'dec label = match point {\n[0, 0] => "origin"\n[x, y] => "point"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, 'Array.isArray');
+  assertContains(js, '_subject[0] === 0');
+});
+
+test('Generate match returns null when no default arm', () => {
+  const source = 'dec r = match x {\n1 => "one"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, 'return null');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

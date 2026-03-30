@@ -994,6 +994,8 @@ export class CodeGenerator {
         return this.visitRegexLiteral(node);
       case NodeType.MatchExpression:
         return this.visitMatchExpression(node);
+      case NodeType.MatchBlock:
+        return this.visitMatchBlock(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
@@ -1055,6 +1057,173 @@ export class CodeGenerator {
       // Without body: return first match (match[0]) or null
       return `(${regex}.exec(${subject}) || [])[0]`;
     }
+  }
+
+  visitMatchBlock(node) {
+    const subject = this.visitExpression(node.subject);
+
+    let code = '(() => {\n';
+    const baseIndent = this.getIndent();
+    const indent = baseIndent + this.indentStr;
+    const indent2 = indent + this.indentStr;
+
+    code += `${indent}const _subject = ${subject};\n`;
+
+    let firstCondition = true;
+
+    for (let i = 0; i < node.arms.length; i++) {
+      const arm = node.arms[i];
+      const isWildcard = arm.pattern.type === NodeType.WildcardPattern || arm.pattern.type === 'WildcardPattern';
+      const { condition, bindings } = this.compileMatchPattern(arm.pattern, arm.guard);
+
+      if (isWildcard) {
+        if (firstCondition) {
+          code += `${indent}{\n`;
+        } else {
+          code += `${indent}} else {\n`;
+        }
+      } else {
+        if (firstCondition) {
+          code += `${indent}if (${condition}) {\n`;
+        } else {
+          code += `${indent}} else if (${condition}) {\n`;
+        }
+      }
+      firstCondition = false;
+
+      // Emit bindings (const declarations for destructured/bound variables)
+      for (const [name, expr] of bindings) {
+        code += `${indent2}const ${name} = ${expr};\n`;
+      }
+
+      // Emit body
+      if (arm.body.type === 'BlockStatement') {
+        // Block body - emit each statement
+        for (const stmt of arm.body.body) {
+          const prevOutput = this.output;
+          this.output = '';
+          const prevIndent = this.indent;
+          this.indent = 0;
+          this.visitStatement(stmt);
+          const stmtCode = this.output.trim();
+          this.output = prevOutput;
+          this.indent = prevIndent;
+          code += `${indent2}${stmtCode}\n`;
+        }
+      } else {
+        // Expression body - return the value
+        const bodyExpr = this.visitExpression(arm.body);
+        code += `${indent2}return ${bodyExpr};\n`;
+      }
+    }
+
+    // Close the last if/else block
+    if (node.arms.length > 0) {
+      code += `${indent}}\n`;
+    }
+
+    // If no wildcard/default arm, return null
+    const hasDefault = node.arms.some(a =>
+      a.pattern.type === NodeType.WildcardPattern || a.pattern.type === 'WildcardPattern'
+    );
+    if (!hasDefault) {
+      code += `${indent}return null;\n`;
+    }
+
+    code += `${baseIndent}})()`;
+    return code;
+  }
+
+  compileMatchPattern(pattern, guard) {
+    const bindings = []; // Array of [name, expression]
+    let condition = '';
+
+    switch (pattern.type) {
+      case 'LiteralPattern': {
+        const val = typeof pattern.value === 'string' ? `"${pattern.value}"` : pattern.value;
+        condition = `_subject === ${val}`;
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
+      case 'BindingPattern': {
+        bindings.push([pattern.name, '_subject']);
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition = `(() => { const ${pattern.name} = _subject; return ${guardExpr}; })()`;
+        } else {
+          condition = 'true';
+        }
+        break;
+      }
+
+      case 'IsPattern': {
+        condition = `_subject?._id === ${pattern.typeName}?._id`;
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
+      case 'ObjectDestructurePattern': {
+        const checks = [];
+        for (const prop of pattern.properties) {
+          if (prop.value && prop.value.type === 'LiteralPattern') {
+            const val = typeof prop.value.value === 'string' ? `"${prop.value.value}"` : prop.value.value;
+            checks.push(`_subject?.${prop.key} === ${val}`);
+          } else if (prop.value && prop.value.type === 'BindingPattern') {
+            checks.push(`'${prop.key}' in (_subject || {})`);
+            bindings.push([prop.value.name, `_subject.${prop.key}`]);
+          } else {
+            // Shorthand: { data } - key exists, bind to same name
+            checks.push(`'${prop.key}' in (_subject || {})`);
+            bindings.push([prop.key, `_subject.${prop.key}`]);
+          }
+        }
+        condition = checks.join(' && ') || 'true';
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
+      case 'ArrayDestructurePattern': {
+        const checks = [];
+        checks.push('Array.isArray(_subject)');
+        for (let i = 0; i < pattern.elements.length; i++) {
+          const elem = pattern.elements[i];
+          if (elem.type === 'LiteralPattern') {
+            const val = typeof elem.value === 'string' ? `"${elem.value}"` : elem.value;
+            checks.push(`_subject[${i}] === ${val}`);
+          } else if (elem.type === 'BindingPattern') {
+            bindings.push([elem.name, `_subject[${i}]`]);
+          }
+          // WildcardPattern - no check or binding
+        }
+        condition = checks.join(' && ');
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
+      case 'WildcardPattern':
+      case NodeType.WildcardPattern: {
+        condition = 'true';
+        break;
+      }
+
+      default:
+        condition = 'true';
+    }
+
+    return { condition, bindings };
   }
 
   visitBinaryExpression(node) {
