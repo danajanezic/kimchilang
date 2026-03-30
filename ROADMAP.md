@@ -12,7 +12,7 @@
 - [ ] Exhaustiveness checking on match patterns
 - [ ] Union types (`string | null`)
 - [ ] Generic/parameterized types
-- [ ] Compound assignment operators for mut (`+=`, `-=`, `++`, `--`)
+- [x] ~~Compound assignment operators for mut (`+=`, `-=`, `*=`, `/=`)~~ — already supported
 - [ ] Remove `js { }` interop in favor of native bindings / extern declarations
 
 ## Tooling
