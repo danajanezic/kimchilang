@@ -35,7 +35,7 @@ Commands:
   ls [path]         List modules (--verbose for descriptions, --recursive for tree)
   compile <file>    Compile a .kimchi file to JavaScript
   run <file>        Compile and run a .kimchi file (use -w for watch mode)
-  test <file>       Run tests in a .kimchi file
+  test <file|dir>   Run tests in a file or all test files in a directory
   lint <file>       Run linter on a .kimchi file
   check <file>      Check a file for errors (for editor integration)
   lsp               Start Language Server Protocol server (stdio)
@@ -725,6 +725,52 @@ function lintFile(filePath, options = {}) {
   }
 }
 
+async function runTestDir(dir, options = {}) {
+  // Find all .km/.kimchi files containing test or describe blocks
+  function findTestFiles(d) {
+    const files = [];
+    for (const entry of readdirSync(d)) {
+      const full = join(d, entry);
+      try {
+        const stat = statSync(full);
+        if (stat.isDirectory() && !entry.startsWith('.') && entry !== 'node_modules' && entry !== '.kimchi-cache') {
+          files.push(...findTestFiles(full));
+        } else if (/\.(km|kimchi|kc)$/.test(entry)) {
+          const content = readFileSync(full, 'utf-8');
+          if (/\b(test|describe)\s+["']/.test(content)) {
+            files.push(full);
+          }
+        }
+      } catch {}
+    }
+    return files;
+  }
+
+  const testFiles = findTestFiles(dir);
+
+  if (testFiles.length === 0) {
+    console.log('No test files found.');
+    return;
+  }
+
+  console.log(`Found ${testFiles.length} test file(s)\n`);
+
+  let totalPassed = 0;
+  let totalFailed = 0;
+  let filesFailed = 0;
+
+  for (const file of testFiles) {
+    const rel = file.replace(resolve(dir) + '/', '');
+    console.log(`--- ${rel} ---`);
+    try {
+      await runTests(file, options);
+    } catch {
+      filesFailed++;
+    }
+    console.log('');
+  }
+}
+
 async function runTests(filePath, options = {}) {
   if (!existsSync(filePath)) {
     console.error(`Error: File not found: ${filePath}`);
@@ -1204,8 +1250,14 @@ async function main() {
         process.exit(1);
       }
 
-      const filePath = resolve(options.file);
-      await runTests(filePath, options);
+      const target = resolve(options.file);
+
+      // If target is a directory, find and run all test files
+      if (existsSync(target) && statSync(target).isDirectory()) {
+        await runTestDir(target, options);
+      } else {
+        await runTests(target, options);
+      }
       break;
     }
 
