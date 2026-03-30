@@ -52,6 +52,10 @@ Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
 - `==` compiles to `===` — strict equality only
 - `~>` is the pipe operator (eager); `>>` is the flow operator (lazy composition)
 
+## KMDocs (Type Annotations)
+
+JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and `@type {type}`. The type checker uses KMDoc types first, then falls back to inference. Types: `number`, `string`, `boolean`, `null`, `void`, `any`, `number[]` (arrays), `{key: type}` (object shapes), `(type) => type` (functions), custom type names.
+
 ## New Language Features
 
 - `mut x = 0` — mutable variable, compiles to `let`. Block-scoped, visible in child blocks. Cannot be captured by closures or exposed. No `_deepFreeze`. Linter warns if never reassigned.
