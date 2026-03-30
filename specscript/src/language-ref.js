@@ -181,6 +181,9 @@ Both ## test and ## impl must start with a hash comment:
 - \`expose\` marks functions/values as public API
 - Member access is always null-safe (\`obj.a.b.c\` compiles to \`obj?.a?.b?.c\`)
 - Parentheses are required around catch parameters: \`catch (e)\` not \`catch e\`
+- Comments use \`//\`, not \`#\` — \`#\` is not a valid comment character
+- Do NOT wrap code in markdown code fences (no backticks)
+- Enums are numeric auto-incrementing constants, not strings — use \`error.create()\` for typed errors with data
 `;
 
 export const STYLE_GUIDANCE = `## KimchiLang Style

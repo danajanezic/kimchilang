@@ -10,6 +10,16 @@ function stripHtmlComments(code) {
   return code.replace(/<!--[\s\S]*?-->/g, '');
 }
 
+function stripCodeFences(code) {
+  return code.replace(/^```\w*\s*$/gm, '');
+}
+
+function stripMarkdownComments(code) {
+  // Convert lines starting with # (not ##) to KimchiLang comments
+  // But only outside of strings — simple heuristic: lines that start with #
+  return code.replace(/^# .+$/gm, (match) => '//' + match.slice(1));
+}
+
 export class SpecScriptCompiler {
   constructor(options = {}) {
     this.options = options;
@@ -63,9 +73,9 @@ export class SpecScriptCompiler {
       );
     }
 
-    // Strip HTML comments and combine impl + test code for KimchiLang
-    const implCode = stripHtmlComments(sections.impl);
-    const testCode = stripHtmlComments(sections.test);
+    // Strip HTML comments, code fences, and markdown comments, then combine for KimchiLang
+    const implCode = stripMarkdownComments(stripCodeFences(stripHtmlComments(sections.impl)));
+    const testCode = stripMarkdownComments(stripCodeFences(stripHtmlComments(sections.test)));
     const combinedCode = implCode.trim() + '\n\n' + testCode.trim();
 
     // Transpile using KimchiLang (type checker + linter enabled)

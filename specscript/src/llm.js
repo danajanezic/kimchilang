@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 import { LANGUAGE_REF, STYLE_GUIDANCE } from './language-ref.js';
-import { KimchiCompiler } from '../../src/index.js';
+import { KimchiValidator, formatDiagnostics } from '../../src/validator.js';
 
 export function loadConfig(startDir) {
   let dir = resolve(startDir);
@@ -41,7 +41,7 @@ export function buildGeneratePrompt({ specContent, specHash, target, existingTes
 Each test block uses: test "description" { expect(...).matcher(...) }
 Write tests that cover each requirement in the spec.
 
-Output ONLY the ## test section, no other text:
+Output ONLY the ## test section. No markdown code fences, no other text:
 
 ## test
 
@@ -55,7 +55,7 @@ ${existingTests}
 
 Generate ONLY the ## impl section that passes these tests.
 
-Output ONLY the ## impl section, no other text:
+Output ONLY the ## impl section. No markdown code fences, no other text:
 
 ## impl
 
@@ -66,7 +66,7 @@ Output ONLY the ## impl section, no other text:
     instructions = `Generate two sections for this spec. Each section must start with a spec-hash comment.
 Write tests that cover each requirement in the spec, then implement the functions.
 
-Output ONLY the following two sections, no other text:
+Output ONLY the following two sections. Do NOT wrap code in markdown code fences (no backticks). No other text:
 
 ## test
 
@@ -145,7 +145,7 @@ ${reviewFeedback}
 
 Fix all listed issues. Output the corrected sections.
 
-Output ONLY the following two sections, no other text:
+Output ONLY the following two sections. Do NOT wrap code in markdown code fences (no backticks). No other text:
 
 ## test
 
@@ -162,7 +162,10 @@ Output ONLY the following two sections, no other text:
 
 export function tryTranspile(generatedContent) {
   try {
-    const code = generatedContent.replace(/<!--[\s\S]*?-->/g, '');
+    const code = generatedContent
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/^```\w*\s*$/gm, '')
+      .replace(/^# .+$/gm, (m) => '//' + m.slice(1));
     const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
     const kimchi = new KimchiCompiler();
     kimchi.compile(cleanCode);
@@ -242,7 +245,7 @@ ${transpileError}
 
 Fix the compilation errors. Output the corrected sections.
 
-Output ONLY the following two sections, no other text:
+Output ONLY the following two sections. Do NOT wrap code in markdown code fences (no backticks). No other text:
 
 ## test
 
