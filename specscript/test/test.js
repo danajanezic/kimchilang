@@ -1,6 +1,7 @@
 // specscript/test/test.js
 import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
+import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
 
 let passed = 0;
 let failed = 0;
@@ -297,6 +298,56 @@ test('parses full spec with all sections', () => {
   assertEqual(result.functions.length, 2);
   assertEqual(result.functions[0].visibility, 'expose');
   assertEqual(result.functions[1].visibility, 'internal');
+});
+
+console.log('--- Hasher Tests ---');
+
+test('normalizeSpec collapses whitespace', () => {
+  const a = normalizeSpec('# Mod\n\n\n**intent:** x\n  **reason:** y');
+  const b = normalizeSpec('# Mod\n**intent:** x\n**reason:** y');
+  assertEqual(a, b);
+});
+
+test('normalizeSpec trims lines', () => {
+  const a = normalizeSpec('  # Mod  \n  **intent:** x  ');
+  const b = normalizeSpec('# Mod\n**intent:** x');
+  assertEqual(a, b);
+});
+
+test('computeSpecHash returns consistent hash for same content', () => {
+  const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
+  const hash2 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
+  assertEqual(hash1, hash2);
+});
+
+test('computeSpecHash returns different hash for different content', () => {
+  const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
+  const hash2 = computeSpecHash('# Mod\n**intent:** z\n**reason:** y');
+  const different = hash1 !== hash2;
+  assertEqual(different, true);
+});
+
+test('computeSpecHash ignores whitespace differences', () => {
+  const hash1 = computeSpecHash('# Mod\n**intent:** x\n**reason:** y');
+  const hash2 = computeSpecHash('# Mod\n\n  **intent:** x  \n\n**reason:** y\n\n');
+  assertEqual(hash1, hash2);
+});
+
+test('computeSpecHash returns sha256: prefixed string', () => {
+  const hash = computeSpecHash('# Mod');
+  assertEqual(hash.startsWith('sha256:'), true);
+  assertEqual(hash.length, 7 + 64);
+});
+
+test('extractHash finds hash in HTML comment', () => {
+  const section = '<!-- spec-hash: sha256:abc123def456 -->\n\nsome code';
+  const hash = extractHash(section);
+  assertEqual(hash, 'sha256:abc123def456');
+});
+
+test('extractHash returns null when no hash present', () => {
+  const hash = extractHash('just some code\nno hash here');
+  assertEqual(hash, null);
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
