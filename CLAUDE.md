@@ -62,7 +62,19 @@ Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
 
 ## Test Structure
 
-Tests are in `test/test.js` using a custom harness with `test(name, fn)`, `assertEqual()`, and `assertContains()`. Tests cover all compiler phases (lexer, parser, generator, typechecker). There is no way to run a single test by name — the entire suite runs together.
+Compiler tests are in `test/test.js` using a custom harness with `test(name, fn)`, `assertEqual()`, and `assertContains()`. Stdlib tests are in `test/stdlib_test.js`. Run both with `node test/test.js` and `node test/stdlib_test.js`.
+
+## Built-in Testing Framework
+
+KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
+
+- `test "name" { ... }` / `describe "name" { ... }` — test and suite blocks
+- `expect(actual).matcher(expected)` — 15 matchers: `toBe`, `toEqual`, `toContain`, `toBeNull`, `toBeTruthy`, `toBeFalsy`, `toBeGreaterThan`, `toBeLessThan`, `toHaveLength`, `toMatch`, `toThrow`, `toBeDefined`, `toBeUndefined`, `toBeCloseTo`, `toBeInstanceOf`
+- `expect(x).not.toBe(y)` — `.not` inverts any matcher
+- `test.only` / `test.skip` / `describe.only` / `describe.skip` — focus or skip tests (file-scoped)
+- `beforeAll { }` / `afterAll { }` / `beforeEach { }` / `afterEach { }` — lifecycle hooks inside `describe`
+- `assert condition, "message"` — simple assertion
+- Mocking via dependency injection: `as svc dep module({ "dep.path": mock })`
 
 ## Other Components
 
