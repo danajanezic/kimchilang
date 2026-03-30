@@ -893,6 +893,74 @@ test('Generate .if() without else returns null', () => {
   assertContains(js, 'null');
 });
 
+// --- Integration Tests for New Features ---
+console.log('\n--- Integration Tests (New Features) ---\n');
+
+test('Mut with for loop accumulator', () => {
+  const js = compile(`
+    fn sum(numbers) {
+      mut total = 0
+      for n in numbers {
+        total = total + n
+      }
+      return total
+    }
+  `);
+  assertContains(js, 'let total = 0');
+  assertContains(js, 'total + n');
+});
+
+test('Guard with nullish coalescing', () => {
+  const js = compile(`
+    fn process(input) {
+      guard input != null else { return null }
+      dec name = input.name ?? "Anonymous"
+      return name
+    }
+  `);
+  assertContains(js, 'if (!(');
+  assertContains(js, '??');
+});
+
+test('Match with .if().else()', () => {
+  const js = compile(`
+    fn categorize(score) {
+      dec tier = match score {
+        n when n >= 90 => "gold"
+        n when n >= 70 => "silver"
+        _ => "bronze"
+      }
+      dec label = "VIP".if(true).else("Regular")
+      return label
+    }
+  `);
+  assertContains(js, '_subject');
+  assertContains(js, '?');
+  assertContains(js, '"VIP"');
+});
+
+test('All features combined', () => {
+  const js = generate(parse(tokenize(`
+    fn processUsers(rawUsers) {
+      guard rawUsers != null else { return null }
+      dec defaultRole = config.defaultRole ?? "viewer"
+      mut results = []
+      for user in rawUsers {
+        dec role = match user {
+          { isAdmin: true } => "admin"
+          _ => defaultRole
+        }
+        results = [...results, { name: user.name, role: role }]
+      }
+      return results
+    }
+  `)));
+  assertContains(js, 'if (!(');
+  assertContains(js, '??');
+  assertContains(js, 'let results');
+  assertContains(js, '_subject');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
