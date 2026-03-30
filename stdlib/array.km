@@ -1,0 +1,138 @@
+// KimchiLang Standard Library - Array Functions
+
+expose fn _describe() {
+  return "Array utilities: chunk, zip, groupBy, sortBy, range, compact, partition, intersect, difference"
+}
+
+/**
+ * Splits an array into chunks of the given size.
+ * @param {any[]} arr - Array to chunk
+ * @param {number} size - Chunk size
+ * @returns {any[]} Array of chunks
+ */
+expose fn chunk(arr, size) {
+  guard arr != null else { return [] }
+  guard size > 0 else { return [] }
+  mut result = []
+  mut i = 0
+  while i < arr.length {
+    result = [...result, arr.slice(i, i + size)]
+    i = i + size
+  }
+  return result
+}
+
+/**
+ * Zips two arrays into an array of pairs.
+ * @param {any[]} a - First array
+ * @param {any[]} b - Second array
+ * @returns {any[]} Array of [a[i], b[i]] pairs
+ */
+expose fn zip(a, b) {
+  guard a != null else { return [] }
+  guard b != null else { return [] }
+  dec len = a.length < b.length ? a.length : b.length
+  mut result = []
+  mut i = 0
+  while i < len {
+    result = [...result, [a[i], b[i]]]
+    i = i + 1
+  }
+  return result
+}
+
+/**
+ * Groups array elements by a key function.
+ * @param {any[]} arr - Array to group
+ * @param {any} keyFn - Function that returns the group key for each element
+ * @returns {any} Object mapping keys to arrays of elements
+ */
+expose fn groupBy(arr, keyFn) {
+  guard arr != null else { return {} }
+  return arr.reduce((acc, item) => {
+    dec key = keyFn(item)
+    dec group = acc[key] ?? []
+    dec updated = js(acc, key, group, item) {
+      return { ...acc, [key]: [...group, item] };
+    }
+    return updated
+  }, {})
+}
+
+/**
+ * Returns a sorted copy of the array using a key function.
+ * @param {any[]} arr - Array to sort
+ * @param {any} keyFn - Function that returns the sort key for each element
+ * @returns {any[]} Sorted copy
+ */
+expose fn sortBy(arr, keyFn) {
+  guard arr != null else { return [] }
+  return [...arr].sort((a, b) => {
+    dec ka = keyFn(a)
+    dec kb = keyFn(b)
+    return ka < kb ? -1 : ka > kb ? 1 : 0
+  })
+}
+
+/**
+ * Creates an array of numbers from start (inclusive) to end (exclusive).
+ * @param {number} start - Start value
+ * @param {number} end - End value (exclusive)
+ * @returns {number[]} Array of numbers
+ */
+expose fn range(start, end) {
+  mut result = []
+  mut i = start
+  while i < end {
+    result = [...result, i]
+    i = i + 1
+  }
+  return result
+}
+
+/**
+ * Removes null and undefined values from an array.
+ * @param {any[]} arr - Array to compact
+ * @returns {any[]} Array without null/undefined
+ */
+expose fn compact(arr) {
+  guard arr != null else { return [] }
+  return arr.filter(x => x != null)
+}
+
+/**
+ * Splits an array into two based on a predicate: [matches, rest].
+ * @param {any[]} arr - Array to partition
+ * @param {any} keyFn - Predicate function
+ * @returns {any[]} Array of [matches, rest]
+ */
+expose fn partition(arr, keyFn) {
+  guard arr != null else { return [[], []] }
+  dec yes = arr.filter(x => keyFn(x))
+  dec no = arr.filter(x => !keyFn(x))
+  return [yes, no]
+}
+
+/**
+ * Returns elements present in both arrays.
+ * @param {any[]} a - First array
+ * @param {any[]} b - Second array
+ * @returns {any[]} Intersection
+ */
+expose fn intersect(a, b) {
+  guard a != null else { return [] }
+  guard b != null else { return [] }
+  return a.filter(x => b.includes(x))
+}
+
+/**
+ * Returns elements in the first array but not in the second.
+ * @param {any[]} a - First array
+ * @param {any[]} b - Second array
+ * @returns {any[]} Difference
+ */
+expose fn difference(a, b) {
+  guard a != null else { return [] }
+  guard b != null else { return [] }
+  return a.filter(x => !b.includes(x))
+}

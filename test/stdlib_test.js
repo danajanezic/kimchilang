@@ -64,6 +64,72 @@ console.log('='.repeat(50));
 // account for this behavior.
 
 // ============================================================
+// array.km
+// ============================================================
+console.log('\n--- array.km ---\n');
+
+{
+  const source = readStdlib('array.km');
+  const js = compileModule(source);
+
+  test('array.km compiles without errors', () => {
+    assertEqual(typeof js, 'string');
+  });
+
+  test('array.km has chunk function', () => {
+    assertContains(js, 'chunk');
+    assertContains(js, 'slice');
+  });
+
+  test('array.km has zip function', () => {
+    assertContains(js, 'zip');
+  });
+
+  test('array.km has groupBy function', () => {
+    assertContains(js, 'groupBy');
+  });
+
+  test('array.km has sortBy function', () => {
+    assertContains(js, 'sortBy');
+    assertContains(js, 'sort');
+  });
+
+  test('array.km has range function', () => {
+    assertContains(js, 'range');
+  });
+
+  test('array.km has compact function (filters null)', () => {
+    assertContains(js, 'compact');
+    assertContains(js, 'filter');
+  });
+
+  test('array.km has partition function', () => {
+    assertContains(js, 'partition');
+  });
+
+  test('array.km has intersect function', () => {
+    assertContains(js, 'intersect');
+    assertContains(js, 'includes');
+  });
+
+  test('array.km has difference function', () => {
+    assertContains(js, 'difference');
+  });
+
+  test('array.km exports all functions', () => {
+    assertContains(js, 'chunk');
+    assertContains(js, 'zip');
+    assertContains(js, 'groupBy');
+    assertContains(js, 'sortBy');
+    assertContains(js, 'range');
+    assertContains(js, 'compact');
+    assertContains(js, 'partition');
+    assertContains(js, 'intersect');
+    assertContains(js, 'difference');
+  });
+}
+
+// ============================================================
 // string.km
 // ============================================================
 console.log('\n--- string.km ---\n');
