@@ -54,4 +54,4 @@
 - [ ] Code coverage reporting
 - [ ] Snapshot testing
 - [ ] Test timeout per test
-- [ ] Multi-file test runner (`kimchi test dir/`)
+- [x] ~~Multi-file test runner (`kimchi test dir/`)~~ — discovers test files, runs in sequence
