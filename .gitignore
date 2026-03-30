@@ -30,3 +30,4 @@ coverage/
 # Environment files
 .env
 .env.local
+.kimchi-cache/

@@ -1,6 +1,6 @@
 {
   "name": "kimchilang",
-  "version": "1.0.2",
+  "version": "1.5.0",
   "description": "A modern programming language that transpiles to JavaScript",
   "main": "src/index.js",
   "bin": {
@@ -19,5 +19,8 @@
   ],
   "author": "Dana Janezic",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "acorn": "^8.16.0"
+  }
 }
