@@ -45,6 +45,7 @@ Commands:
   install           Install dependencies from project.static
   clean             Remove installed dependencies
   repl              Start an interactive REPL session
+  cache clear       Clear transpilation cache
   help              Show this help message
   version           Show version information
 
@@ -731,112 +732,74 @@ async function runTests(filePath, options = {}) {
     process.exit(1);
   }
 
-  const javascript = compileFile(filePath, options);
-  
-  if (options.debug) {
-    console.log('\n--- Generated JavaScript ---\n');
-    console.log(javascript);
-    console.log('\n--- Running Tests ---\n');
-  }
+  const { KimchiInterpreter } = await import('./interpreter.js');
+  const source = readFileSync(resolve(filePath), 'utf-8');
+  const interp = new KimchiInterpreter(); // no persistent cache for tests
 
   try {
+    const code = interp.prepare(source, {
+      basePath: dirname(resolve(filePath)),
+    });
+
+    // Append test runner invocation
+    const testCode = code.replace(
+      /await _module\(\{\}\);\s*$/,
+      'await _module({});\nawait _runTests();\n'
+    );
+
     const os = await import('os');
     const crypto = await import('crypto');
-    const tempDir = os.default.tmpdir();
-    const tempFile = join(tempDir, `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
-    
-    const runtimeAbsPath = new URL('./runtime.js', import.meta.url).href;
-    const modifiedCode = javascript
-      .replace(/^export default (?:async )?function/m, 'const _module = function')
-      .replace(/from '\.\/kimchi-runtime\.js'/, `from '${runtimeAbsPath}'`);
+    const tempFile = join(os.default.tmpdir(), `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
+    writeFileSync(tempFile, testCode);
 
-    const wrappedCode = `
-${modifiedCode}
-
-// Call the module factory to register tests
-_module({});
-
-// Run all registered tests
-await _runTests();
-`;
-    
-    writeFileSync(tempFile, wrappedCode);
-    
     try {
-      execSync(`node "${tempFile}"`, { 
+      execSync(`node "${tempFile}"`, {
         stdio: 'inherit',
-        cwd: dirname(filePath)
+        cwd: dirname(resolve(filePath))
       });
     } finally {
-      try {
-        const fs = await import('fs');
-        fs.default.unlinkSync(tempFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      try { const fs = await import('fs'); fs.default.unlinkSync(tempFile); } catch {}
     }
   } catch (error) {
-    console.error('Test Error:');
-    console.error(error.message);
-    if (options.debug) {
-      console.error(error.stack);
-    }
+    if (error.status) process.exit(error.status);
+    console.error('Test Error:', error.message);
+    if (options.debug) console.error(error.stack);
     process.exit(1);
   }
 }
 
 async function runFile(filePath, options = {}) {
-  // Pass basePath for absolute path resolution of static files
-  const javascript = compileFile(filePath, { ...options, basePath: dirname(resolve(filePath)) });
-  
-  if (options.debug) {
-    console.log('\n--- Generated JavaScript ---\n');
-    console.log(javascript);
-    console.log('\n--- Output ---\n');
-  }
+  const { KimchiInterpreter } = await import('./interpreter.js');
+
+  const projectRoot = findProjectRoot(dirname(resolve(filePath)));
+  const cacheDir = join(projectRoot, '.kimchi-cache');
+  const interp = new KimchiInterpreter({ cacheDir });
+  const source = readFileSync(resolve(filePath), 'utf-8');
 
   try {
-    // Write to temp file and execute as ES module
-    const os = await import('os');
-    const crypto = await import('crypto');
-    const tempDir = os.default.tmpdir();
-    const tempFile = join(tempDir, `kimchi_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
-    
-    // Replace export default with const so we can call it
-    // Replace relative runtime import with absolute path for temp file execution
-    const runtimeAbsPath = new URL('./runtime.js', import.meta.url).href;
-    const modifiedCode = javascript
-      .replace(/^export default (?:async )?function/m, 'const _module = function')
-      .replace(/from '\.\/kimchi-runtime\.js'/, `from '${runtimeAbsPath}'`);
+    const code = interp.prepare(source, {
+      basePath: dirname(resolve(filePath)),
+      skipLint: options.skipLint,
+    });
 
-    const wrappedCode = `
-${modifiedCode}
-
-// Call the module factory
-_module({});
-`;
-    
-    writeFileSync(tempFile, wrappedCode);
-    
-    try {
-      execSync(`node "${tempFile}"`, { 
-        stdio: 'inherit',
-        cwd: dirname(filePath)
-      });
-    } finally {
-      try {
-        const fs = await import('fs');
-        fs.default.unlinkSync(tempFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
-  } catch (error) {
-    console.error('Runtime Error:');
-    console.error(error.message);
     if (options.debug) {
-      console.error(error.stack);
+      console.log(`Cache dir: ${cacheDir}`);
+      console.log('\n--- Cached JavaScript ---\n');
+      console.log(code);
+      console.log('\n--- Output ---\n');
     }
+
+    const cachePath = interp.getCachePath(source);
+    execSync(`node "${cachePath}"`, {
+      stdio: 'inherit',
+      cwd: dirname(resolve(filePath))
+    });
+  } catch (error) {
+    if (error.status) {
+      process.exit(error.status);
+    }
+    console.error('Error:', error.message);
+    if (options.debug) console.error(error.stack);
     process.exit(1);
   }
 }
@@ -1046,7 +1009,7 @@ async function main() {
   const args = process.argv.slice(2);
   const options = parseArgs(args);
 
-  if (options.help || args.length === 0) {
+  if (options.help || (args.length === 0 && process.stdin.isTTY)) {
     console.log(HELP);
     process.exit(0);
   }
@@ -1244,6 +1207,23 @@ async function main() {
       break;
     }
 
+    case 'cache': {
+      if (options.file === 'clear') {
+        const projectRoot = findProjectRoot(process.cwd());
+        const cacheDir = join(projectRoot, '.kimchi-cache');
+        if (existsSync(cacheDir)) {
+          const { rmSync } = await import('fs');
+          rmSync(cacheDir, { recursive: true });
+          console.log('Cache cleared.');
+        } else {
+          console.log('No cache to clear.');
+        }
+      } else {
+        console.log('Usage: kimchi cache clear');
+      }
+      break;
+    }
+
     case 'version':
     case '-v':
     case 'lsp': {
@@ -1275,6 +1255,30 @@ async function main() {
         } else {
           console.error(`Unknown command or module: ${options.command}`);
           console.log(HELP);
+          process.exit(1);
+        }
+      } else if (!process.stdin.isTTY) {
+        // Piped stdin — read and execute
+        const chunks = [];
+        for await (const chunk of process.stdin) {
+          chunks.push(chunk);
+        }
+        const source = Buffer.concat(chunks).toString('utf-8');
+        const { KimchiInterpreter } = await import('./interpreter.js');
+        const interp = new KimchiInterpreter();
+        try {
+          const code = interp.prepare(source);
+          const os = await import('os');
+          const crypto = await import('crypto');
+          const tempFile = join(os.default.tmpdir(), `kimchi_stdin_${crypto.default.randomBytes(4).toString('hex')}.mjs`);
+          writeFileSync(tempFile, code);
+          try {
+            execSync(`node "${tempFile}"`, { stdio: 'inherit' });
+          } finally {
+            try { const fs = await import('fs'); fs.default.unlinkSync(tempFile); } catch {}
+          }
+        } catch (error) {
+          console.error('Error:', error.message);
           process.exit(1);
         }
       } else {
