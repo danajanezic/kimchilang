@@ -102,6 +102,7 @@ export const TokenType = {
   // Special
   EOF: 'EOF',
   COMMENT: 'COMMENT',
+  DOC_COMMENT: 'DOC_COMMENT',
   TEMPLATE_STRING: 'TEMPLATE_STRING',
   REGEX: 'REGEX',
   AT: 'AT',
@@ -630,6 +631,28 @@ export class Lexer {
         continue;
       }
       
+      // Doc comments: /** ... */
+      if (char === '/' && this.peek(1) === '*' && this.peek(2) === '*' && this.peek(3) !== '/') {
+        const docStartLine = this.line;
+        const docStartCol = this.column;
+        this.advance(); // skip /
+        this.advance(); // skip *
+        this.advance(); // skip *
+        let content = '';
+        while (!(this.peek() === '*' && this.peek(1) === '/')) {
+          if (this.peek() === '\0') {
+            this.error('Unterminated doc comment');
+          }
+          content += this.peek();
+          this.advance();
+        }
+        this.advance(); // skip *
+        this.advance(); // skip /
+        this.tokens.push(new Token(TokenType.DOC_COMMENT, content, docStartLine, docStartCol));
+        continue;
+      }
+
+      // Regular block comments: /* ... */
       if (char === '/' && this.peek(1) === '*') {
         this.advance();
         this.skipBlockComment();

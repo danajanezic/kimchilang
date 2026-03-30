@@ -73,6 +73,8 @@ Output ONLY a list of rules, one per line, starting with "- ". Each rule should 
 Do not repeat rules that say the same thing. Do not include preamble or explanation. Output only the rules.`;
 }
 
+const MAX_RULES = 15;
+
 export async function analyzeAndLearn(log, configDir, llmCommand) {
   if (log.length === 0) return;
 
@@ -93,27 +95,54 @@ export async function analyzeAndLearn(log, configDir, llmCommand) {
   const newRules = result.output
     .split('\n')
     .filter(line => line.trim().startsWith('- '))
-    .map(line => line.trim())
-    .join('\n');
+    .map(line => line.trim());
 
-  if (!newRules) return;
+  if (newRules.length === 0) return;
 
-  // Deduplicate against existing rules
-  const existingSet = new Set(existingRules.split('\n').filter(Boolean));
-  const dedupedNew = newRules
+  // Merge with existing, deduplicate
+  const existingList = existingRules.split('\n').filter(Boolean);
+  const seen = new Set(existingList);
+  for (const rule of newRules) {
+    if (!seen.has(rule)) {
+      existingList.push(rule);
+      seen.add(rule);
+    }
+  }
+
+  // If over limit, consolidate via LLM
+  if (existingList.length > MAX_RULES) {
+    console.log(`Rules exceeded ${MAX_RULES}, consolidating...`);
+    const consolidated = await consolidateRules(existingList, llmCommand);
+    if (consolidated) {
+      writeFileSync(rulesPath, consolidated + '\n');
+      const count = consolidated.split('\n').filter(Boolean).length;
+      console.log(`Consolidated .prompt-rules (${count} rules)`);
+      return;
+    }
+  }
+
+  writeFileSync(rulesPath, existingList.join('\n') + '\n');
+  console.log(`Updated .prompt-rules (${existingList.length} rules)`);
+}
+
+async function consolidateRules(rules, llmCommand) {
+  const prompt = `Consolidate these ${rules.length} code generation rules into at most ${MAX_RULES} rules.
+Merge overlapping rules. Drop rules that are redundant or too specific. Keep the most impactful ones.
+
+Current rules:
+${rules.join('\n')}
+
+Output ONLY the consolidated list, one rule per line starting with "- ". No other text.`;
+
+  const result = await invokeLlmAsync(llmCommand, prompt);
+  if (!result.success) return null;
+
+  return result.output
     .split('\n')
-    .filter(rule => !existingSet.has(rule))
+    .filter(line => line.trim().startsWith('- '))
+    .map(line => line.trim())
+    .slice(0, MAX_RULES)
     .join('\n');
-
-  if (!dedupedNew) return;
-
-  const combined = existingRules
-    ? existingRules + '\n' + dedupedNew
-    : dedupedNew;
-
-  writeFileSync(rulesPath, combined + '\n');
-  const count = combined.split('\n').filter(Boolean).length;
-  console.log(`Updated .prompt-rules (${count} rules total)`);
 }
 
 export function buildGeneratePrompt({ specContent, specHash, target, existingTests, learnedRules }) {

@@ -1100,6 +1100,37 @@ test('Runtime executes hooks in describe', () => {
   assertContains(js, 'item.afterEach');
 });
 
+// --- KMDocs Tests ---
+console.log('\n--- KMDocs Tests ---\n');
+
+test('Lexer: tokenize doc comment as DOC_COMMENT', () => {
+  const tokens = tokenize('/** @param {number} x */\ndec x = 1');
+  const docToken = tokens.find(t => t.type === 'DOC_COMMENT');
+  assertEqual(docToken !== undefined, true, 'Should have a DOC_COMMENT token');
+  assertContains(docToken.value, '@param');
+});
+
+test('Lexer: regular block comment is still filtered', () => {
+  const tokens = tokenize('/* regular comment */\ndec x = 1');
+  const docToken = tokens.find(t => t.type === 'DOC_COMMENT');
+  assertEqual(docToken, undefined, 'Regular block comment should not produce DOC_COMMENT');
+});
+
+test('Lexer: line comment unchanged', () => {
+  const tokens = tokenize('// line comment\ndec x = 1');
+  const docToken = tokens.find(t => t.type === 'DOC_COMMENT');
+  assertEqual(docToken, undefined, 'Line comment should not produce DOC_COMMENT');
+});
+
+test('Lexer: multiline doc comment', () => {
+  const source = '/**\n * Does something.\n * @param {string} name\n */\nfn foo(name) { return name }';
+  const tokens = tokenize(source);
+  const docToken = tokens.find(t => t.type === 'DOC_COMMENT');
+  assertEqual(docToken !== undefined, true);
+  assertContains(docToken.value, '@param');
+  assertContains(docToken.value, 'string');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
