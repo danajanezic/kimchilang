@@ -530,7 +530,15 @@ export class TypeChecker {
     }
     
     this.pushScope();
-    
+
+    // Build KMDoc param type map if available
+    const kmdocParams = new Map();
+    if (node.kmdoc && node.kmdoc.params) {
+      for (const p of node.kmdoc.params) {
+        kmdocParams.set(p.name, this.parseTypeString(p.type));
+      }
+    }
+
     // Define parameters in scope
     for (const param of node.params) {
       // Handle destructuring patterns
@@ -552,12 +560,14 @@ export class TypeChecker {
       
       const name = param.name || param.argument;
       let paramType = this.createType(Type.Any);
-      
-      // Infer type from default value if present
-      if (param.defaultValue) {
+
+      // KMDoc type takes priority over inference
+      if (kmdocParams.has(name)) {
+        paramType = kmdocParams.get(name);
+      } else if (param.defaultValue) {
         paramType = this.visitExpression(param.defaultValue);
       }
-      
+
       this.defineVariable(name, paramType);
     }
     
@@ -567,7 +577,19 @@ export class TypeChecker {
         this.visitStatement(stmt);
       }
     }
-    
+
+    // Register function info with KMDoc types for call-site validation
+    if (node.name && kmdocParams.size > 0) {
+      this.functions.set(node.name, {
+        params: node.params.map(p => {
+          const name = p.name || p.argument;
+          return { name, type: kmdocParams.get(name) || this.createType(Type.Any) };
+        }),
+        returnType: node.kmdoc && node.kmdoc.returns ? this.parseTypeString(node.kmdoc.returns.type) : this.createType(Type.Any),
+        kmdocParams,
+      });
+    }
+
     this.popScope();
   }
 
@@ -842,10 +864,36 @@ export class TypeChecker {
     }
     
     // Visit arguments
+    const argTypes = [];
     for (const arg of node.arguments) {
-      this.visitExpression(arg);
+      argTypes.push(this.visitExpression(arg));
     }
-    
+
+    // KMDoc argument type validation
+    if (node.callee && node.callee.type === 'Identifier') {
+      const fnInfo = this.functions.get(node.callee.name);
+      if (fnInfo && fnInfo.kmdocParams && fnInfo.kmdocParams.size > 0) {
+        for (let i = 0; i < node.arguments.length; i++) {
+          const arg = node.arguments[i];
+          // Skip spread elements
+          if (arg.type === 'SpreadElement') continue;
+          const argType = argTypes[i];
+          const paramInfo = fnInfo.params[i];
+          if (paramInfo && fnInfo.kmdocParams.has(paramInfo.name)) {
+            const expectedType = fnInfo.kmdocParams.get(paramInfo.name);
+            if (argType.kind !== Type.Unknown && argType.kind !== Type.Any &&
+                expectedType.kind !== Type.Any && expectedType.kind !== Type.Unknown &&
+                argType.kind !== expectedType.kind) {
+              this.addError(
+                `Argument ${i + 1} of '${node.callee.name}' expects ${expectedType.kind} but got ${argType.kind}`,
+                node
+              );
+            }
+          }
+        }
+      }
+    }
+
     // Return the function's return type if known
     if (calleeType && calleeType.kind === Type.Function && calleeType.returnType) {
       return calleeType.returnType;

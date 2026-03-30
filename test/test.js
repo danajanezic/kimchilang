@@ -1220,6 +1220,40 @@ test('Type checker: parseTypeString custom type', () => {
   assertEqual(t.name, 'User');
 });
 
+test('Type checker: KMDoc param type catches wrong argument', () => {
+  const source = '/** @param {number} x */\nfn double(x) { return x * 2 }\ndouble("hello")';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const callError = errors.find(e => e.message.includes('expects number') || e.message.includes('Argument'));
+  assertEqual(callError !== undefined, true, 'Should error on wrong argument type');
+});
+
+test('Type checker: KMDoc param type allows correct argument', () => {
+  const source = '/** @param {number} x */\nfn double(x) { return x * 2 }\ndouble(5)';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  const callError = errors.find(e => e.message.includes('expects') || e.message.includes('Argument'));
+  assertEqual(callError, undefined, 'Should not error on correct argument type');
+});
+
+test('Type checker: function without KMDoc still works', () => {
+  const source = 'fn add(a, b) { return a + b }\nadd(1, 2)';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+test('Type checker: partial KMDoc — some params annotated', () => {
+  const source = '/** @param {string} name */\nfn greet(name, count) { return name }\ngreet("hi", 5)';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  assertEqual(errors.length, 0, 'Partial annotation should work without errors');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
