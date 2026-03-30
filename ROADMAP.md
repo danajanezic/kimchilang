@@ -22,7 +22,7 @@
 - [ ] LSP: autocomplete
 - [ ] Debugger integration
 - [ ] Source maps for compiled output
-- [ ] Watch mode (`kimchi run --watch`)
+- [x] ~~Watch mode (`kimchi run --watch`)~~ — watches source + project .km files, re-runs on change
 - [ ] `kimchi fmt` formatter
 
 ## Standard Library
