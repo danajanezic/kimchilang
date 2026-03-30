@@ -978,6 +978,25 @@ test('Runtime: .not modifier in compiled output', () => {
   assertContains(js, 'notMatchers');
 });
 
+test('Parse expect with .not modifier', () => {
+  const ast = parse(tokenize('expect(x).not.toBe(5)'));
+  const stmt = ast.body[0];
+  assertEqual(stmt.type, 'ExpectStatement');
+  assertEqual(stmt.negated, true);
+  assertEqual(stmt.matcher, 'toBe');
+});
+
+test('Parse expect without .not', () => {
+  const ast = parse(tokenize('expect(x).toBe(5)'));
+  const stmt = ast.body[0];
+  assertEqual(stmt.negated || false, false);
+});
+
+test('Generate expect with .not', () => {
+  const js = generate(parse(tokenize('expect(x).not.toBe(5)')));
+  assertContains(js, '.not.toBe(');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

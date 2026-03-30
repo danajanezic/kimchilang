@@ -2173,30 +2173,38 @@ export class Parser {
   parseExpectStatement() {
     this.expect(TokenType.EXPECT, 'Expected expect');
     this.expect(TokenType.LPAREN, 'Expected ( after expect');
-    
+
     const actual = this.parseExpression();
-    
+
     this.expect(TokenType.RPAREN, 'Expected ) after expect value');
     this.expect(TokenType.DOT, 'Expected . after expect()');
-    
-    // Parse matcher: toBe, toEqual, toContain, etc.
+
+    // Check for .not modifier
+    let negated = false;
+    if (this.check(TokenType.NOT)) {
+      this.advance();
+      negated = true;
+      this.expect(TokenType.DOT, 'Expected . after not');
+    }
+
+    // Parse matcher
     const matcher = this.expect(TokenType.IDENTIFIER, 'Expected matcher name').value;
-    
+
     this.expect(TokenType.LPAREN, 'Expected ( after matcher');
-    
-    // Parse expected value (optional for some matchers like toBeNull)
+
     let expected = null;
     if (!this.check(TokenType.RPAREN)) {
       expected = this.parseExpression();
     }
-    
+
     this.expect(TokenType.RPAREN, 'Expected ) after matcher value');
-    
+
     return {
       type: NodeType.ExpectStatement,
       actual,
       matcher,
       expected,
+      negated,
     };
   }
   

@@ -1447,45 +1447,46 @@ export class CodeGenerator {
     const actual = this.visitExpression(node.actual);
     const matcher = node.matcher;
     const expected = node.expected ? this.visitExpression(node.expected) : '';
-    
+    const not = node.negated ? 'not.' : '';
+
     // Generate appropriate assertion based on matcher
     switch (matcher) {
       case 'toBe':
-        this.emitLine(`_expect(${actual}).toBe(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toBe(${expected});`);
         break;
       case 'toEqual':
-        this.emitLine(`_expect(${actual}).toEqual(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toEqual(${expected});`);
         break;
       case 'toContain':
-        this.emitLine(`_expect(${actual}).toContain(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toContain(${expected});`);
         break;
       case 'toBeNull':
-        this.emitLine(`_expect(${actual}).toBeNull();`);
+        this.emitLine(`_expect(${actual}).${not}toBeNull();`);
         break;
       case 'toBeTruthy':
-        this.emitLine(`_expect(${actual}).toBeTruthy();`);
+        this.emitLine(`_expect(${actual}).${not}toBeTruthy();`);
         break;
       case 'toBeFalsy':
-        this.emitLine(`_expect(${actual}).toBeFalsy();`);
+        this.emitLine(`_expect(${actual}).${not}toBeFalsy();`);
         break;
       case 'toBeGreaterThan':
-        this.emitLine(`_expect(${actual}).toBeGreaterThan(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toBeGreaterThan(${expected});`);
         break;
       case 'toBeLessThan':
-        this.emitLine(`_expect(${actual}).toBeLessThan(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toBeLessThan(${expected});`);
         break;
       case 'toThrow':
-        this.emitLine(`_expect(${actual}).toThrow(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toThrow(${expected});`);
         break;
       case 'toMatch':
-        this.emitLine(`_expect(${actual}).toMatch(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toMatch(${expected});`);
         break;
       case 'toHaveLength':
-        this.emitLine(`_expect(${actual}).toHaveLength(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}toHaveLength(${expected});`);
         break;
       default:
         // Generic matcher
-        this.emitLine(`_expect(${actual}).${matcher}(${expected});`);
+        this.emitLine(`_expect(${actual}).${not}${matcher}(${expected});`);
     }
   }
   
