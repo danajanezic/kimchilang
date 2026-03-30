@@ -210,7 +210,7 @@ obj.foo = {}          // Compile error: Cannot reassign 'obj.foo'
 obj.foo.bar = "new"   // Compile error: Cannot reassign 'obj.foo.bar'
 ```
 
-At runtime, `dec` values are wrapped with `Object.freeze` recursively for additional protection.
+Immutability is enforced at compile time. When `dec` values are passed to `js { }` blocks, they are `Object.freeze`d at the boundary to prevent mutation in JavaScript code.
 
 ### Type Inference
 
@@ -497,7 +497,7 @@ fn square(x) { return x * x }
 transform >> addOne double square
 
 // Call it later
-dec result = await transform(5)  // square(double(addOne(5))) = 144
+dec result = transform(5)  // square(double(addOne(5))) = 144
 ```
 
 The flow syntax `name >> fn1 fn2 fn3` creates a new function `name` that composes `fn1`, `fn2`, and `fn3`. When called, arguments are passed to `fn1`, then the result flows through `fn2`, then `fn3`.
@@ -521,8 +521,8 @@ async fn main() {
 ```
 
 **Difference from pipe operator:**
-- `~>` (pipe): Immediately executes — `5 ~> double ~> addOne` returns a Promise
-- `>>` (flow): Creates a reusable async function — `transform >> double addOne` creates a function you call later
+- `~>` (pipe): Immediately executes — `5 ~> double ~> addOne` returns the result (async-aware: returns Promise only when an async function is in the chain)
+- `>>` (flow): Creates a reusable function — `transform >> double addOne` creates a function you call later (async-aware: sync when all functions are sync)
 
 ### Pattern Matching
 
@@ -556,21 +556,27 @@ dec updated = { ...person, age: 31 }
 
 ### Safe Member Access
 
-All property access in KimchiLang is **null-safe by default**. The dot operator (`.`) compiles to JavaScript's optional chaining (`?.`), so accessing properties on `undefined` or `null` values returns `undefined` instead of throwing an error.
+KimchiLang has **smart null-safe member access**. When the compiler knows an object's shape from a literal declaration, it uses direct `.` access. For unknown shapes (function parameters, function returns), it uses JavaScript's optional chaining (`?.`) so accessing properties on `undefined` or `null` values returns `undefined` instead of throwing an error.
 
 ```kimchi
 dec obj = { a: { b: { c: 1 } } }
 
-print obj.a.b.c    // 1
-print obj.x.y.z    // undefined (no error!)
+print obj.a.b.c    // 1 (uses . — shape is known)
+print obj.x        // undefined (uses ?. — 'x' not in known shape)
 
-// Works with arrays too
-dec items = [{ name: "first" }]
-print items[0].name    // "first"
-print items[5].name    // undefined (no error!)
+fn foo(x) {
+  print x.name     // uses ?. — x's shape is unknown
+}
 ```
 
-This eliminates the need for manual null checks or the `?.` operator - every property access is automatically safe.
+After a `guard` check, the variable is known non-null:
+
+```kimchi
+fn process(x) {
+  guard x != null else { return null }
+  print x.name     // uses . — x is known non-null after guard
+}
+```
 
 ### String Interpolation
 
@@ -1170,9 +1176,6 @@ kimchi compile app.kimchi -o dist/app.js
 
 # Run a file directly
 kimchi run app.kimchi
-
-# Start interactive REPL
-kimchi repl
 
 # Show help
 kimchi help
