@@ -128,6 +128,69 @@ export class TypeChecker {
     return { kind: Type.Function, params, returnType };
   }
 
+  parseTypeString(str) {
+    str = str.trim();
+
+    // Primitives
+    const primitives = { 'number': Type.Number, 'string': Type.String, 'boolean': Type.Boolean, 'null': Type.Null, 'void': Type.Void, 'any': Type.Any };
+    if (primitives[str]) {
+      return this.createType(primitives[str]);
+    }
+
+    // Array: type[]
+    if (str.endsWith('[]')) {
+      const elementType = this.parseTypeString(str.slice(0, -2));
+      return this.createArrayType(elementType);
+    }
+
+    // Object shape: {key: type, key: type}
+    if (str.startsWith('{') && str.endsWith('}')) {
+      const inner = str.slice(1, -1).trim();
+      if (!inner) return this.createObjectType({});
+      const properties = {};
+      let depth = 0;
+      let current = '';
+      for (const char of inner) {
+        if (char === '{') depth++;
+        else if (char === '}') depth--;
+        else if (char === ',' && depth === 0) {
+          const colonIdx = current.indexOf(':');
+          if (colonIdx !== -1) {
+            const key = current.slice(0, colonIdx).trim();
+            const valType = current.slice(colonIdx + 1).trim();
+            if (key && valType) properties[key] = this.parseTypeString(valType);
+          }
+          current = '';
+          continue;
+        }
+        current += char;
+      }
+      if (current.trim()) {
+        const colonIdx = current.indexOf(':');
+        if (colonIdx !== -1) {
+          const key = current.slice(0, colonIdx).trim();
+          const valType = current.slice(colonIdx + 1).trim();
+          if (key && valType) properties[key] = this.parseTypeString(valType);
+        }
+      }
+      return this.createObjectType(properties);
+    }
+
+    // Function type: (type, type) => type
+    const fnMatch = str.match(/^\(([^)]*)\)\s*=>\s*(.+)$/);
+    if (fnMatch) {
+      const paramStrs = fnMatch[1] ? fnMatch[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+      const params = paramStrs.map(p => this.parseTypeString(p));
+      const returnType = this.parseTypeString(fnMatch[2]);
+      return this.createFunctionType(params, returnType);
+    }
+
+    // Custom type — look up in scope, or return unknown with name
+    const existing = this.lookupVariable(str);
+    if (existing) return existing;
+    return { kind: Type.Unknown, name: str };
+  }
+
   typeToString(type) {
     if (!type) return 'unknown';
     if (typeof type === 'string') return type;

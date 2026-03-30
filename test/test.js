@@ -1177,6 +1177,49 @@ test('Parser: kmdoc before expose fn', () => {
   assertEqual(ast.body[0].kmdoc.params[0].type, 'number');
 });
 
+test('Type checker: parseTypeString number', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('number');
+  assertEqual(t.kind, 'number');
+});
+
+test('Type checker: parseTypeString string[]', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('string[]');
+  assertEqual(t.kind, 'array');
+  assertEqual(t.elementType.kind, 'string');
+});
+
+test('Type checker: parseTypeString object shape', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('{name: string, age: number}');
+  assertEqual(t.kind, 'object');
+  assertEqual(t.properties.name.kind, 'string');
+  assertEqual(t.properties.age.kind, 'number');
+});
+
+test('Type checker: parseTypeString function type', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('(number, string) => boolean');
+  assertEqual(t.kind, 'function');
+  assertEqual(t.params.length, 2);
+  assertEqual(t.params[0].kind, 'number');
+  assertEqual(t.returnType.kind, 'boolean');
+});
+
+test('Type checker: parseTypeString any', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('any');
+  assertEqual(t.kind, 'any');
+});
+
+test('Type checker: parseTypeString custom type', () => {
+  const checker = new TypeChecker();
+  const t = checker.parseTypeString('User');
+  assertEqual(t.kind, 'unknown');
+  assertEqual(t.name, 'User');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
