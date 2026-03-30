@@ -7,6 +7,7 @@ import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
 import { tokenize, TokenType } from '../src/lexer.js';
 import { parse, NodeType } from '../src/parser.js';
 import { generate } from '../src/generator.js';
+import { DependencyGraph } from '../src/dependency-graph.js';
 
 let passed = 0;
 let failed = 0;
@@ -822,6 +823,73 @@ test('parseArgs recognizes -o output flag', () => {
 test('parseArgs recognizes --debug flag', () => {
   const args = parseArgs(['compile', 'myfile.sp', '--debug']);
   assertEqual(args.debug, true);
+});
+
+console.log('--- Dependency Graph Tests ---');
+
+test('registers modules and their spec hashes', () => {
+  const graph = new DependencyGraph();
+  graph.register('order.processor', { hash: 'sha256:aaa', depends: ['inventory.stock'] });
+  graph.register('inventory.stock', { hash: 'sha256:bbb', depends: [] });
+  assertEqual(graph.getHash('order.processor'), 'sha256:aaa');
+  assertEqual(graph.getHash('inventory.stock'), 'sha256:bbb');
+});
+
+test('detects stale consumers when dependency hash changes', () => {
+  const graph = new DependencyGraph();
+  graph.register('inventory.stock', { hash: 'sha256:old', depends: [] });
+  graph.register('order.processor', {
+    hash: 'sha256:aaa',
+    depends: ['inventory.stock'],
+    depHashes: { 'inventory.stock': 'sha256:old' },
+  });
+  graph.register('inventory.stock', { hash: 'sha256:new', depends: [] });
+  const stale = graph.findStaleConsumers('inventory.stock');
+  assertEqual(stale.length, 1);
+  assertEqual(stale[0], 'order.processor');
+});
+
+test('does not flag consumers when dependency hash unchanged', () => {
+  const graph = new DependencyGraph();
+  graph.register('inventory.stock', { hash: 'sha256:same', depends: [] });
+  graph.register('order.processor', {
+    hash: 'sha256:aaa',
+    depends: ['inventory.stock'],
+    depHashes: { 'inventory.stock': 'sha256:same' },
+  });
+  const stale = graph.findStaleConsumers('inventory.stock');
+  assertEqual(stale.length, 0);
+});
+
+test('tracks transitive dependencies', () => {
+  const graph = new DependencyGraph();
+  graph.register('storage.db', { hash: 'sha256:111', depends: [] });
+  graph.register('inventory.stock', {
+    hash: 'sha256:222',
+    depends: ['storage.db'],
+    depHashes: { 'storage.db': 'sha256:111' },
+  });
+  graph.register('order.processor', {
+    hash: 'sha256:333',
+    depends: ['inventory.stock'],
+    depHashes: { 'inventory.stock': 'sha256:222' },
+  });
+  graph.register('storage.db', { hash: 'sha256:444', depends: [] });
+  const stale = graph.findStaleConsumers('storage.db');
+  assertContains(stale.join(','), 'inventory.stock');
+});
+
+test('getAllStale returns all stale module paths', () => {
+  const graph = new DependencyGraph();
+  graph.register('a', { hash: 'sha256:1', depends: [] });
+  graph.register('b', {
+    hash: 'sha256:2',
+    depends: ['a'],
+    depHashes: { 'a': 'sha256:1' },
+  });
+  graph.register('a', { hash: 'sha256:changed', depends: [] });
+  const all = graph.getAllStale();
+  assertContains(all.join(','), 'b');
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
