@@ -15,13 +15,15 @@ This project uses [mise](https://mise.jdx.dev/) for tool version management. Run
 ```bash
 npm test                              # Run full test suite (custom harness, no framework)
 node test/test.js                     # Same as above, direct execution
-node src/cli.js run <file>            # Compile and run a .km/.kimchi file
+node src/cli.js run <file>            # Run a .km/.kimchi file (cached transpilation)
 node src/cli.js compile <file> -o out # Transpile to JavaScript
 node src/cli.js test <file>           # Run embedded tests in a .km file
 node src/cli.js lint <file>           # Run linter
 node src/cli.js check <file>          # Editor integration error check
 node src/cli.js convert <file.js>     # Reverse transpile JS → KimchiLang
 node src/cli.js build <dir>           # Compile all .km/.kimchi files in directory
+node src/cli.js cache clear           # Clear transpilation cache
+echo 'print "hi"' | kimchi            # Execute KimchiLang from stdin
 kimchi --version                      # Show version (requires npm link)
 ```
 

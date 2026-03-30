@@ -1,0 +1,4 @@
+#!/usr/bin/env kimchi
+print "Shebang works!"
+dec x = 42
+print "The answer is ${x}"

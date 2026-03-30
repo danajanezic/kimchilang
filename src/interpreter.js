@@ -27,8 +27,11 @@ export class KimchiInterpreter {
       }
     }
 
+    // Strip shebang line if present
+    const cleanSource = source.startsWith('#!') ? source.replace(/^#![^\n]*\n/, '') : source;
+
     // Compile via existing pipeline
-    const javascript = compile(source, {
+    const javascript = compile(cleanSource, {
       skipLint: options.skipLint,
       showLintWarnings: true,
       basePath: options.basePath,
