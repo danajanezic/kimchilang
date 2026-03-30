@@ -1,5 +1,9 @@
 # KimchiLang Roadmap
 
+## Module System
+
+- [ ] Index file resolution in `dep` imports — `as svc dep myapp.services` should resolve `./myapp/services/index.km` (CLI already does this, generator doesn't)
+
 ## Language Design
 
 - [ ] Require all-implicit or all-explicit enum values (disallow mixed auto-increment like `Low, Medium, High = 10, Critical`)
