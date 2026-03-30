@@ -1,0 +1,15 @@
+{
+  "name": "specscript",
+  "version": "0.1.0",
+  "description": "A spec-first programming language optimized for LLMs",
+  "main": "src/index.js",
+  "bin": {
+    "sp": "src/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "keywords": ["language", "compiler", "spec-first", "llm"],
+  "license": "MIT"
+}
