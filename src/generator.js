@@ -472,9 +472,9 @@ export class CodeGenerator {
         this.emitLine(`const ${dep.alias} = ${moduleVar};`);
       } else if (dep.overrides) {
         const overridesCode = this.visitExpression(dep.overrides);
-        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || ${moduleVar}(${overridesCode});`);
+        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || await ${moduleVar}(${overridesCode});`);
       } else {
-        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || ${moduleVar}();`);
+        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || await ${moduleVar}();`);
       }
     }
     if (depStatements.length > 0) {

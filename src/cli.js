@@ -773,7 +773,7 @@ async function runFile(filePath, options = {}) {
 
   const projectRoot = findProjectRoot(dirname(resolve(filePath)));
   const cacheDir = join(projectRoot, '.kimchi-cache');
-  const interp = new KimchiInterpreter({ cacheDir });
+  const interp = new KimchiInterpreter({ cacheDir, projectRoot });
   const source = readFileSync(resolve(filePath), 'utf-8');
 
   try {

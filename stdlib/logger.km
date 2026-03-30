@@ -46,7 +46,7 @@ fn formatLog(level, message, data) {
   dec caller = getCallerInfo()
   dec timestamp = js { return new Date().toISOString(); }
 
-  dec entry = {
+  dec base = {
     timestamp: timestamp,
     level: level,
     module: caller.module,
@@ -55,11 +55,7 @@ fn formatLog(level, message, data) {
     message: message
   }
 
-  |data != null| => {
-    js(entry, data) {
-      Object.assign(entry, data);
-    }
-  }
+  dec entry = data != null ? { ...base, ...data } : base
 
   return js(entry) { return JSON.stringify(entry); }
 }

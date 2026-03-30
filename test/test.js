@@ -270,7 +270,7 @@ test('Generate dep statement imports module', () => {
 
 test('Generate dep statement with factory call', () => {
   const js = compile('as sfdcClient dep project.salesforce.client');
-  assertContains(js, '_opts["project.salesforce.client"] || _dep_sfdcClient()');
+  assertContains(js, '_opts["project.salesforce.client"] || await _dep_sfdcClient()');
 });
 
 test('Generate dep statement with overrides', () => {
@@ -340,7 +340,7 @@ test('Generate module with deps and args', () => {
   assertContains(js, 'if (_opts["apiKey"] === undefined)');
   assertContains(js, 'const clientId = _opts["clientId"] !== undefined');
   assertContains(js, 'const apiKey = _opts["apiKey"]');
-  assertContains(js, 'const http = _opts["myapp.lib.http"] || _dep_http()');
+  assertContains(js, 'const http = _opts["myapp.lib.http"] || await _dep_http()');
 });
 
 test('Compile-time error for missing required arg in dep call', () => {
