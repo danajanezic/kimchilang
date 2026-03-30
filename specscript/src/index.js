@@ -1,11 +1,14 @@
 // SpecScript Compiler — orchestrates all compilation stages
+// Uses KimchiLang's compiler for code transpilation (lexer, parser, generator)
 
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
-import { tokenize } from './lexer.js';
-import { parse } from './parser.js';
-import { generate } from './generator.js';
+import { KimchiCompiler } from '../../src/index.js';
+
+function stripHtmlComments(code) {
+  return code.replace(/<!--[\s\S]*?-->/g, '');
+}
 
 export class SpecScriptCompiler {
   constructor(options = {}) {
@@ -60,18 +63,20 @@ export class SpecScriptCompiler {
       );
     }
 
-    const testTokens = tokenize(sections.test);
-    const implTokens = tokenize(sections.impl);
-    const testAst = parse(testTokens);
-    const implAst = parse(implTokens);
+    // Strip HTML comments and combine impl + test code for KimchiLang
+    const implCode = stripHtmlComments(sections.impl);
+    const testCode = stripHtmlComments(sections.test);
+    const combinedCode = implCode.trim() + '\n\n' + testCode.trim();
 
-    const combinedAst = {
-      type: 'Program',
-      body: [...implAst.body, ...testAst.body],
-    };
-    const js = generate(combinedAst);
+    // Transpile using KimchiLang
+    const kimchi = new KimchiCompiler({
+      skipTypeCheck: true,
+      skipLint: true,
+      ...this.options,
+    });
+    const js = kimchi.compile(combinedCode);
 
-    return { js, spec, hash: specHash, testAst, implAst };
+    return { js, spec, hash: specHash };
   }
 }
 
