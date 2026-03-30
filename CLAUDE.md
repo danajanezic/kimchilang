@@ -15,7 +15,7 @@ This project uses [mise](https://mise.jdx.dev/) for tool version management. Run
 ```bash
 npm test                              # Run full test suite (custom harness, no framework)
 node test/test.js                     # Same as above, direct execution
-node src/cli.js run <file>            # Run a .km/.kimchi file (cached transpilation)
+node src/cli.js run <file>            # Compile and run a .km/.kimchi file
 node src/cli.js compile <file> -o out # Transpile to JavaScript
 node src/cli.js test <file>           # Run embedded tests in a .km file
 node src/cli.js lint <file>           # Run linter
@@ -35,9 +35,19 @@ Source flows through five stages in order:
 2. **Parser** (`src/parser.js`) — builds AST with `NodeType` enum (~30 node types)
 3. **Type Checker** (`src/typechecker.js`) — scope-stack-based type inference and validation
 4. **Linter** (`src/linter.js`) — code quality checks (unused vars, formatting)
-5. **Generator** (`src/generator.js`) — emits JavaScript with runtime helpers (`_deepFreeze`, `_obj`, optional chaining)
+5. **Generator** (`src/generator.js`) — emits JavaScript with runtime helpers (`_obj`, optional chaining)
 
 Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
+
+## Interpreter
+
+`src/interpreter.js` — `KimchiInterpreter` class that compiles KimchiLang to self-contained JavaScript, caches it by source hash in `.kimchi-cache/`, and executes from cache. Used by `kimchi run`. Supports:
+
+- **Shebang scripts**: `#!/usr/bin/env kimchi` — files run directly after `npm link`
+- **stdin**: `echo 'print "hi"' | kimchi`
+- **Multi-module resolution**: recursively compiles `dep` imports into the cache directory
+- **V8 bytecode caching**: `NODE_COMPILE_CACHE` env var for repeat execution speedup
+- **Cache management**: `kimchi cache clear` deletes `.kimchi-cache/`
 
 ## Module System
 
@@ -89,8 +99,17 @@ KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
 - `formatDiagnostics(diagnostics)` — formats diagnostic array as human/LLM-readable string. Used by specscript.
 - VS Code extension (`editors/vscode/`) uses vscode-languageclient to connect to `kimchi lsp`.
 
+## Code Generation Optimizations
+
+- **No `_deepFreeze` at runtime** — immutability is compile-time only. `dec` vars are `Object.freeze`d only at the `js()` block boundary.
+- **Smart optional chaining** — generator tracks known object shapes from literals and `guard` statements. Uses `.` when safe, `?.` otherwise.
+- **Match ternary compilation** — simple literal/wildcard match expressions compile to ternary chains instead of IIFEs. Binding+guard patterns avoid nested IIFEs.
+- **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_Secret`, and the testing framework are only emitted when the AST uses them.
+- **Shared runtime module** — `src/runtime.js` contains stdlib extensions, `_obj`, and `error`. Compiled files import it; interpreter inlines it.
+
 ## Other Components
 
+- `src/interpreter.js` — cached transpiler for `kimchi run` and shebang scripts
 - `src/js2km.js` — reverse transpiler (JavaScript → KimchiLang)
 - `src/static-parser.js` — parses `.static` config files (like `project.static`)
 - `src/package-manager.js` — GitHub-based dependency management

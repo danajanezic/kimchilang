@@ -58,18 +58,26 @@ A modern, expressive programming language that transpiles to JavaScript.
 ## Features
 
 - **Clean Syntax** - Python-inspired readability with JavaScript power
-- **Modern Operators** - Pipe operator (`~>`), flow operator (`>>`), range expressions (`0..10`), spread operator
+- **Directly Executable** - `#!/usr/bin/env kimchi` shebang support with cached transpilation
+- **Modern Operators** - Pipe (`~>`), flow (`>>`), nullish coalescing (`??`), range (`0..10`), spread
 - **String Interpolation** - Easy string formatting with `"Hello ${name}!"`
 - **Purely Functional** - No classes, no `this`, no global scope
-- **Deeply Immutable** - All values are immutable with compile-time checking
-- **Pattern Matching** - `match`/`when` expressions for elegant control flow
+- **Deeply Immutable** - All `dec` values are immutable with compile-time enforcement
+- **Mutable When Needed** - `mut` variables for accumulators and loops, scoped and closure-safe
+- **Pattern Matching** - `match` expressions with literal, `is` type, destructuring, binding, and wildcard patterns
+- **Guard Clauses** - `guard cond else { return }` for flat, readable precondition checks
+- **Conditional Expressions** - `value.if(cond).else(fallback)` inline ternary syntax
 - **Arrow Functions** - Concise lambda syntax
 - **Print Statement** - Built-in `print` for quick debugging
 - **Strict Equality** - `==` compiles to `===` for safer comparisons
-- **Safe Member Access** - All property access is null-safe by default
+- **Smart Member Access** - `.` when object shape is known, `?.` otherwise
 - **Memoization** - Built-in `memo` keyword for memoized functions
-- **Type Inference** - Compile-time type checking without annotations
+- **KMDocs** - JSDoc-style type annotations (`@param`, `@returns`, `@type`) with gradual typing
+- **Type Inference** - Compile-time type checking, KMDoc types first then inference
+- **Built-in Testing** - `test`/`describe`/`expect` with 15 matchers, `.not`, `.only`/`.skip`, lifecycle hooks
+- **LSP Server** - Real-time diagnostics for editors via `kimchi lsp`
 - **JavaScript Interop** - Embed raw JavaScript with `js { }` blocks
+- **Optimized Output** - Tree-shaken runtime, no `_deepFreeze`, ternary match compilation
 
 ## Installation
 
@@ -85,10 +93,24 @@ cd kimchilang
 After installation, the `kimchi` command is available globally:
 
 ```bash
-kimchi run examples/hello.kimchi
-kimchi compile app.kimchi
-kimchi convert input.js
-kimchi help
+kimchi run examples/hello.kimchi      # Run a script (cached transpilation)
+kimchi compile app.km -o app.js       # Compile to JavaScript
+kimchi test tests.km                  # Run tests
+kimchi lsp                            # Start LSP server (for editors)
+kimchi cache clear                    # Clear transpilation cache
+echo 'print "hi"' | kimchi            # Execute from stdin
+```
+
+**Shebang scripts** — make any `.km` file directly executable:
+
+```bash
+#!/usr/bin/env kimchi
+print "Hello, World!"
+```
+
+```bash
+chmod +x script.km
+./script.km
 ```
 
 **Manual installation** (if you prefer not to use the installer):
@@ -1447,7 +1469,7 @@ The `@` prefix tells the compiler to look in `.km_modules/` instead of the local
 
 ## Testing
 
-KimchiLang includes a built-in testing framework with `test`, `describe`, `expect`, and `assert`.
+KimchiLang includes a built-in testing framework with `test`, `describe`, `expect`, `assert`, lifecycle hooks, `.not` modifier, and `.only`/`.skip` modifiers.
 
 ### Test Syntax
 
@@ -1494,6 +1516,37 @@ assert condition, "Error message if false"
 | `toHaveLength(n)` | Array/string length equals n |
 | `toMatch(regex)` | String matches regex |
 | `toThrow(message)` | Function throws error containing message |
+| `toBeDefined()` | Value is not `undefined` |
+| `toBeUndefined()` | Value is `undefined` |
+| `toBeCloseTo(num)` | Number is close to expected (floating point) |
+| `toBeInstanceOf(type)` | Error type matches (via `._id`) |
+
+**`.not` modifier** — inverts any matcher:
+
+```kimchi
+expect(1).not.toBe(2)
+expect(items).not.toContain("banned")
+```
+
+**`.only` and `.skip`** — focus or skip tests (file-scoped):
+
+```kimchi
+test.only "critical test" { ... }   // only this runs
+test.skip "not yet done" { ... }    // skipped
+describe.skip "disabled suite" { ... }
+```
+
+**Lifecycle hooks:**
+
+```kimchi
+describe "Database" {
+  beforeAll { /* once before all tests */ }
+  afterAll { /* once after all tests */ }
+  beforeEach { /* before each test */ }
+  afterEach { /* after each test */ }
+  test "query works" { ... }
+}
+```
 
 ### Testing with Mocks
 
@@ -1538,23 +1591,37 @@ node test/test.js
 
 ## How It Works
 
-KimchiLang uses a three-stage compilation process:
+KimchiLang uses a five-stage compilation pipeline:
 
-1. **Lexer** (`src/lexer.js`) - Tokenizes source code into tokens
-2. **Parser** (`src/parser.js`) - Builds an Abstract Syntax Tree (AST)
-3. **Generator** (`src/generator.js`) - Converts AST to JavaScript
+1. **Lexer** (`src/lexer.js`) - Tokenizes source code into tokens (including `DOC_COMMENT` for KMDocs)
+2. **Parser** (`src/parser.js`) - Builds an Abstract Syntax Tree (AST) with KMDoc attachments
+3. **Type Checker** (`src/typechecker.js`) - Compile-time type inference and KMDoc type validation
+4. **Linter** (`src/linter.js`) - Code quality checks (unused vars, mut-never-reassigned, formatting)
+5. **Generator** (`src/generator.js`) - Converts AST to optimized JavaScript
+
+Additional components:
+
+- **Interpreter** (`src/interpreter.js`) - Cached transpiler for `kimchi run` and shebang scripts
+- **Validator** (`src/validator.js`) - Structured diagnostics for editors and LLMs
+- **LSP Server** (`src/lsp.js`) - Language Server Protocol over stdio for real-time editor diagnostics
+- **Runtime** (`src/runtime.js`) - Shared stdlib extensions, imported by compiled files
 
 ## Examples
 
-See the `examples/` directory for more code samples:
+All examples have `#!/usr/bin/env kimchi` shebangs and are directly executable:
 
 - `hello.kimchi` - Hello World
-- `basic.kimchi` - Core language features
-- `fibonacci.kimchi` - Recursive and iterative Fibonacci
-- `myapp/` - Dependency injection example with mock testing
-- `logger_example.km` - Structured JSON logging with log levels
-- `regex_match.km` - Regex pattern matching expressions
-- `testing/` - Unit testing examples with mocks
+- `basic.kimchi` - Core features: match, guard, ??, .if().else(), mut, KMDocs
+- `fibonacci.kimchi` - Recursive Fibonacci with KMDocs
+- `memo_fibonacci.km` - Memoized Fibonacci
+- `task_runner.km` - Build pipeline using all new features
+- `async_pipe.km` - Async pipe and flow operators
+- `reduce_pattern_match.km` - Reducers with pattern matching
+- `regex_match.km` - Regex matching with guard and match
+- `test_example.km` - Testing framework with .not, .skip, lifecycle hooks
+- `logger_example.km` - Structured logging (multi-module)
+- `myapp/` - Dependency injection example
+- `testing/` - Unit testing with mocks
 
 ## License
 
