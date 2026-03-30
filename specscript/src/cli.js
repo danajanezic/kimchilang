@@ -9,7 +9,7 @@ import { SpecScriptCompiler } from './index.js';
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
-import { loadConfig, regen } from './llm.js';
+import { loadConfig, regen, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, parseResponse, showDiff } from './llm.js';
 
 export function parseArgs(args) {
   const result = {
@@ -213,29 +213,223 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     process.exit(1);
   }
 
-  let succeeded = 0;
-  let failed = 0;
+  // Single file: use the original per-file regen
+  if (files.length === 1) {
+    const result = await regenFile(files[0], target, config, autoYes);
+    if (!result) process.exit(1);
+    return;
+  }
+
+  // Multi-file: generate all, then transpile-all loop, then review loop
+  console.log(`\n=== Generating ${files.length} files ===\n`);
+
+  // Step 1: Generate all files individually
+  const fileData = new Map(); // filePath -> { source, specContent, specHash, generatedContent }
+  let genFailed = 0;
 
   for (const file of files) {
-    console.log(`\n--- ${file} ---\n`);
-    try {
-      const result = await regenFile(file, target, config, autoYes);
-      if (result) {
-        succeeded++;
-      } else {
-        failed++;
+    console.log(`Generating ${file}...`);
+    const source = readFile(file);
+    const specContent = extractSpec(source);
+    const specHash = computeSpecHash(specContent);
+
+    let existingTests = null;
+    if (target === 'impl') {
+      const testMatch = source.match(/^## test\s*$/m);
+      const implMatch = source.match(/^## impl\s*$/m);
+      if (testMatch && implMatch) {
+        existingTests = source.slice(testMatch.index + testMatch[0].length, implMatch.index).trim();
+      } else if (testMatch) {
+        existingTests = source.slice(testMatch.index + testMatch[0].length).trim();
       }
-    } catch (e) {
-      console.error(`Error: ${e.message}`);
-      failed++;
+    }
+
+    const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests });
+    const genResult = invokeLlm(config.command, genPrompt);
+
+    if (!genResult.success) {
+      console.error(`  LLM failed for ${file}: ${genResult.error}`);
+      genFailed++;
+      continue;
+    }
+
+    const parsed = parseResponse(genResult.output, specHash);
+    if (!parsed) {
+      console.error(`  Could not parse LLM response for ${file}`);
+      genFailed++;
+      continue;
+    }
+
+    let generatedContent = '';
+    if (parsed.test) generatedContent += `## test\n\n${parsed.test}\n\n`;
+    if (parsed.impl) generatedContent += `## impl\n\n${parsed.impl}`;
+    generatedContent = generatedContent.trim();
+
+    fileData.set(file, { source, specContent, specHash, generatedContent });
+    console.log(`  ✓ Generated`);
+  }
+
+  if (genFailed > 0) {
+    console.error(`\n${genFailed} files failed generation.`);
+  }
+  if (fileData.size === 0) {
+    console.error('No files generated successfully.');
+    process.exit(1);
+  }
+
+  // Step 2: Transpile-all loop (type checker + linter ON across all files)
+  const maxRetries = config.maxRetries;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    console.log(`\n=== Transpile check (attempt ${attempt + 1}/${maxRetries}) ===\n`);
+
+    const allContents = new Map();
+    for (const [file, data] of fileData) {
+      allContents.set(file, data.generatedContent);
+    }
+
+    const transpileResult = tryTranspileAll(allContents);
+
+    if (transpileResult.success) {
+      console.log('All files transpile OK.');
+      break;
+    }
+
+    // Fix files that have errors
+    console.log(`${transpileResult.errors.length} file(s) have errors:`);
+    let allFixed = true;
+
+    for (const { filePath, error } of transpileResult.errors) {
+      console.log(`  ✗ ${filePath}: ${error}`);
+      const data = fileData.get(filePath);
+      if (!data) continue;
+
+      console.log(`  Sending errors to LLM for fix...`);
+      const fixPrompt = buildTranspileFixPrompt({
+        specContent: data.specContent,
+        specHash: data.specHash,
+        generatedContent: data.generatedContent,
+        transpileError: error,
+      });
+      const fixResult = invokeLlm(config.command, fixPrompt);
+
+      if (fixResult.success) {
+        const fixParsed = parseResponse(fixResult.output, data.specHash);
+        if (fixParsed) {
+          let fixed = '';
+          if (fixParsed.test) fixed += `## test\n\n${fixParsed.test}\n\n`;
+          if (fixParsed.impl) fixed += `## impl\n\n${fixParsed.impl}`;
+          data.generatedContent = fixed.trim();
+          console.log(`  ✓ Fix received`);
+        } else {
+          allFixed = false;
+        }
+      } else {
+        allFixed = false;
+      }
+    }
+
+    if (attempt === maxRetries - 1) {
+      console.error(`\nMax retries (${maxRetries}) exhausted during transpilation.`);
+      // Save drafts
+      for (const [file, data] of fileData) {
+        const draftPath = file + '.draft';
+        const specEnd = data.source.match(/^## test\s*$/m) || data.source.match(/^## impl\s*$/m);
+        const specPart = specEnd ? data.source.slice(0, specEnd.index) : data.source + '\n\n';
+        writeFileSync(draftPath, specPart.trimEnd() + '\n\n' + data.generatedContent + '\n');
+      }
+      console.error('Drafts saved as .draft files.');
+      process.exit(1);
     }
   }
 
-  if (files.length > 1) {
-    console.log(`\n--- ${succeeded} succeeded, ${failed} failed ---`);
+  // Step 3: Review loop (review all files against their specs)
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    console.log(`\n=== Review pass (attempt ${attempt + 1}/${maxRetries}) ===\n`);
+    let allApproved = true;
+
+    for (const [file, data] of fileData) {
+      console.log(`Reviewing ${file}...`);
+      const reviewPrompt = buildReviewPrompt({
+        specContent: data.specContent,
+        generatedContent: data.generatedContent,
+      });
+      const reviewResult = invokeLlm(config.command, reviewPrompt);
+
+      if (!reviewResult.success) {
+        console.error(`  Review failed: ${reviewResult.error}`);
+        allApproved = false;
+        continue;
+      }
+
+      const feedback = reviewResult.output.trim();
+      if (feedback.includes('APPROVED')) {
+        console.log(`  ✓ Approved`);
+        continue;
+      }
+
+      console.log(`  Issues found, fixing...`);
+      allApproved = false;
+
+      const fixPrompt = buildFixPrompt({
+        specContent: data.specContent,
+        specHash: data.specHash,
+        generatedContent: data.generatedContent,
+        reviewFeedback: feedback,
+      });
+      const fixResult = invokeLlm(config.command, fixPrompt);
+
+      if (fixResult.success) {
+        const fixParsed = parseResponse(fixResult.output, data.specHash);
+        if (fixParsed) {
+          let fixed = '';
+          if (fixParsed.test) fixed += `## test\n\n${fixParsed.test}\n\n`;
+          if (fixParsed.impl) fixed += `## impl\n\n${fixParsed.impl}`;
+          data.generatedContent = fixed.trim();
+        }
+      }
+    }
+
+    if (allApproved) {
+      console.log('\nAll files approved!');
+      break;
+    }
+
+    if (attempt === maxRetries - 1) {
+      console.error(`\nMax retries (${maxRetries}) exhausted during review.`);
+    }
   }
 
-  if (failed > 0 && succeeded === 0) process.exit(1);
+  // Step 4: Write all files
+  console.log(`\n=== Writing ${fileData.size} files ===\n`);
+
+  for (const [file, data] of fileData) {
+    const specEnd = data.source.match(/^## test\s*$/m) || data.source.match(/^## impl\s*$/m);
+    const specPart = specEnd ? data.source.slice(0, specEnd.index) : data.source + '\n\n';
+    const newContent = specPart.trimEnd() + '\n\n' + data.generatedContent + '\n';
+
+    showDiff(file, data.source, newContent);
+
+    if (autoYes) {
+      writeFileSync(file, newContent);
+      console.log(`  ✓ Updated ${file}`);
+    } else {
+      const readline = await import('node:readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise(r => {
+        rl.question(`Apply changes to ${file}? (y/n) `, r);
+      });
+      rl.close();
+
+      if (answer.toLowerCase().trim() === 'y') {
+        writeFileSync(file, newContent);
+        console.log(`  ✓ Updated ${file}`);
+      } else {
+        console.log(`  Skipped ${file}`);
+      }
+    }
+  }
+
+  console.log('\nDone.');
 }
 
 function cmdRun(file, debug) {

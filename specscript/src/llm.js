@@ -162,16 +162,58 @@ Output ONLY the following two sections, no other text:
 
 export function tryTranspile(generatedContent) {
   try {
-    // Strip HTML comments and combine for KimchiLang
     const code = generatedContent.replace(/<!--[\s\S]*?-->/g, '');
-    // Strip the ## test / ## impl headings
     const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
-    const kimchi = new KimchiCompiler({ skipTypeCheck: true, skipLint: true });
+    const kimchi = new KimchiCompiler();
     kimchi.compile(cleanCode);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+// Transpile all files together — enables cross-module type checking
+// fileContents: Map<filePath, generatedContent>
+export function tryTranspileAll(fileContents) {
+  const errors = [];
+
+  // Pass 1: register module types from all impl sections
+  for (const [filePath, content] of fileContents) {
+    try {
+      const code = content.replace(/<!--[\s\S]*?-->/g, '');
+      const implMatch = code.match(/^## impl\s*$/m);
+      if (!implMatch) continue;
+      const implCode = code.slice(implMatch.index + implMatch[0].length)
+        .replace(/^## test\s*$/m, '').trim();
+      if (!implCode) continue;
+      const kimchi = new KimchiCompiler({ skipLint: true });
+      kimchi.compile(implCode);
+    } catch (e) {
+      // Ignore pass 1 errors — they'll surface in pass 2
+    }
+  }
+
+  // Pass 2: full compile each file with type checker + linter
+  for (const [filePath, content] of fileContents) {
+    try {
+      const code = content.replace(/<!--[\s\S]*?-->/g, '');
+      const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
+      if (!cleanCode) continue;
+      const kimchi = new KimchiCompiler();
+      kimchi.compile(cleanCode);
+    } catch (e) {
+      errors.push({ filePath, error: e.message });
+    }
+  }
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      errors,
+      error: errors.map(e => `${e.filePath}: ${e.error}`).join('\n'),
+    };
+  }
+  return { success: true, errors: [] };
 }
 
 export function buildTranspileFixPrompt({ specContent, specHash, generatedContent, transpileError }) {

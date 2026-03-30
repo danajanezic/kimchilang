@@ -68,10 +68,8 @@ export class SpecScriptCompiler {
     const testCode = stripHtmlComments(sections.test);
     const combinedCode = implCode.trim() + '\n\n' + testCode.trim();
 
-    // Transpile using KimchiLang
+    // Transpile using KimchiLang (type checker + linter enabled)
     const kimchi = new KimchiCompiler({
-      skipTypeCheck: true,
-      skipLint: true,
       ...this.options,
     });
     const js = kimchi.compile(combinedCode);
