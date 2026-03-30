@@ -156,17 +156,40 @@ function cmdStale(target) {
   }
 }
 
+function extractSpec(source) {
+  const specStart = source.match(/^## spec\s*$/m);
+  if (!specStart) throw new Error('File has no ## spec section');
+  const startIdx = specStart.index + specStart[0].length;
+
+  // Find where spec ends (next ## heading or end of file)
+  const rest = source.slice(startIdx);
+  const nextSection = rest.match(/^## (test|impl)\s*$/m);
+  const specContent = nextSection ? rest.slice(0, nextSection.index) : rest;
+  return specContent;
+}
+
 function cmdRegen(file, target) {
   const source = readFile(file);
-  const sections = splitSections(source);
-  const spec = parseSpec(sections.spec);
-  const specHash = computeSpecHash(sections.spec);
+
+  // Extract spec without requiring test/impl sections to exist
+  const specContent = extractSpec(source);
+  const spec = parseSpec(specContent);
+  const specHash = computeSpecHash(specContent);
+
+  // Try to get existing sections (may not exist for new files)
+  let existingTest = null;
+  try {
+    const sections = splitSections(source);
+    existingTest = sections.test;
+  } catch {
+    // File may not have all sections yet — that's fine for regen
+  }
 
   const output = {
     file,
     specHash,
     spec,
-    specContent: sections.spec,
+    specContent,
   };
 
   if (target === 'test' || target === 'all') {
@@ -174,7 +197,7 @@ function cmdRegen(file, target) {
     output.instructions = `Generate a ## test section for this spec. Include the hash comment: <!-- spec-hash: ${specHash} -->`;
   } else if (target === 'impl') {
     output.regenerate = 'impl';
-    output.currentTests = sections.test;
+    output.currentTests = existingTest;
     output.instructions = `Generate a ## impl section that passes the existing tests. Include the hash comment: <!-- spec-hash: ${specHash} -->`;
   }
 
