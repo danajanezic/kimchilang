@@ -146,12 +146,13 @@ export class CodeGenerator {
     this.emitLine();
     
     // Async-aware pipe helper - awaits each step in the chain
-    this.emitLine('async function _pipe(value, ...fns) {');
+    this.emitLine('function _pipe(value, ...fns) {');
     this.pushIndent();
     this.emitLine('let result = value;');
-    this.emitLine('for (const fn of fns) {');
+    this.emitLine('for (let i = 0; i < fns.length; i++) {');
     this.pushIndent();
-    this.emitLine('result = await fn(result);');
+    this.emitLine('if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }');
+    this.emitLine('result = fns[i](result);');
     this.popIndent();
     this.emitLine('}');
     this.emitLine('return result;');
@@ -162,21 +163,23 @@ export class CodeGenerator {
     // Async-aware flow helper - creates an async composed function
     this.emitLine('function _flow(...fns) {');
     this.pushIndent();
-    this.emitLine('return async (...args) => {');
+    this.emitLine('const composed = (...args) => {');
     this.pushIndent();
-    this.emitLine('let result = await fns[0](...args);');
+    this.emitLine('let result = fns[0](...args);');
     this.emitLine('for (let i = 1; i < fns.length; i++) {');
     this.pushIndent();
-    this.emitLine('result = await fns[i](result);');
+    this.emitLine('if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }');
+    this.emitLine('result = fns[i](result);');
     this.popIndent();
     this.emitLine('}');
     this.emitLine('return result;');
     this.popIndent();
     this.emitLine('};');
+    this.emitLine('return composed;');
     this.popIndent();
     this.emitLine('}');
     this.emitLine();
-    
+
     // Shell execution helper (async)
     this.emitLine('async function _shell(command, inputs = {}) {');
     this.pushIndent();
@@ -398,8 +401,8 @@ export class CodeGenerator {
     // Emit stdlib prototype extensions
     this.emitRuntimeExtensions();
     
-    // Export default factory function
-    this.emitLine('export default function(_opts = {}) {');
+    // Export default async factory function
+    this.emitLine('export default async function(_opts = {}) {');
     this.pushIndent();
     
     // Validate required args
@@ -1465,7 +1468,7 @@ export class CodeGenerator {
     // current is now the initial value
     const initial = this.visitExpression(current);
     
-    // Use _pipe helper which awaits each step
+    // Use _pipe helper (sync when all fns are sync, async when any returns Promise)
     return `_pipe(${initial}, ${steps.join(', ')})`;
   }
 

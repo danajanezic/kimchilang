@@ -59,22 +59,25 @@ function _deepFreeze(obj) {
   return Object.freeze(obj);
 }
 
-async function _pipe(value, ...fns) {
+function _pipe(value, ...fns) {
   let result = value;
-  for (const fn of fns) {
-    result = await fn(result);
+  for (let i = 0; i < fns.length; i++) {
+    if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }
+    result = fns[i](result);
   }
   return result;
 }
 
 function _flow(...fns) {
-  return async (...args) => {
-    let result = await fns[0](...args);
+  const composed = (...args) => {
+    let result = fns[0](...args);
     for (let i = 1; i < fns.length; i++) {
-      result = await fns[i](result);
+      if (result && typeof result.then === "function") { return result.then(async r => { let v = r; for (let j = i; j < fns.length; j++) { v = await fns[j](v); } return v; }); }
+      result = fns[i](result);
     }
     return result;
   };
+  return composed;
 }
 
 async function _shell(command, inputs = {}) {
@@ -192,7 +195,7 @@ async function _runTests() {
   return { passed, failed, skipped };
 }
 
-export default function(_opts = {}) {
+export default async function(_opts = {}) {
   async function listFiles() {
     const result = _deepFreeze(await _shell("ls -la"));
     console.log(result?.stdout);

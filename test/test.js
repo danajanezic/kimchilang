@@ -279,7 +279,7 @@ test('Generate dep statement with overrides', () => {
 
 test('Module wraps as factory function', () => {
   const js = compile('expose fn hello() { print "hi" }');
-  assertContains(js, 'export default function(_opts = {})');
+  assertContains(js, 'export default async function(_opts = {})');
   assertContains(js, 'return { hello }');
 });
 
