@@ -1048,6 +1048,32 @@ test('Runtime has skip/only support', () => {
   assertContains(js, 'shouldSkip');
 });
 
+test('Tokenize beforeEach keyword', () => {
+  const tokens = tokenize('beforeEach { }');
+  assertEqual(tokens[0].type, 'BEFORE_EACH');
+});
+
+test('Tokenize afterAll keyword', () => {
+  const tokens = tokenize('afterAll { }');
+  assertEqual(tokens[0].type, 'AFTER_ALL');
+});
+
+test('Parse beforeEach block', () => {
+  const ast = parse(tokenize('describe "x" { beforeEach { dec x = 1 } test "t" { assert true } }'));
+  const body = ast.body[0].body.body;
+  assertEqual(body[0].type, 'BeforeEachBlock');
+});
+
+test('Parse all four hook types', () => {
+  const source = 'describe "x" { beforeAll { } afterAll { } beforeEach { } afterEach { } test "t" { assert true } }';
+  const ast = parse(tokenize(source));
+  const body = ast.body[0].body.body;
+  assertEqual(body[0].type, 'BeforeAllBlock');
+  assertEqual(body[1].type, 'AfterAllBlock');
+  assertEqual(body[2].type, 'BeforeEachBlock');
+  assertEqual(body[3].type, 'AfterEachBlock');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

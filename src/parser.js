@@ -72,6 +72,10 @@ export const NodeType = {
   DescribeBlock: 'DescribeBlock',
   ExpectStatement: 'ExpectStatement',
   AssertStatement: 'AssertStatement',
+  BeforeAllBlock: 'BeforeAllBlock',
+  AfterAllBlock: 'AfterAllBlock',
+  BeforeEachBlock: 'BeforeEachBlock',
+  AfterEachBlock: 'AfterEachBlock',
 };
 
 class ParseError extends Error {
@@ -332,6 +336,24 @@ export class Parser {
       return this.parseShellBlock();
     }
     
+    // Lifecycle hooks
+    if (this.check(TokenType.BEFORE_ALL)) {
+      this.advance();
+      return { type: NodeType.BeforeAllBlock, body: this.parseBlock() };
+    }
+    if (this.check(TokenType.AFTER_ALL)) {
+      this.advance();
+      return { type: NodeType.AfterAllBlock, body: this.parseBlock() };
+    }
+    if (this.check(TokenType.BEFORE_EACH)) {
+      this.advance();
+      return { type: NodeType.BeforeEachBlock, body: this.parseBlock() };
+    }
+    if (this.check(TokenType.AFTER_EACH)) {
+      this.advance();
+      return { type: NodeType.AfterEachBlock, body: this.parseBlock() };
+    }
+
     // Test block: test "name" { ... }
     if (this.check(TokenType.TEST)) {
       return this.parseTestBlock();
