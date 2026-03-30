@@ -9,6 +9,7 @@ import { tokenize, TokenType } from '../src/lexer.js';
 import { parse, NodeType } from '../src/parser.js';
 import { generate } from '../src/generator.js';
 import { DependencyGraph } from '../src/dependency-graph.js';
+import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse } from '../src/llm.js';
 
 let passed = 0;
 let failed = 0;
@@ -1035,6 +1036,133 @@ test('LANGUAGE_REF contains file structure info', () => {
   assertContains(LANGUAGE_REF, '## test');
   assertContains(LANGUAGE_REF, '## impl');
   assertContains(LANGUAGE_REF, 'spec-hash');
+});
+
+console.log('--- LLM Module Tests ---');
+
+test('buildGeneratePrompt includes language ref and spec for --all', () => {
+  const prompt = buildGeneratePrompt({
+    specContent: '# Calculator\n\n**intent:** Math\n**reason:** Need it',
+    specHash: 'sha256:abc123',
+    target: 'all',
+  });
+  assertContains(prompt, 'SpecScript');
+  assertContains(prompt, '# Calculator');
+  assertContains(prompt, 'sha256:abc123');
+  assertContains(prompt, '## test');
+  assertContains(prompt, '## impl');
+});
+
+test('buildGeneratePrompt for --test only asks for test section', () => {
+  const prompt = buildGeneratePrompt({
+    specContent: '# Mod\n\n**intent:** x\n**reason:** y',
+    specHash: 'sha256:abc',
+    target: 'test',
+  });
+  assertContains(prompt, '## test');
+  assertContains(prompt, 'ONLY the ## test section');
+});
+
+test('buildGeneratePrompt for --impl includes existing tests', () => {
+  const prompt = buildGeneratePrompt({
+    specContent: '# Mod\n\n**intent:** x\n**reason:** y',
+    specHash: 'sha256:abc',
+    target: 'impl',
+    existingTests: 'test "x" { expect(1).toBe(1) }',
+  });
+  assertContains(prompt, '## impl');
+  assertContains(prompt, 'test "x"');
+  assertContains(prompt, 'ONLY the ## impl section');
+});
+
+test('buildReviewPrompt includes spec and generated code', () => {
+  const prompt = buildReviewPrompt({
+    specContent: '# Mod\n\n**intent:** x\n**reason:** y',
+    generatedContent: '## test\n\ntest "x" {}\n\n## impl\n\nfn x() {}',
+  });
+  assertContains(prompt, '# Mod');
+  assertContains(prompt, 'test "x"');
+  assertContains(prompt, 'APPROVED');
+  assertContains(prompt, 'ISSUE');
+});
+
+test('buildFixPrompt includes spec, code, and feedback', () => {
+  const prompt = buildFixPrompt({
+    specContent: '# Mod\n\n**intent:** x\n**reason:** y',
+    specHash: 'sha256:abc',
+    generatedContent: '## test\n\ntest "x" {}',
+    reviewFeedback: 'ISSUE: Missing test for edge case',
+  });
+  assertContains(prompt, '# Mod');
+  assertContains(prompt, 'Missing test for edge case');
+  assertContains(prompt, 'sha256:abc');
+});
+
+test('parseResponse extracts test and impl sections', () => {
+  const response = `Some preamble text
+
+## test
+
+<!-- spec-hash: sha256:abc -->
+
+test "it works" {
+  expect(1).toBe(1)
+}
+
+## impl
+
+<!-- spec-hash: sha256:abc -->
+
+fn doIt() {
+  return 1
+}`;
+
+  const result = parseResponse(response);
+  assertContains(result.test, 'test "it works"');
+  assertContains(result.impl, 'fn doIt()');
+});
+
+test('parseResponse returns null when sections missing', () => {
+  const result = parseResponse('just some random text with no sections');
+  assertEqual(result, null);
+});
+
+test('parseResponse injects hash if missing', () => {
+  const response = `## test
+
+test "x" { expect(1).toBe(1) }
+
+## impl
+
+fn x() { return 1 }`;
+
+  const result = parseResponse(response, 'sha256:abc123');
+  assertContains(result.test, 'spec-hash: sha256:abc123');
+  assertContains(result.impl, 'spec-hash: sha256:abc123');
+});
+
+test('parseResponse handles test-only response', () => {
+  const response = `## test
+
+<!-- spec-hash: sha256:abc -->
+
+test "it works" { expect(1).toBe(1) }`;
+
+  const result = parseResponse(response);
+  assertContains(result.test, 'test "it works"');
+  assertEqual(result.impl, null);
+});
+
+test('parseResponse handles impl-only response', () => {
+  const response = `## impl
+
+<!-- spec-hash: sha256:abc -->
+
+fn doIt() { return 1 }`;
+
+  const result = parseResponse(response);
+  assertEqual(result.test, null);
+  assertContains(result.impl, 'fn doIt()');
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
