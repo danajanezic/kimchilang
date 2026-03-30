@@ -26,6 +26,15 @@
 - [ ] Package registry (beyond GitHub-based dependency management)
 - [ ] Version resolution and lockfile for dependencies
 
+## Concurrency
+
+- [ ] First-class concurrent execution syntax — `parallel { callable1, callable2, callable3 }` compiling to `Promise.all`
+- [ ] `parallel.every` variant for `Promise.allSettled` — collect all results even if some fail
+- [ ] `race` syntax for `Promise.race` — first to resolve wins
+- [ ] Process spawning — `spawn { command }` for running child processes without blocking, returning a handle with `stdout`, `stderr`, `pid`, `kill()`
+- [ ] Worker threads — `worker { code }` for CPU-bound parallel execution
+- [ ] Channel-based communication between workers
+
 ## Runtime
 
 - [ ] Publish `kimchilang` to npm for `npm install -g kimchilang`
