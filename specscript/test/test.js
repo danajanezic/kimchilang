@@ -4,6 +4,7 @@ import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
 import { tokenize, TokenType } from '../src/lexer.js';
 import { parse, NodeType } from '../src/parser.js';
+import { generate } from '../src/generator.js';
 
 let passed = 0;
 let failed = 0;
@@ -567,6 +568,105 @@ test('parses named constructor (enum variant with fields)', () => {
   const ast = parse(tok('dec x = Confirmed { orderId: 123 }'));
   assertEqual(ast.body[0].init.type, NodeType.NamedConstructor);
   assertEqual(ast.body[0].init.name, 'Confirmed');
+});
+
+console.log('--- Generator Tests ---');
+
+function gen(code) {
+  return generate(parse(tokenize(code)));
+}
+
+test('generates dec with deep freeze', () => {
+  const js = gen('dec x = 42');
+  assertContains(js, 'const x = _deepFreeze(42)');
+});
+
+test('generates fn declaration', () => {
+  const js = gen('fn add(a, b) { return a + b }');
+  assertContains(js, 'function add(a, b)');
+  assertContains(js, 'return a + b');
+});
+
+test('generates strict equality for ==', () => {
+  const js = gen('dec x = a == b');
+  assertContains(js, '===');
+});
+
+test('generates strict inequality for !=', () => {
+  const js = gen('dec x = a != b');
+  assertContains(js, '!==');
+});
+
+test('generates optional chaining for member access', () => {
+  const js = gen('dec x = obj.name');
+  assertContains(js, 'obj?.name');
+});
+
+test('generates logical operators', () => {
+  const js = gen('dec x = a and b or not c');
+  assertContains(js, '&&');
+  assertContains(js, '||');
+  assertContains(js, '!');
+});
+
+test('generates if/else', () => {
+  const js = gen('if x > 0 { return 1 } else { return 0 }');
+  assertContains(js, 'if (');
+  assertContains(js, '} else {');
+});
+
+test('generates for/in loop', () => {
+  const js = gen('for item in items { print(item) }');
+  assertContains(js, 'for (const item of');
+});
+
+test('generates arrow function', () => {
+  const js = gen('dec f = x => x * 2');
+  assertContains(js, '(x) => ');
+});
+
+test('generates object literal', () => {
+  const js = gen('dec obj = { name: "alice" }');
+  assertContains(js, '"name": "alice"');
+});
+
+test('generates array literal', () => {
+  const js = gen('dec arr = [1, 2, 3]');
+  assertContains(js, '[1, 2, 3]');
+});
+
+test('generates test block', () => {
+  const js = gen('test "it works" { expect(1).toBe(1) }');
+  assertContains(js, '_test("it works"');
+});
+
+test('generates enum as frozen object', () => {
+  const js = gen('enum Color { Red, Green, Blue }');
+  assertContains(js, 'const Color = Object.freeze');
+});
+
+test('generates try/catch', () => {
+  const js = gen('try { risky() } catch e { handle(e) }');
+  assertContains(js, 'try {');
+  assertContains(js, 'catch (e)');
+});
+
+test('generates pipe operator', () => {
+  const js = gen('dec result = items ~> filter(x => x > 0)');
+  assertContains(js, '_pipe(');
+});
+
+test('generates runtime helpers at top', () => {
+  const js = gen('dec x = 1');
+  assertContains(js, 'function _deepFreeze');
+  assertContains(js, 'function _test');
+  assertContains(js, 'function _expect');
+});
+
+test('generates named constructor', () => {
+  const js = gen('dec x = Confirmed { orderId: 123 }');
+  assertContains(js, '_deepFreeze({');
+  assertContains(js, '"_type": "Confirmed"');
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
