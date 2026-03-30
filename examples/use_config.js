@@ -1,6 +1,6 @@
 import * as _dep_config from './examples/config.static.js';
 
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 export default async function(_opts = {}) {
   const config = _dep_config;

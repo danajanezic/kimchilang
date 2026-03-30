@@ -1,4 +1,4 @@
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 function _pipe(value, ...fns) {
   let result = value;

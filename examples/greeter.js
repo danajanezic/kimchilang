@@ -1,4 +1,4 @@
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 export default async function(_opts = {}) {
   if (_opts["name"] === undefined) throw new Error("Required argument 'name' not provided");

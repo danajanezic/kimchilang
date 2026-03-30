@@ -1,6 +1,6 @@
 import _dep_log from './stdlib/logger.km';
 
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 export default async function(_opts = {}) {
   const log = _opts["stdlib.logger"] || _dep_log();

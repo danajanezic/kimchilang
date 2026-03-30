@@ -558,6 +558,19 @@ async function listModulesRecursive(dir, prefix, options, baseDir) {
   }
 }
 
+function findProjectRoot(startDir) {
+  let dir = resolve(startDir);
+  while (true) {
+    if (existsSync(join(dir, 'project.static')) ||
+        existsSync(join(dir, 'package.json'))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return startDir; // reached filesystem root, use startDir
+    dir = parent;
+  }
+}
+
 function compileFile(filePath, options = {}) {
   if (!existsSync(filePath)) {
     console.error(`Error: File not found: ${filePath}`);
@@ -583,12 +596,13 @@ function compileFile(filePath, options = {}) {
   };
   
   try {
-    const javascript = compile(source, { 
+    const javascript = compile(source, {
       debug: options.debug,
       skipLint: options.skipLint,
       showLintWarnings: true,
       staticFileResolver,
       basePath: options.basePath,
+      runtimePath: options.runtimePath,
     });
     return javascript;
   } catch (error) {
@@ -1085,19 +1099,24 @@ async function main() {
           console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
         }
       } else {
-        const javascript = compileFile(filePath, options);
+        // Determine output path and project root for runtime placement
         let outputPath;
         if (options.output) {
           outputPath = resolve(options.output);
-          writeFileSync(outputPath, javascript);
-          console.log(`Compiled: ${options.file} -> ${options.output}`);
         } else {
           outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
-          writeFileSync(outputPath, javascript);
-          console.log(`Compiled: ${options.file} -> ${basename(outputPath)}`);
         }
-        // Copy runtime to output directory if not present
-        const runtimeDest = join(dirname(outputPath), 'kimchi-runtime.js');
+
+        // Find project root and compute runtime import path
+        const projectRoot = findProjectRoot(dirname(filePath));
+        const runtimeDest = join(projectRoot, 'kimchi-runtime.js');
+        const runtimeRel = './' + relative(dirname(outputPath), runtimeDest).replace(/\\/g, '/');
+
+        const javascript = compileFile(filePath, { ...options, runtimePath: runtimeRel });
+        writeFileSync(outputPath, javascript);
+        console.log(`Compiled: ${options.file} -> ${options.output || basename(outputPath)}`);
+
+        // Copy runtime to project root if not present
         if (!existsSync(runtimeDest)) {
           const runtimeSrc = new URL('./runtime.js', import.meta.url);
           copyFileSync(runtimeSrc, runtimeDest);

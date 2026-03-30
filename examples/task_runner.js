@@ -1,4 +1,4 @@
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 export default async function(_opts = {}) {
   const tasks = [{ name: "lint", status: "pending", priority: 3, runner: "eslint", timeout: null }, { name: "typecheck", status: "pending", priority: 2, runner: "tsc", timeout: 30 }, { name: "test", status: "pending", priority: 1, runner: "jest", timeout: 60 }, { name: "build", status: "pending", priority: 1, runner: null, timeout: 120 }, { name: "deploy", status: "skipped", priority: 4, runner: "rsync", timeout: 300 }];

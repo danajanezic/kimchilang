@@ -1,4 +1,4 @@
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 export default async function(_opts = {}) {
   const transactions = [{ type: "credit", amount: 100 }, { type: "debit", amount: 50 }, { type: "credit", amount: 200 }, { type: "debit", amount: 75 }, { type: "refund", amount: 25 }];

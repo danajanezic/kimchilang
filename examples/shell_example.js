@@ -1,4 +1,4 @@
-import { _obj, error } from './kimchi-runtime.js';
+import { _obj, error } from './../kimchi-runtime.js';
 
 async function _shell(command, inputs = {}) {
   const { exec } = await import("child_process");
