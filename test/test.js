@@ -1074,6 +1074,32 @@ test('Parse all four hook types', () => {
   assertEqual(body[3].type, 'AfterEachBlock');
 });
 
+test('Generate beforeEach hook', () => {
+  const js = generate(parse(tokenize('describe "x" { beforeEach { dec x = 1 } test "t" { assert true } }')));
+  assertContains(js, '_beforeEach(');
+});
+
+test('Generate afterAll hook', () => {
+  const js = generate(parse(tokenize('describe "x" { afterAll { print "done" } test "t" { assert true } }')));
+  assertContains(js, '_afterAll(');
+});
+
+test('Runtime includes hook registration functions', () => {
+  const js = generate(parse(tokenize('test "x" { assert true }')));
+  assertContains(js, 'function _beforeAll');
+  assertContains(js, 'function _afterAll');
+  assertContains(js, 'function _beforeEach');
+  assertContains(js, 'function _afterEach');
+});
+
+test('Runtime executes hooks in describe', () => {
+  const js = generate(parse(tokenize('test "x" { assert true }')));
+  assertContains(js, 'item.beforeAll');
+  assertContains(js, 'item.afterAll');
+  assertContains(js, 'item.beforeEach');
+  assertContains(js, 'item.afterEach');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

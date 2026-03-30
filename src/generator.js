@@ -210,6 +210,11 @@ export class CodeGenerator {
     this.emitLine('let _currentDescribe = null;');
     this.emitLine('let _hasOnly = false;');
 
+    this.emitLine('function _beforeAll(fn) { if (_currentDescribe) { _currentDescribe.beforeAll = _currentDescribe.beforeAll || []; _currentDescribe.beforeAll.push(fn); } }');
+    this.emitLine('function _afterAll(fn) { if (_currentDescribe) { _currentDescribe.afterAll = _currentDescribe.afterAll || []; _currentDescribe.afterAll.push(fn); } }');
+    this.emitLine('function _beforeEach(fn) { if (_currentDescribe) { _currentDescribe.beforeEach = _currentDescribe.beforeEach || []; _currentDescribe.beforeEach.push(fn); } }');
+    this.emitLine('function _afterEach(fn) { if (_currentDescribe) { _currentDescribe.afterEach = _currentDescribe.afterEach || []; _currentDescribe.afterEach.push(fn); } }');
+
     // _describe with modifier support
     this.emitLine('function _describe(name, fn, modifier = null) {');
     this.pushIndent();
@@ -306,7 +311,23 @@ export class CodeGenerator {
     this.pushIndent();
     this.emitLine('console.log(indent + item.name);');
     this.emitLine('const childSkipped = skip || item.modifier === "skip";');
-    this.emitLine('for (const t of item.tests) await runItem(t, indent + "  ", childSkipped);');
+    this.emitLine('if (!childSkipped && item.beforeAll) { for (const h of item.beforeAll) await h(); }');
+    this.emitLine('for (const t of item.tests) {');
+    this.pushIndent();
+    this.emitLine('if (!childSkipped && t.fn && !shouldSkip(t, childSkipped)) {');
+    this.pushIndent();
+    this.emitLine('if (item.beforeEach) { for (const h of item.beforeEach) await h(); }');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('await runItem(t, indent + "  ", childSkipped);');
+    this.emitLine('if (!childSkipped && t.fn && !shouldSkip(t, childSkipped)) {');
+    this.pushIndent();
+    this.emitLine('if (item.afterEach) { for (const h of item.afterEach) await h(); }');
+    this.popIndent();
+    this.emitLine('}');
+    this.popIndent();
+    this.emitLine('}');
+    this.emitLine('if (!childSkipped && item.afterAll) { for (const h of item.afterAll) await h(); }');
     this.popIndent();
     this.emitLine('}');
     this.popIndent();
@@ -542,6 +563,18 @@ export class CodeGenerator {
         break;
       case NodeType.DescribeBlock:
         this.visitDescribeBlock(node);
+        break;
+      case NodeType.BeforeAllBlock:
+        this.visitHookBlock('_beforeAll', node);
+        break;
+      case NodeType.AfterAllBlock:
+        this.visitHookBlock('_afterAll', node);
+        break;
+      case NodeType.BeforeEachBlock:
+        this.visitHookBlock('_beforeEach', node);
+        break;
+      case NodeType.AfterEachBlock:
+        this.visitHookBlock('_afterEach', node);
         break;
       case NodeType.ExpectStatement:
         this.visitExpectStatement(node);
@@ -1477,7 +1510,17 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine(`}${modifier});`);
   }
-  
+
+  visitHookBlock(hookName, node) {
+    this.emitLine(`${hookName}(async () => {`);
+    this.pushIndent();
+    for (const stmt of node.body.body) {
+      this.visitStatement(stmt);
+    }
+    this.popIndent();
+    this.emitLine('});');
+  }
+
   visitExpectStatement(node) {
     const actual = this.visitExpression(node.actual);
     const matcher = node.matcher;
