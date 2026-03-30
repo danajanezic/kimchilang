@@ -3,6 +3,7 @@ import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
 import { tokenize, TokenType } from '../src/lexer.js';
+import { parse, NodeType } from '../src/parser.js';
 
 let passed = 0;
 let failed = 0;
@@ -456,6 +457,116 @@ test('skips HTML comments (hash lines)', () => {
 test('ends with EOF', () => {
   const tokens = tokenize('dec x = 1');
   assertEqual(tokens[tokens.length - 1].type, TokenType.EOF);
+});
+
+console.log('--- Parser Tests ---');
+
+// Use the already-imported tokenize function as tok
+const tok = tokenize;
+
+test('parses dec declaration', () => {
+  const ast = parse(tok('dec x = 42'));
+  assertEqual(ast.body[0].type, NodeType.DecDeclaration);
+  assertEqual(ast.body[0].name, 'x');
+  assertEqual(ast.body[0].init.value, 42);
+});
+
+test('parses fn declaration', () => {
+  const ast = parse(tok('fn add(a, b) { return a + b }'));
+  assertEqual(ast.body[0].type, NodeType.FunctionDeclaration);
+  assertEqual(ast.body[0].name, 'add');
+  assertEqual(ast.body[0].params.length, 2);
+});
+
+test('parses if/else', () => {
+  const ast = parse(tok('if x > 0 { return 1 } else { return 0 }'));
+  assertEqual(ast.body[0].type, NodeType.IfStatement);
+  assertEqual(ast.body[0].alternate.type, NodeType.BlockStatement);
+});
+
+test('parses for/in loop', () => {
+  const ast = parse(tok('for item in items { print(item) }'));
+  assertEqual(ast.body[0].type, NodeType.ForInStatement);
+  assertEqual(ast.body[0].variable, 'item');
+});
+
+test('parses test block', () => {
+  const ast = parse(tok('test "it works" { expect(1).toBe(1) }'));
+  assertEqual(ast.body[0].type, NodeType.TestBlock);
+  assertEqual(ast.body[0].name, 'it works');
+});
+
+test('parses expect expression', () => {
+  const ast = parse(tok('expect(x).toBe(5)'));
+  const expr = ast.body[0].expression;
+  assertEqual(expr.type, NodeType.CallExpression);
+  assertEqual(expr.callee.property, 'toBe');
+});
+
+test('parses arrow function', () => {
+  const ast = parse(tok('dec f = x => x * 2'));
+  assertEqual(ast.body[0].init.type, NodeType.ArrowFunctionExpression);
+});
+
+test('parses pipe operator', () => {
+  const ast = parse(tok('dec result = items ~> filter(x => x > 0)'));
+  assertEqual(ast.body[0].init.type, NodeType.PipeExpression);
+});
+
+test('parses object literal', () => {
+  const ast = parse(tok('dec obj = { name: "alice", age: 30 }'));
+  assertEqual(ast.body[0].init.type, NodeType.ObjectExpression);
+  assertEqual(ast.body[0].init.properties.length, 2);
+});
+
+test('parses array literal', () => {
+  const ast = parse(tok('dec arr = [1, 2, 3]'));
+  assertEqual(ast.body[0].init.type, NodeType.ArrayExpression);
+  assertEqual(ast.body[0].init.elements.length, 3);
+});
+
+test('parses member access', () => {
+  const ast = parse(tok('dec x = obj.name'));
+  assertEqual(ast.body[0].init.type, NodeType.MemberExpression);
+  assertEqual(ast.body[0].init.property, 'name');
+});
+
+test('parses function call', () => {
+  const ast = parse(tok('doSomething(1, "two", three)'));
+  const expr = ast.body[0].expression;
+  assertEqual(expr.type, NodeType.CallExpression);
+  assertEqual(expr.arguments.length, 3);
+});
+
+test('parses enum declaration', () => {
+  const ast = parse(tok('enum Color { Red, Green, Blue }'));
+  assertEqual(ast.body[0].type, NodeType.EnumDeclaration);
+  assertEqual(ast.body[0].name, 'Color');
+  assertEqual(ast.body[0].variants.length, 3);
+});
+
+test('parses try/catch', () => {
+  const ast = parse(tok('try { risky() } catch e { handle(e) }'));
+  assertEqual(ast.body[0].type, NodeType.TryStatement);
+  assertEqual(ast.body[0].param, 'e');
+});
+
+test('parses object destructuring', () => {
+  const ast = parse(tok('dec { name, age } = person'));
+  assertEqual(ast.body[0].type, NodeType.DecDeclaration);
+  assertEqual(ast.body[0].pattern.type, NodeType.ObjectPattern);
+});
+
+test('parses array destructuring', () => {
+  const ast = parse(tok('dec [a, b] = pair'));
+  assertEqual(ast.body[0].type, NodeType.DecDeclaration);
+  assertEqual(ast.body[0].pattern.type, NodeType.ArrayPattern);
+});
+
+test('parses named constructor (enum variant with fields)', () => {
+  const ast = parse(tok('dec x = Confirmed { orderId: 123 }'));
+  assertEqual(ast.body[0].init.type, NodeType.NamedConstructor);
+  assertEqual(ast.body[0].init.name, 'Confirmed');
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
