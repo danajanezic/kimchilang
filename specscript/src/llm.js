@@ -376,7 +376,7 @@ async function askForFeedback() {
   return answer;
 }
 
-export async function regen({ filePath, source, specContent, specHash, target, config, autoYes }) {
+export async function regen({ filePath, source, specContent, specHash, target, config, autoYes, log }) {
   const maxRetries = config.maxRetries;
 
   // Get existing tests for --impl mode
@@ -420,6 +420,7 @@ export async function regen({ filePath, source, specContent, specHash, target, c
 
     if (!transpileResult.success) {
       console.log(`Compilation failed: ${transpileResult.error}`);
+      if (log) log.push({ file: filePath, phase: 'transpile', attempt: attempt + 1, error: transpileResult.error });
       console.log('Sending error to LLM for fix...');
       const fixPrompt = buildTranspileFixPrompt({
         specContent,
@@ -451,6 +452,10 @@ export async function regen({ filePath, source, specContent, specHash, target, c
     }
 
     const feedback = reviewResult.output.trim();
+
+    if (!feedback.includes('APPROVED')) {
+      if (log) log.push({ file: filePath, phase: 'review', attempt: attempt + 1, feedback });
+    }
 
     if (feedback.includes('APPROVED')) {
       console.log('Review passed!');

@@ -173,7 +173,7 @@ function extractSpec(source) {
   return specContent;
 }
 
-async function regenFile(file, target, config, autoYes) {
+async function regenFile(file, target, config, autoYes, log) {
   const source = readFile(file);
   const specContent = extractSpec(source);
   const specHash = computeSpecHash(specContent);
@@ -186,6 +186,7 @@ async function regenFile(file, target, config, autoYes) {
     target,
     config,
     autoYes,
+    log,
   });
 }
 
@@ -213,9 +214,12 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     process.exit(1);
   }
 
+  const log = [];
+
   // Single file: use the original per-file regen
   if (files.length === 1) {
-    const result = await regenFile(files[0], target, config, autoYes);
+    const result = await regenFile(files[0], target, config, autoYes, log);
+    writeRegenLog(log, dirname(files[0]));
     if (!result) process.exit(1);
     return;
   }
@@ -311,6 +315,7 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     console.log(`${transpileResult.errors.length} file(s) have errors — fixing in parallel...`);
     for (const { filePath, error } of transpileResult.errors) {
       console.log(`  ✗ ${filePath}: ${error}`);
+      log.push({ file: filePath, phase: 'transpile', attempt: attempt + 1, error });
     }
 
     const fixResults = await Promise.all(
@@ -391,6 +396,7 @@ async function cmdRegen(fileOrDir, target, autoYes) {
 
       console.log(`  ✗ ${file}: issues found`);
       allApproved = false;
+      log.push({ file, phase: 'review', attempt: attempt + 1, feedback });
       needsFix.push({ file, data, feedback });
     }
 
@@ -464,7 +470,23 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     }
   }
 
+  writeRegenLog(log, dirname(files[0]));
   console.log('\nDone.');
+}
+
+function writeRegenLog(log, dir) {
+  if (log.length === 0) return;
+  const logPath = resolve(dir, '.regen-log.json');
+  const existing = existsSync(logPath)
+    ? JSON.parse(readFileSync(logPath, 'utf-8'))
+    : [];
+  const entry = {
+    timestamp: new Date().toISOString(),
+    errors: log,
+  };
+  existing.push(entry);
+  writeFileSync(logPath, JSON.stringify(existing, null, 2) + '\n');
+  console.log(`\nRegen log written to ${logPath} (${log.length} issues recorded)`);
 }
 
 function cmdRun(file, debug) {
