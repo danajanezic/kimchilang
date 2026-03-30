@@ -127,7 +127,9 @@ Otherwise, list each issue as:
 }
 
 export function buildFixPrompt({ specContent, specHash, generatedContent, reviewFeedback }) {
-  return `Fix the following issues in the SpecScript test and implementation sections.
+  return `Fix the following issues in the KimchiLang test and implementation sections.
+
+Quick syntax reminders: \`dec\` (immutable), \`mut\` (mutable), \`fn\`/\`expose fn\`, \`if cond { }\` (no parens), \`catch (e)\` (parens required), \`//\` comments, \`~>\` pipe, \`>>\` flow, \`??\` nullish, \`guard cond else { }\`, \`match val { pattern => body }\`, enums are numeric constants.
 
 ## Spec
 
