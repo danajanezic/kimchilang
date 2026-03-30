@@ -41,6 +41,9 @@ export class TypeChecker {
     this.moduleExports = {}; // Track exposed declarations for this module
     this.argTypes = new Map(); // Track arg declaration types
     
+    this.mutVariables = new Set();
+    this._insideClosure = false;
+
     // Register built-in globals
     this.defineVariable('error', this.createType(Type.Function));
     this.defineVariable('_obj', this.createType(Type.Object));
@@ -205,6 +208,9 @@ export class TypeChecker {
     switch (node.type) {
       case NodeType.DecDeclaration:
         this.visitDecDeclaration(node);
+        break;
+      case NodeType.MutDeclaration:
+        this.visitMutDeclaration(node);
         break;
       case NodeType.FunctionDeclaration:
         this.visitFunctionDeclaration(node);
@@ -384,6 +390,29 @@ export class TypeChecker {
       }
     } else {
       this.defineVariable(node.name, initType);
+    }
+  }
+
+  visitMutDeclaration(node) {
+    const initType = this.visitExpression(node.init);
+
+    if (node.destructuring) {
+      if (node.pattern.type === NodeType.ObjectPattern) {
+        for (const prop of node.pattern.properties) {
+          this.defineVariable(prop.value, initType);
+          this.mutVariables.add(prop.value);
+        }
+      } else if (node.pattern.type === NodeType.ArrayPattern) {
+        for (const elem of node.pattern.elements) {
+          if (elem) {
+            this.defineVariable(elem.name, initType);
+            this.mutVariables.add(elem.name);
+          }
+        }
+      }
+    } else {
+      this.defineVariable(node.name, initType);
+      this.mutVariables.add(node.name);
     }
   }
 
@@ -608,6 +637,9 @@ export class TypeChecker {
   }
 
   visitIdentifier(node) {
+    if (this._insideClosure && this.mutVariables.has(node.name)) {
+      this.addError(`Cannot capture mut variable '${node.name}' in closure`, node);
+    }
     const varType = this.lookupVariable(node.name);
     if (varType) return varType;
     
@@ -908,14 +940,17 @@ export class TypeChecker {
   }
 
   visitArrowFunctionExpression(node) {
+    const wasInsideClosure = this._insideClosure;
+    this._insideClosure = true;
+
     this.pushScope();
-    
+
     // Define parameters
     for (const param of node.params) {
       const name = param.name || param.argument || param;
       this.defineVariable(name, this.createType(Type.Any));
     }
-    
+
     // Visit body
     let returnType = this.createType(Type.Void);
     if (node.body.type === NodeType.BlockStatement) {
@@ -925,9 +960,10 @@ export class TypeChecker {
     } else {
       returnType = this.visitExpression(node.body);
     }
-    
+
+    this._insideClosure = wasInsideClosure;
     this.popScope();
-    
+
     return this.createFunctionType(
       node.params.map(() => this.createType(Type.Any)),
       returnType

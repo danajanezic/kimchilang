@@ -648,6 +648,24 @@ test('Generate mut reassignment', () => {
   assertContains(js, 'x = (x + 1)');
 });
 
+test('Type checker: mut variable closure capture error', () => {
+  const source = 'fn bad() {\n  mut x = 0\n  dec inc = () => { x = x + 1 }\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  assertEqual(errors.length > 0, true, 'Should have error for mut capture in closure');
+});
+
+test('Type checker: mut variable without closure is fine', () => {
+  const source = 'fn good() {\n  mut x = 0\n  x = x + 1\n  return x\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  // Filter out errors unrelated to mut
+  const mutErrors = errors.filter(e => e.message.includes('mut') || e.message.includes('capture'));
+  assertEqual(mutErrors.length, 0, 'No mut-related errors for simple mut usage');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
