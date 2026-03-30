@@ -1,5 +1,6 @@
 // specscript/test/test.js
 import { SpecScriptCompiler } from '../src/index.js';
+import { LANGUAGE_REF } from '../src/language-ref.js';
 import { parseArgs } from '../src/cli.js';
 import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
@@ -1012,6 +1013,28 @@ test('full pipeline: rejects file over 500 lines', () => {
     const compiler = new SpecScriptCompiler();
     compiler.compile(lines.join('\n'));
   }, '500');
+});
+
+console.log('--- Language Reference Tests ---');
+
+test('LANGUAGE_REF contains test syntax', () => {
+  assertContains(LANGUAGE_REF, 'test "description"');
+  assertContains(LANGUAGE_REF, 'expect(');
+  assertContains(LANGUAGE_REF, '.toBe(');
+});
+
+test('LANGUAGE_REF contains impl syntax', () => {
+  assertContains(LANGUAGE_REF, 'dec ');
+  assertContains(LANGUAGE_REF, 'fn ');
+  assertContains(LANGUAGE_REF, '~>');
+  assertContains(LANGUAGE_REF, 'enum');
+});
+
+test('LANGUAGE_REF contains file structure info', () => {
+  assertContains(LANGUAGE_REF, '## spec');
+  assertContains(LANGUAGE_REF, '## test');
+  assertContains(LANGUAGE_REF, '## impl');
+  assertContains(LANGUAGE_REF, 'spec-hash');
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
