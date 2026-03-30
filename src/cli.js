@@ -792,7 +792,8 @@ async function runFile(filePath, options = {}) {
     const cachePath = interp.getCachePath(source);
     execSync(`node "${cachePath}"`, {
       stdio: 'inherit',
-      cwd: dirname(resolve(filePath))
+      cwd: dirname(resolve(filePath)),
+      env: { ...process.env, NODE_COMPILE_CACHE: cacheDir }
     });
   } catch (error) {
     if (error.status) {
