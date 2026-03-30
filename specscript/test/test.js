@@ -6,7 +6,7 @@ import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
 import { DependencyGraph } from '../src/dependency-graph.js';
-import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse, regen } from '../src/llm.js';
+import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse, tryTranspile, regen } from '../src/llm.js';
 
 let passed = 0;
 let failed = 0;
@@ -845,6 +845,27 @@ fn doIt() { return 1 }`;
   const result = parseResponse(response);
   assertEqual(result.test, null);
   assertContains(result.impl, 'fn doIt()');
+});
+
+console.log('--- Transpilation Check Tests ---');
+
+await test('tryTranspile succeeds on valid KimchiLang code', () => {
+  const code = `## impl\n\n<!-- spec-hash: sha256:abc -->\n\nfn add(a, b) {\n  return a + b\n}\n\n## test\n\n<!-- spec-hash: sha256:abc -->\n\ntest "add works" {\n  expect(add(1, 2)).toBe(3)\n}`;
+  const result = tryTranspile(code);
+  assertEqual(result.success, true);
+});
+
+await test('tryTranspile fails on invalid syntax', () => {
+  const code = `## impl\n\n<!-- spec-hash: sha256:abc -->\n\nfn add(a, b) {\n  return a +\n}`;
+  const result = tryTranspile(code);
+  assertEqual(result.success, false);
+  assertEqual(typeof result.error, 'string');
+});
+
+await test('tryTranspile strips HTML comments before compiling', () => {
+  const code = `## test\n\n<!-- spec-hash: sha256:abc123 -->\n\ntest "x" {\n  expect(1).toBe(1)\n}\n\n## impl\n\n<!-- spec-hash: sha256:abc123 -->\n\nfn x() {\n  return 1\n}`;
+  const result = tryTranspile(code);
+  assertEqual(result.success, true);
 });
 
 console.log('--- CLI LLM Integration Tests ---');

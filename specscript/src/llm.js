@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 import { LANGUAGE_REF } from './language-ref.js';
+import { KimchiCompiler } from '../../src/index.js';
 
 export function loadConfig(startDir) {
   let dir = resolve(startDir);
@@ -157,6 +158,61 @@ Output ONLY the following two sections, no other text:
 [corrected implementation]`;
 }
 
+export function tryTranspile(generatedContent) {
+  try {
+    // Strip HTML comments and combine for KimchiLang
+    const code = generatedContent.replace(/<!--[\s\S]*?-->/g, '');
+    // Strip the ## test / ## impl headings
+    const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
+    const kimchi = new KimchiCompiler({ skipTypeCheck: true, skipLint: true });
+    kimchi.compile(cleanCode);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export function buildTranspileFixPrompt({ specContent, specHash, generatedContent, transpileError }) {
+  return `The generated KimchiLang code has syntax/compilation errors. Fix them.
+
+## Spec
+
+${specContent}
+
+## Current Code (has errors)
+
+${generatedContent}
+
+## Compilation Error
+
+${transpileError}
+
+## Common Fixes
+- \`catch (e)\` requires parentheses around the parameter, not \`catch e\`
+- \`dec\` bindings are immutable — use \`mut\` for mutable variables
+- \`if condition { }\` — no parentheses around the condition
+- \`expose fn name()\` or \`expose name\` — expose as keyword modifier or standalone
+- Enum variants: \`enum Name { A, B }\` — access as \`Name.A\`
+
+## Instructions
+
+Fix the compilation errors. Output the corrected sections.
+
+Output ONLY the following two sections, no other text:
+
+## test
+
+<!-- spec-hash: ${specHash} -->
+
+[corrected test blocks]
+
+## impl
+
+<!-- spec-hash: ${specHash} -->
+
+[corrected implementation]`;
+}
+
 export function parseResponse(response, specHash) {
   const testMatch = response.match(/^## test\s*$/m);
   const implMatch = response.match(/^## impl\s*$/m);
@@ -284,9 +340,36 @@ export async function regen({ filePath, source, specContent, specHash, target, c
   if (parsed.impl) generatedContent += `## impl\n\n${parsed.impl}`;
   generatedContent = generatedContent.trim();
 
-  // Pass 2+: Review loop
+  // Pass 2+: Transpile + Review loop
   for (let attempt = 0; attempt < maxRetries; attempt++) {
-    console.log(`Reviewing (attempt ${attempt + 1}/${maxRetries})...`);
+    // Try transpilation first
+    console.log(`Transpiling (attempt ${attempt + 1}/${maxRetries})...`);
+    const transpileResult = tryTranspile(generatedContent);
+
+    if (!transpileResult.success) {
+      console.log(`Compilation failed: ${transpileResult.error}`);
+      console.log('Sending error to LLM for fix...');
+      const fixPrompt = buildTranspileFixPrompt({
+        specContent,
+        specHash,
+        generatedContent,
+        transpileError: transpileResult.error,
+      });
+      const fixResult = invokeLlm(config.command, fixPrompt);
+
+      if (fixResult.success) {
+        const fixParsed = parseResponse(fixResult.output, specHash);
+        if (fixParsed) {
+          generatedContent = '';
+          if (fixParsed.test) generatedContent += `## test\n\n${fixParsed.test}\n\n`;
+          if (fixParsed.impl) generatedContent += `## impl\n\n${fixParsed.impl}`;
+          generatedContent = generatedContent.trim();
+        }
+      }
+      continue; // Retry transpilation
+    }
+
+    console.log('Transpilation OK. Reviewing...');
     const reviewPrompt = buildReviewPrompt({ specContent, generatedContent });
     const reviewResult = invokeLlm(config.command, reviewPrompt);
 
