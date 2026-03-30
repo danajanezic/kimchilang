@@ -47,7 +47,7 @@ export function loadLearnedRules(startDir) {
   }
 }
 
-export function buildAnalyzePrompt(errors) {
+export function buildAnalyzePrompt(errors, existingRules) {
   const errorList = errors.map((e, i) => {
     if (e.phase === 'transpile') {
       return `${i + 1}. [TRANSPILE ERROR] ${e.file}\n   ${e.error}`;
@@ -55,22 +55,25 @@ export function buildAnalyzePrompt(errors) {
     return `${i + 1}. [REVIEW REJECTION] ${e.file}\n   ${e.feedback}`;
   }).join('\n\n');
 
+  const existingSection = existingRules
+    ? `\n## Existing Rules\n\n${existingRules}\n`
+    : '';
+
   return `You are improving a code generation prompt for KimchiLang (a language that transpiles to JavaScript).
 
-The following errors occurred when an LLM generated KimchiLang code. Analyze them and produce a concise list of rules that would prevent these errors in the future.
-
-## Errors
+The following errors occurred when an LLM generated KimchiLang code. Produce a concise, consolidated list of at most ${MAX_RULES} rules that would prevent these and similar errors.
+${existingSection}
+## New Errors
 
 ${errorList}
 
 ## Instructions
 
-Output ONLY a list of rules, one per line, starting with "- ". Each rule should be:
-- Specific and actionable (not vague)
-- About KimchiLang syntax or patterns the LLM got wrong
-- Short (one sentence)
+Output a single consolidated list of at most ${MAX_RULES} rules. Merge the existing rules with lessons from the new errors. Combine overlapping rules into one. Drop rules that are redundant or too specific. Keep the most impactful ones.
 
-Do not repeat rules that say the same thing. Do not include preamble or explanation. Output only the rules.`;
+Each rule should be one line starting with "- ", specific and actionable, about KimchiLang syntax or patterns.
+
+Output ONLY the rules, no other text.`;
 }
 
 const MAX_RULES = 15;
@@ -83,7 +86,7 @@ export async function analyzeAndLearn(log, configDir, llmCommand) {
     ? readFileSync(rulesPath, 'utf-8').trim()
     : '';
 
-  const prompt = buildAnalyzePrompt(log);
+  const prompt = buildAnalyzePrompt(log, existingRules);
   const result = await invokeLlmAsync(llmCommand, prompt);
 
   if (!result.success) {
@@ -91,58 +94,18 @@ export async function analyzeAndLearn(log, configDir, llmCommand) {
     return;
   }
 
-  // Extract rules (lines starting with "- ")
-  const newRules = result.output
-    .split('\n')
-    .filter(line => line.trim().startsWith('- '))
-    .map(line => line.trim());
-
-  if (newRules.length === 0) return;
-
-  // Merge with existing, deduplicate
-  const existingList = existingRules.split('\n').filter(Boolean);
-  const seen = new Set(existingList);
-  for (const rule of newRules) {
-    if (!seen.has(rule)) {
-      existingList.push(rule);
-      seen.add(rule);
-    }
-  }
-
-  // If over limit, consolidate via LLM
-  if (existingList.length > MAX_RULES) {
-    console.log(`Rules exceeded ${MAX_RULES}, consolidating...`);
-    const consolidated = await consolidateRules(existingList, llmCommand);
-    if (consolidated) {
-      writeFileSync(rulesPath, consolidated + '\n');
-      const count = consolidated.split('\n').filter(Boolean).length;
-      console.log(`Consolidated .prompt-rules (${count} rules)`);
-      return;
-    }
-  }
-
-  writeFileSync(rulesPath, existingList.join('\n') + '\n');
-  console.log(`Updated .prompt-rules (${existingList.length} rules)`);
-}
-
-async function consolidateRules(rules, llmCommand) {
-  const prompt = `Consolidate these ${rules.length} code generation rules into at most ${MAX_RULES} rules.
-Merge overlapping rules. Drop rules that are redundant or too specific. Keep the most impactful ones.
-
-Current rules:
-${rules.join('\n')}
-
-Output ONLY the consolidated list, one rule per line starting with "- ". No other text.`;
-
-  const result = await invokeLlmAsync(llmCommand, prompt);
-  if (!result.success) return null;
-
-  return result.output
+  const rules = result.output
     .split('\n')
     .filter(line => line.trim().startsWith('- '))
     .map(line => line.trim())
     .slice(0, MAX_RULES)
     .join('\n');
+
+  if (!rules) return;
+
+  writeFileSync(rulesPath, rules + '\n');
+  const count = rules.split('\n').filter(Boolean).length;
+  console.log(`Updated .prompt-rules (${count} rules)`);
 }
 
 export function buildGeneratePrompt({ specContent, specHash, target, existingTests, learnedRules }) {
