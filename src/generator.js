@@ -29,6 +29,7 @@ export class CodeGenerator {
     this.indentStr = options.indentStr || '  ';
     this.output = '';
     this.options = options;
+    this.decVariables = new Set();
   }
 
   generate(ast) {
@@ -610,6 +611,7 @@ export class CodeGenerator {
           return `${p.key}: ${p.value}`;
         }).join(', ');
         this.emitLine(`const { ${props} } = ${init};`);
+        for (const p of node.pattern.properties) { this.decVariables.add(p.value || p.key); }
       } else if (node.pattern.type === NodeType.ArrayPattern) {
         // Array destructuring: const [x, y] = arr;
         const elems = node.pattern.elements.map(e => {
@@ -617,9 +619,11 @@ export class CodeGenerator {
           return e.name;
         }).join(', ');
         this.emitLine(`const [${elems}] = ${init};`);
+        for (const e of node.pattern.elements) { if (e) this.decVariables.add(e.name); }
       }
     } else {
       this.emitLine(`const ${node.name} = ${init};`);
+      this.decVariables.add(node.name);
     }
   }
 
@@ -753,7 +757,10 @@ export class CodeGenerator {
         }
       }
       this.popIndent();
-      this.emitLine(`})(${params});`);
+      const args = node.inputs.map(name =>
+        this.decVariables.has(name) ? `Object.freeze(${name})` : name
+      ).join(', ');
+      this.emitLine(`})(${args});`);
     }
     this.emitLine();
   }
@@ -769,7 +776,10 @@ export class CodeGenerator {
       return `(() => { ${lines} })()`;
     } else {
       const params = node.inputs.join(', ');
-      return `((${params}) => { ${lines} })(${params})`;
+      const args = node.inputs.map(name =>
+        this.decVariables.has(name) ? `Object.freeze(${name})` : name
+      ).join(', ');
+      return `((${params}) => { ${lines} })(${args})`;
     }
   }
 

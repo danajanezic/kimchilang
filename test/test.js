@@ -1303,6 +1303,31 @@ test('Opt1: _deepFreeze function not in output', () => {
   assertEqual(js.includes('function _deepFreeze'), false, 'Should not emit _deepFreeze function');
 });
 
+test('Opt1b: dec var passed to js() is Object.freeze-d', () => {
+  const js = compile('dec config = { a: 1 }\njs(config) { console.log(config); }');
+  assertContains(js, 'Object.freeze(config)');
+});
+
+test('Opt1b: mut var passed to js() is NOT frozen', () => {
+  const js = generate(parse(tokenize('mut config = { a: 1 }\njs(config) { console.log(config); }')));
+  assertEqual(js.includes('Object.freeze(config)'), false, 'mut should not be frozen');
+});
+
+test('Opt1b: js block without params has no freeze at call site', () => {
+  // Check that no variable is wrapped with Object.freeze at the IIFE call site
+  // The preamble always contains Object.freeze in _obj helper, so check the body portion
+  const js = generate(parse(tokenize('js { console.log("hi"); }')));
+  // Simple IIFE with no args: })(); — no variable should appear wrapped in Object.freeze(...)
+  assertContains(js, '})();');
+  // The IIFE call args should be empty (no Object.freeze wrapping)
+  assertEqual(/\}\)\(Object\.freeze/.test(js), false, 'parameterless js block should not call with Object.freeze');
+});
+
+test('Opt1b: dec var in js expression is frozen', () => {
+  const js = compile('dec nums = [1, 2, 3]\ndec sum = js(nums) { return nums.reduce((a, b) => a + b, 0); }');
+  assertContains(js, 'Object.freeze(nums)');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
