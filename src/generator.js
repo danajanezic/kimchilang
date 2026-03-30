@@ -432,6 +432,9 @@ export class CodeGenerator {
       case NodeType.DecDeclaration:
         this.visitDecDeclaration(node);
         break;
+      case NodeType.MutDeclaration:
+        this.visitMutDeclaration(node);
+        break;
       case NodeType.FunctionDeclaration:
         this.visitFunctionDeclaration(node);
         break;
@@ -536,6 +539,30 @@ export class CodeGenerator {
       }
     } else {
       this.emitLine(`const ${node.name} = _deepFreeze(${init});`);
+    }
+  }
+
+  visitMutDeclaration(node) {
+    let init = this.visitExpression(node.init);
+
+    if (node.destructuring) {
+      if (node.pattern.type === NodeType.ObjectPattern) {
+        const props = node.pattern.properties.map(p => {
+          if (p.key === p.value) {
+            return p.key;
+          }
+          return `${p.key}: ${p.value}`;
+        }).join(', ');
+        this.emitLine(`let { ${props} } = ${init};`);
+      } else if (node.pattern.type === NodeType.ArrayPattern) {
+        const elems = node.pattern.elements.map(e => {
+          if (e === null) return '';
+          return e.name;
+        }).join(', ');
+        this.emitLine(`let [${elems}] = ${init};`);
+      }
+    } else {
+      this.emitLine(`let ${node.name} = ${init};`);
     }
   }
 

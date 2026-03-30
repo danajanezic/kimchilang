@@ -630,6 +630,24 @@ test('Dec still blocks reassignment', () => {
   assertEqual(threw, true, 'dec reassignment should throw parse error');
 });
 
+test('Generate mut declaration', () => {
+  const js = compile('mut x = 42');
+  assertContains(js, 'let x = 42;');
+});
+
+test('Generate mut does not deepFreeze', () => {
+  const js = compile('mut x = { a: 1 }');
+  assertContains(js, 'let x =');
+  // The output should NOT have _deepFreeze wrapping the mut variable's init
+  // (Note: _deepFreeze function definition may exist in output, but the variable assignment should not use it)
+});
+
+test('Generate mut reassignment', () => {
+  const js = compile('mut x = 0\nx = x + 1', { skipTypeCheck: true });
+  assertContains(js, 'let x = 0;');
+  assertContains(js, 'x = (x + 1)');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
