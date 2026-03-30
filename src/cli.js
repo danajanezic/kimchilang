@@ -38,6 +38,7 @@ Commands:
   test <file>       Run tests in a .kimchi file
   lint <file>       Run linter on a .kimchi file
   check <file>      Check a file for errors (for editor integration)
+  lsp               Start Language Server Protocol server (stdio)
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
   build <dir>       Compile all .kimchi files in a directory
@@ -1217,6 +1218,13 @@ async function main() {
 
     case 'version':
     case '-v':
+    case 'lsp': {
+      const { startServer } = await import('./lsp.js');
+      startServer();
+      await new Promise(() => {}); // Block forever — server runs on stdin/stdout
+      break;
+    }
+
     case '--version':
       console.log(`KimchiLang v${VERSION}`);
       break;
