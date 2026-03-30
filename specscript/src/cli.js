@@ -307,24 +307,30 @@ async function cmdRegen(fileOrDir, target, autoYes) {
       break;
     }
 
-    // Fix files that have errors
-    console.log(`${transpileResult.errors.length} file(s) have errors:`);
-    let allFixed = true;
-
+    // Fix files with errors in parallel
+    console.log(`${transpileResult.errors.length} file(s) have errors — fixing in parallel...`);
     for (const { filePath, error } of transpileResult.errors) {
       console.log(`  ✗ ${filePath}: ${error}`);
-      const data = fileData.get(filePath);
+    }
+
+    const fixResults = await Promise.all(
+      transpileResult.errors.map(async ({ filePath, error }) => {
+        const data = fileData.get(filePath);
+        if (!data) return { filePath, success: false };
+
+        const fixPrompt = buildTranspileFixPrompt({
+          specContent: data.specContent,
+          specHash: data.specHash,
+          generatedContent: data.generatedContent,
+          transpileError: error,
+        });
+        const fixResult = await invokeLlmAsync(config.command, fixPrompt);
+        return { filePath, fixResult, data };
+      })
+    );
+
+    for (const { filePath, fixResult, data } of fixResults) {
       if (!data) continue;
-
-      console.log(`  Sending errors to LLM for fix...`);
-      const fixPrompt = buildTranspileFixPrompt({
-        specContent: data.specContent,
-        specHash: data.specHash,
-        generatedContent: data.generatedContent,
-        transpileError: error,
-      });
-      const fixResult = invokeLlm(config.command, fixPrompt);
-
       if (fixResult.success) {
         const fixParsed = parseResponse(fixResult.output, data.specHash);
         if (fixParsed) {
@@ -332,18 +338,13 @@ async function cmdRegen(fileOrDir, target, autoYes) {
           if (fixParsed.test) fixed += `## test\n\n${fixParsed.test}\n\n`;
           if (fixParsed.impl) fixed += `## impl\n\n${fixParsed.impl}`;
           data.generatedContent = fixed.trim();
-          console.log(`  ✓ Fix received`);
-        } else {
-          allFixed = false;
+          console.log(`  ✓ ${filePath} fixed`);
         }
-      } else {
-        allFixed = false;
       }
     }
 
     if (attempt === maxRetries - 1) {
       console.error(`\nMax retries (${maxRetries}) exhausted during transpilation.`);
-      // Save drafts
       for (const [file, data] of fileData) {
         const draftPath = file + '.draft';
         const specEnd = data.source.match(/^## test\s*$/m) || data.source.match(/^## impl\s*$/m);
@@ -355,56 +356,77 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     }
   }
 
-  // Step 3: Review loop (review all files against their specs)
+  // Step 3: Review loop — review all files in parallel, fix failures in parallel
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     console.log(`\n=== Review pass (attempt ${attempt + 1}/${maxRetries}) ===\n`);
+
+    // Review all files in parallel
+    const reviewResults = await Promise.all(
+      [...fileData.entries()].map(async ([file, data]) => {
+        const reviewPrompt = buildReviewPrompt({
+          specContent: data.specContent,
+          generatedContent: data.generatedContent,
+        });
+        const reviewResult = await invokeLlmAsync(config.command, reviewPrompt);
+        return { file, data, reviewResult };
+      })
+    );
+
+    // Collect files that need fixing
+    const needsFix = [];
     let allApproved = true;
 
-    for (const [file, data] of fileData) {
-      console.log(`Reviewing ${file}...`);
-      const reviewPrompt = buildReviewPrompt({
-        specContent: data.specContent,
-        generatedContent: data.generatedContent,
-      });
-      const reviewResult = invokeLlm(config.command, reviewPrompt);
-
+    for (const { file, data, reviewResult } of reviewResults) {
       if (!reviewResult.success) {
-        console.error(`  Review failed: ${reviewResult.error}`);
+        console.error(`  ✗ ${file}: review failed`);
         allApproved = false;
         continue;
       }
 
       const feedback = reviewResult.output.trim();
       if (feedback.includes('APPROVED')) {
-        console.log(`  ✓ Approved`);
+        console.log(`  ✓ ${file}`);
         continue;
       }
 
-      console.log(`  Issues found, fixing...`);
+      console.log(`  ✗ ${file}: issues found`);
       allApproved = false;
-
-      const fixPrompt = buildFixPrompt({
-        specContent: data.specContent,
-        specHash: data.specHash,
-        generatedContent: data.generatedContent,
-        reviewFeedback: feedback,
-      });
-      const fixResult = invokeLlm(config.command, fixPrompt);
-
-      if (fixResult.success) {
-        const fixParsed = parseResponse(fixResult.output, data.specHash);
-        if (fixParsed) {
-          let fixed = '';
-          if (fixParsed.test) fixed += `## test\n\n${fixParsed.test}\n\n`;
-          if (fixParsed.impl) fixed += `## impl\n\n${fixParsed.impl}`;
-          data.generatedContent = fixed.trim();
-        }
-      }
+      needsFix.push({ file, data, feedback });
     }
 
     if (allApproved) {
       console.log('\nAll files approved!');
       break;
+    }
+
+    // Fix all failing files in parallel
+    if (needsFix.length > 0) {
+      console.log(`\nFixing ${needsFix.length} file(s) in parallel...`);
+      const fixResults = await Promise.all(
+        needsFix.map(async ({ file, data, feedback }) => {
+          const fixPrompt = buildFixPrompt({
+            specContent: data.specContent,
+            specHash: data.specHash,
+            generatedContent: data.generatedContent,
+            reviewFeedback: feedback,
+          });
+          const fixResult = await invokeLlmAsync(config.command, fixPrompt);
+          return { file, data, fixResult };
+        })
+      );
+
+      for (const { file, data, fixResult } of fixResults) {
+        if (fixResult.success) {
+          const fixParsed = parseResponse(fixResult.output, data.specHash);
+          if (fixParsed) {
+            let fixed = '';
+            if (fixParsed.test) fixed += `## test\n\n${fixParsed.test}\n\n`;
+            if (fixParsed.impl) fixed += `## impl\n\n${fixParsed.impl}`;
+            data.generatedContent = fixed.trim();
+            console.log(`  ✓ ${file} fixed`);
+          }
+        }
+      }
     }
 
     if (attempt === maxRetries - 1) {
