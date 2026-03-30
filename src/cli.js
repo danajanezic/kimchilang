@@ -34,7 +34,7 @@ Module Execution:
 Commands:
   ls [path]         List modules (--verbose for descriptions, --recursive for tree)
   compile <file>    Compile a .kimchi file to JavaScript
-  run <file>        Compile and run a .kimchi file
+  run <file>        Compile and run a .kimchi file (use -w for watch mode)
   test <file>       Run tests in a .kimchi file
   lint <file>       Run linter on a .kimchi file
   check <file>      Check a file for errors (for editor integration)
@@ -804,6 +804,64 @@ async function runFile(filePath, options = {}) {
   }
 }
 
+async function watchAndRun(filePath, options = {}) {
+  const { watch } = await import('fs');
+
+  // Collect files to watch: the main file + any .km deps in its directory tree
+  const projectRoot = findProjectRoot(dirname(resolve(filePath)));
+  const filesToWatch = [resolve(filePath)];
+
+  // Find .km/.kimchi files that might be deps
+  function findKmFiles(dir) {
+    try {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        try {
+          const stat = statSync(full);
+          if (stat.isDirectory() && !entry.startsWith('.') && entry !== 'node_modules' && entry !== '.kimchi-cache') {
+            findKmFiles(full);
+          } else if (/\.(km|kimchi|kc|static)$/.test(entry)) {
+            filesToWatch.push(full);
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+  findKmFiles(projectRoot);
+
+  const uniqueFiles = [...new Set(filesToWatch)];
+
+  function clearScreen() {
+    process.stdout.write('\x1B[2J\x1B[0f');
+  }
+
+  function run() {
+    clearScreen();
+    console.log(`[watch] Running ${basename(filePath)}...\n`);
+    try {
+      runFile(filePath, { ...options, watch: false });
+    } catch {}
+    console.log(`\n[watch] Waiting for changes...`);
+  }
+
+  // Initial run
+  run();
+
+  // Watch all files with debounce
+  let debounceTimer = null;
+  for (const file of uniqueFiles) {
+    try {
+      watch(file, () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(run, 200);
+      });
+    } catch {}
+  }
+
+  // Keep process alive
+  await new Promise(() => {});
+}
+
 async function startRepl() {
   const readline = await import('readline');
   
@@ -1095,7 +1153,12 @@ async function main() {
       }
 
       const filePath = resolve(options.file);
-      runFile(filePath, options);
+
+      if (options.watch) {
+        await watchAndRun(filePath, options);
+      } else {
+        runFile(filePath, options);
+      }
       break;
     }
 
