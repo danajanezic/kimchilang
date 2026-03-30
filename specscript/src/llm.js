@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { LANGUAGE_REF, STYLE_GUIDANCE } from './language-ref.js';
 import { KimchiValidator, formatDiagnostics } from '../../src/validator.js';
 
@@ -311,6 +311,35 @@ export function invokeLlm(command, prompt) {
       error: error.stderr || error.message,
     };
   }
+}
+
+export function invokeLlmAsync(command, prompt) {
+  return new Promise((resolve) => {
+    const proc = spawn('sh', ['-c', command], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data) => { stdout += data; });
+    proc.stderr.on('data', (data) => { stderr += data; });
+
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, output: stdout });
+      } else {
+        resolve({ success: false, output: stdout, error: stderr || `Exit code ${code}` });
+      }
+    });
+
+    proc.on('error', (err) => {
+      resolve({ success: false, output: '', error: err.message });
+    });
+  });
 }
 
 export function showDiff(filePath, oldContent, newContent) {

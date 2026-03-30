@@ -9,7 +9,7 @@ import { SpecScriptCompiler } from './index.js';
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
-import { loadConfig, regen, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, parseResponse, showDiff } from './llm.js';
+import { loadConfig, regen, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, invokeLlmAsync, parseResponse, showDiff } from './llm.js';
 
 export function parseArgs(args) {
   const result = {
@@ -223,12 +223,12 @@ async function cmdRegen(fileOrDir, target, autoYes) {
   // Multi-file: generate all, then transpile-all loop, then review loop
   console.log(`\n=== Generating ${files.length} files ===\n`);
 
-  // Step 1: Generate all files individually
-  const fileData = new Map(); // filePath -> { source, specContent, specHash, generatedContent }
+  // Step 1: Generate all files in parallel
+  const fileData = new Map();
   let genFailed = 0;
 
-  for (const file of files) {
-    console.log(`Generating ${file}...`);
+  // Prepare all generation requests
+  const genTasks = files.map(file => {
     const source = readFile(file);
     const specContent = extractSpec(source);
     const specHash = computeSpecHash(specContent);
@@ -245,17 +245,30 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     }
 
     const genPrompt = buildGeneratePrompt({ specContent, specHash, target, existingTests });
-    const genResult = invokeLlm(config.command, genPrompt);
+    return { file, source, specContent, specHash, genPrompt };
+  });
 
-    if (!genResult.success) {
-      console.error(`  LLM failed for ${file}: ${genResult.error}`);
+  console.log(`Generating ${genTasks.length} files in parallel...`);
+
+  // Fire all LLM calls concurrently
+  const genResults = await Promise.all(
+    genTasks.map(async (task) => {
+      const result = await invokeLlmAsync(config.command, task.genPrompt);
+      return { ...task, result };
+    })
+  );
+
+  // Collect results
+  for (const { file, source, specContent, specHash, result } of genResults) {
+    if (!result.success) {
+      console.error(`  ✗ ${file}: ${result.error}`);
       genFailed++;
       continue;
     }
 
-    const parsed = parseResponse(genResult.output, specHash);
+    const parsed = parseResponse(result.output, specHash);
     if (!parsed) {
-      console.error(`  Could not parse LLM response for ${file}`);
+      console.error(`  ✗ ${file}: Could not parse LLM response`);
       genFailed++;
       continue;
     }
@@ -266,7 +279,7 @@ async function cmdRegen(fileOrDir, target, autoYes) {
     generatedContent = generatedContent.trim();
 
     fileData.set(file, { source, specContent, specHash, generatedContent });
-    console.log(`  ✓ Generated`);
+    console.log(`  ✓ ${file}`);
   }
 
   if (genFailed > 0) {
