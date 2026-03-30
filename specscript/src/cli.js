@@ -514,6 +514,72 @@ function cmdRun(file, debug) {
   }
 }
 
+function cmdTest(fileOrDir) {
+  const resolved = resolve(fileOrDir);
+  let files;
+  try {
+    const stat = statSync(resolved);
+    files = stat.isDirectory() ? findSpFiles(resolved) : [resolved];
+  } catch {
+    files = [resolved];
+  }
+
+  if (files.length === 0) {
+    console.error('No .sp files found.');
+    process.exit(1);
+  }
+
+  let totalPassed = 0;
+  let totalFailed = 0;
+
+  for (const file of files) {
+    if (files.length > 1) console.log(`\n--- ${file} ---\n`);
+
+    const source = readFile(file);
+    const compiler = new SpecScriptCompiler();
+    let result;
+    try {
+      result = compiler.compile(source);
+    } catch (e) {
+      console.error(`  ✗ ${file}: ${e.message}`);
+      totalFailed++;
+      continue;
+    }
+
+    const tmp = resolve(dirname(file), `.${basename(file)}.test.mjs`);
+    try {
+      writeFileSync(tmp, result.js);
+      const output = execFileSync('node', [tmp], {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000,
+      });
+      process.stdout.write(output);
+
+      const passMatch = output.match(/(\d+) passed/);
+      const failMatch = output.match(/(\d+) failed/);
+      if (passMatch) totalPassed += parseInt(passMatch[1]);
+      if (failMatch) totalFailed += parseInt(failMatch[1]);
+    } catch (error) {
+      const output = (error.stdout || '') + (error.stderr || '');
+      process.stdout.write(output);
+      const passMatch = output.match(/(\d+) passed/);
+      const failMatch = output.match(/(\d+) failed/);
+      if (passMatch) totalPassed += parseInt(passMatch[1]);
+      if (failMatch) totalFailed += parseInt(failMatch[1]);
+      else totalFailed++;
+    } finally {
+      try { unlinkSync(tmp); } catch {}
+    }
+  }
+
+  if (files.length > 1) {
+    console.log(`\n--- Total: ${totalPassed} passed, ${totalFailed} failed ---`);
+  }
+
+  if (totalFailed > 0) process.exit(1);
+}
+
 function cmdInit() {
   const projectFile = 'project.md';
   if (!existsSync(projectFile)) {
@@ -621,6 +687,10 @@ if (isMain) {
         if (!args.file) { console.error('Usage: sp run <file>'); process.exit(1); }
         cmdRun(args.file, args.debug);
         break;
+      case 'test':
+        if (!args.file) { console.error('Usage: sp test <file|dir>'); process.exit(1); }
+        cmdTest(args.file);
+        break;
       case 'qa': {
         if (!args.file) { console.error('Usage: sp qa <file|dir>'); process.exit(1); }
         const qaResolved = resolve(args.file);
@@ -711,6 +781,7 @@ if (isMain) {
         console.log('                          Generate test/impl via LLM');
         console.log('  build <dir>             Compile all .sp files');
         console.log('  run <file>              Compile and execute');
+        console.log('  test <file|dir>         Run embedded tests');
         console.log('  qa <file|dir>           Run independent QA tests against spec');
         console.log('  analyze [dir]           Analyze regen errors and improve prompt rules');
         console.log('  rules [dir]             Show current learned prompt rules');
