@@ -160,52 +160,46 @@ Output ONLY the following two sections. Do NOT wrap code in markdown code fences
 [corrected implementation]`;
 }
 
+function cleanGeneratedCode(content) {
+  return content
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^```\w*\s*$/gm, '')
+    .replace(/^# .+$/gm, (m) => '//' + m.slice(1))
+    .replace(/^## (test|impl)\s*$/gm, '')
+    .trim();
+}
+
 export function tryTranspile(generatedContent) {
   try {
-    const code = generatedContent
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/^```\w*\s*$/gm, '')
-      .replace(/^# .+$/gm, (m) => '//' + m.slice(1));
-    const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
-    const kimchi = new KimchiCompiler();
-    kimchi.compile(cleanCode);
-    return { success: true };
+    const cleanCode = cleanGeneratedCode(generatedContent);
+    const validator = new KimchiValidator();
+    const result = validator.validate(cleanCode);
+    if (result.success) {
+      return { success: true };
+    }
+    return { success: false, error: formatDiagnostics(result.diagnostics) };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
 
-// Transpile all files together — enables cross-module type checking
+// Validate all files together — enables cross-module type checking
 // fileContents: Map<filePath, generatedContent>
 export function tryTranspileAll(fileContents) {
-  const errors = [];
+  const validator = new KimchiValidator();
 
-  // Pass 1: register module types from all impl sections
+  const cleanFiles = new Map();
   for (const [filePath, content] of fileContents) {
-    try {
-      const code = content.replace(/<!--[\s\S]*?-->/g, '');
-      const implMatch = code.match(/^## impl\s*$/m);
-      if (!implMatch) continue;
-      const implCode = code.slice(implMatch.index + implMatch[0].length)
-        .replace(/^## test\s*$/m, '').trim();
-      if (!implCode) continue;
-      const kimchi = new KimchiCompiler({ skipLint: true });
-      kimchi.compile(implCode);
-    } catch (e) {
-      // Ignore pass 1 errors — they'll surface in pass 2
-    }
+    const cleanCode = cleanGeneratedCode(content);
+    if (cleanCode) cleanFiles.set(filePath, cleanCode);
   }
 
-  // Pass 2: full compile each file with type checker + linter
-  for (const [filePath, content] of fileContents) {
-    try {
-      const code = content.replace(/<!--[\s\S]*?-->/g, '');
-      const cleanCode = code.replace(/^## (test|impl)\s*$/gm, '').trim();
-      if (!cleanCode) continue;
-      const kimchi = new KimchiCompiler();
-      kimchi.compile(cleanCode);
-    } catch (e) {
-      errors.push({ filePath, error: e.message });
+  const results = validator.validateAll(cleanFiles);
+  const errors = [];
+
+  for (const [filePath, result] of results) {
+    if (!result.success) {
+      errors.push({ filePath, error: formatDiagnostics(result.diagnostics) });
     }
   }
 
@@ -213,7 +207,7 @@ export function tryTranspileAll(fileContents) {
     return {
       success: false,
       errors,
-      error: errors.map(e => `${e.filePath}: ${e.error}`).join('\n'),
+      error: errors.map(e => `${e.filePath}:\n${e.error}`).join('\n\n'),
     };
   }
   return { success: true, errors: [] };
