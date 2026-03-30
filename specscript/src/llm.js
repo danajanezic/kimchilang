@@ -1,9 +1,10 @@
 // LLM integration — config loading, prompt building, invocation, response parsing
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { execSync, spawn } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
+import { resolve, dirname, basename } from 'node:path';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import { LANGUAGE_REF, STYLE_GUIDANCE } from './language-ref.js';
+import { KimchiCompiler } from '../../src/index.js';
 import { KimchiValidator, formatDiagnostics } from '../../src/validator.js';
 
 export function loadConfig(startDir) {
@@ -172,6 +173,99 @@ ${specContent}
 ## Instructions
 
 ${instructions}`;
+}
+
+export function buildTestFailFixPrompt({ specContent, specHash, generatedContent, testOutput }) {
+  return `The KimchiLang code compiles but the tests fail when executed. Fix the implementation so all tests pass.
+
+Quick syntax reminders: \`dec\` (immutable), \`mut\` (mutable), \`fn\`/\`expose fn\`, \`if cond { }\` (no parens), \`catch (e)\` (parens required), \`//\` comments, \`~>\` pipe, \`>>\` flow, \`??\` nullish, \`guard cond else { }\`, \`match val { pattern => body }\`, enums are numeric constants.
+
+## Spec
+
+${specContent}
+
+## Current Code
+
+${generatedContent}
+
+## Test Output (failures)
+
+${testOutput}
+
+## Instructions
+
+Fix the implementation so all tests pass. Do not modify the tests unless a test is clearly wrong (testing something not in the spec). Output the corrected sections.
+
+Output ONLY the following two sections. Do NOT wrap code in markdown code fences (no backticks). No other text:
+
+## test
+
+<!-- spec-hash: ${specHash} -->
+
+[corrected test blocks]
+
+## impl
+
+<!-- spec-hash: ${specHash} -->
+
+[corrected implementation]`;
+}
+
+export function buildQaPrompt({ specContent, compiledJs, modulePath }) {
+  return `You are a QA agent. Generate a Node.js test script that independently verifies the behavior described in the spec.
+
+## Spec
+
+${specContent}
+
+## Instructions
+
+Write a Node.js script (ES modules) that:
+1. Imports the compiled module from "${modulePath}"
+2. Calls the exported functions with various inputs derived from the spec requirements
+3. Checks the outputs match expected behavior
+4. Prints results as: "PASS: description" or "FAIL: description — expected X, got Y"
+5. Exits with code 1 if any test fails, 0 if all pass
+
+Do NOT use any test framework. Use simple console.log and process.exit.
+The module exports a default async factory function. Call it to get the module's exports.
+
+Output ONLY the Node.js script, no markdown code fences, no explanation.`;
+}
+
+export function runTests(generatedContent) {
+  const cleanCode = cleanGeneratedCode(generatedContent);
+  if (!cleanCode) return { success: true, output: '' };
+
+  // Compile through KimchiLang
+  const kimchi = new KimchiCompiler({ skipTypeCheck: true, skipLint: true });
+  let js;
+  try {
+    js = kimchi.compile(cleanCode);
+  } catch (e) {
+    return { success: false, output: `Compilation failed: ${e.message}` };
+  }
+
+  // Write to temp file and execute
+  const tmpFile = resolve(dirname(new URL(import.meta.url).pathname), '..', `.tmp-test-${Date.now()}.mjs`);
+
+  try {
+    writeFileSync(tmpFile, js);
+    const output = execFileSync('node', [tmpFile], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 30000,
+    });
+    const hasFail = output.includes('\u2717') || output.match(/\d+ failed/);
+    return { success: !hasFail, output };
+  } catch (error) {
+    return {
+      success: false,
+      output: (error.stdout || '') + '\n' + (error.stderr || ''),
+    };
+  } finally {
+    try { unlinkSync(tmpFile); } catch {}
+  }
 }
 
 export function buildReviewPrompt({ specContent, generatedContent }) {
@@ -523,7 +617,35 @@ export async function regen({ filePath, source, specContent, specHash, target, c
       continue; // Retry transpilation
     }
 
-    console.log('Transpilation OK. Reviewing...');
+    // Run embedded tests
+    console.log('Running tests...');
+    const testResult = runTests(generatedContent);
+
+    if (!testResult.success) {
+      console.log(`Tests failed:\n${testResult.output}`);
+      if (log) log.push({ file: filePath, phase: 'test', attempt: attempt + 1, error: testResult.output });
+      console.log('Sending failures to LLM for fix...');
+      const fixPrompt = buildTestFailFixPrompt({
+        specContent,
+        specHash,
+        generatedContent,
+        testOutput: testResult.output,
+      });
+      const fixResult = invokeLlm(config.command, fixPrompt);
+
+      if (fixResult.success) {
+        const fixParsed = parseResponse(fixResult.output, specHash);
+        if (fixParsed) {
+          generatedContent = '';
+          if (fixParsed.test) generatedContent += `## test\n\n${fixParsed.test}\n\n`;
+          if (fixParsed.impl) generatedContent += `## impl\n\n${fixParsed.impl}`;
+          generatedContent = generatedContent.trim();
+        }
+      }
+      continue; // Back to transpile check
+    }
+
+    console.log('Tests passed. Reviewing...');
     const reviewPrompt = buildReviewPrompt({ specContent, generatedContent });
     const reviewResult = invokeLlm(config.command, reviewPrompt);
 
@@ -628,3 +750,90 @@ export async function regen({ filePath, source, specContent, specHash, target, c
   console.error(`Draft saved to ${draftPath}. Review and edit manually.`);
   return false;
 }
+
+export async function runQa({ filePath, config, log }) {
+  const source = readFileSync(filePath, 'utf-8');
+
+  // Extract spec
+  const specStart = source.match(/^## spec\s*$/m);
+  if (!specStart) {
+    console.error(`${filePath}: No ## spec section`);
+    return false;
+  }
+  const startIdx = specStart.index + specStart[0].length;
+  const rest = source.slice(startIdx);
+  const nextSection = rest.match(/^## (test|impl)\s*$/m);
+  const specContent = nextSection ? rest.slice(0, nextSection.index) : rest;
+
+  // Compile the file to JS
+  const { SpecScriptCompiler } = await import('./index.js');
+  const compiler = new SpecScriptCompiler();
+  let compiled;
+  try {
+    compiled = compiler.compile(source);
+  } catch (e) {
+    console.error(`${filePath}: Compilation failed — ${e.message}`);
+    return false;
+  }
+
+  // Write compiled JS to a temp file
+  const compiledPath = filePath.replace(/\.sp$/, '.qa.mjs');
+  writeFileSync(compiledPath, compiled.js);
+
+  try {
+    // Ask LLM to generate a QA test script
+    console.log(`Generating QA tests for ${filePath}...`);
+    const qaPrompt = buildQaPrompt({
+      specContent,
+      compiledJs: compiled.js,
+      modulePath: `./${basename(compiledPath)}`,
+    });
+    const qaResult = await invokeLlmAsync(config.command, qaPrompt);
+
+    if (!qaResult.success) {
+      console.error(`LLM failed: ${qaResult.error}`);
+      return false;
+    }
+
+    // Write QA script
+    const qaScriptPath = filePath.replace(/\.sp$/, '.qa-test.mjs');
+    const qaScript = qaResult.output
+      .replace(/^```\w*\s*$/gm, '')
+      .trim();
+    writeFileSync(qaScriptPath, qaScript);
+
+    // Run QA script
+    console.log(`Running QA tests...`);
+    try {
+      const output = execFileSync('node', [qaScriptPath], {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 30000,
+        cwd: dirname(filePath),
+      });
+
+      console.log(output);
+
+      const hasFail = output.includes('FAIL:');
+      if (hasFail) {
+        if (log) log.push({ file: filePath, phase: 'qa', error: output });
+        console.log(`QA: Some tests failed`);
+        return false;
+      }
+
+      console.log(`QA: All tests passed`);
+      return true;
+    } catch (error) {
+      const output = (error.stdout || '') + '\n' + (error.stderr || '');
+      console.log(output);
+      if (log) log.push({ file: filePath, phase: 'qa', error: output });
+      console.log(`QA: Tests failed`);
+      return false;
+    } finally {
+      try { unlinkSync(qaScriptPath); } catch {}
+    }
+  } finally {
+    try { unlinkSync(compiledPath); } catch {}
+  }
+}
+

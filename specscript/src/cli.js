@@ -9,7 +9,7 @@ import { SpecScriptCompiler } from './index.js';
 import { splitSections } from './section-splitter.js';
 import { parseSpec } from './spec-parser.js';
 import { computeSpecHash, extractHash } from './hasher.js';
-import { loadConfig, loadLearnedRules, regen, analyzeAndLearn, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, invokeLlmAsync, parseResponse, showDiff } from './llm.js';
+import { loadConfig, loadLearnedRules, regen, runQa, analyzeAndLearn, tryTranspileAll, buildGeneratePrompt, buildTranspileFixPrompt, buildReviewPrompt, buildFixPrompt, invokeLlm, invokeLlmAsync, parseResponse, showDiff } from './llm.js';
 
 export function parseArgs(args) {
   const result = {
@@ -621,6 +621,44 @@ if (isMain) {
         if (!args.file) { console.error('Usage: sp run <file>'); process.exit(1); }
         cmdRun(args.file, args.debug);
         break;
+      case 'qa': {
+        if (!args.file) { console.error('Usage: sp qa <file|dir>'); process.exit(1); }
+        const qaResolved = resolve(args.file);
+        let qaFiles;
+        try {
+          const stat = statSync(qaResolved);
+          qaFiles = stat.isDirectory() ? findSpFiles(qaResolved) : [qaResolved];
+        } catch {
+          qaFiles = [qaResolved];
+        }
+        if (qaFiles.length === 0) { console.error('No .sp files found.'); process.exit(1); }
+
+        let qaConfig;
+        try { qaConfig = loadConfig(dirname(qaFiles[0])); } catch (e) { console.error(e.message); process.exit(1); }
+
+        const qaLog = [];
+        let qaPassed = 0;
+        let qaFailed = 0;
+
+        for (const file of qaFiles) {
+          const result = await runQa({ filePath: resolve(file), config: qaConfig, log: qaLog });
+          if (result) qaPassed++;
+          else qaFailed++;
+        }
+
+        if (qaFiles.length > 1) {
+          console.log(`\n--- QA: ${qaPassed} passed, ${qaFailed} failed ---`);
+        }
+
+        if (qaLog.length > 0) {
+          writeRegenLog(qaLog, dirname(qaFiles[0]));
+          console.log('Analyzing QA failures...');
+          await analyzeAndLearn(qaLog, dirname(resolve(qaFiles[0])), qaConfig.command);
+        }
+
+        if (qaFailed > 0) process.exit(1);
+        break;
+      }
       case 'analyze': {
         const targetDir = resolve(args.file || '.');
         const logPath = resolve(targetDir, '.regen-log.json');
@@ -673,6 +711,7 @@ if (isMain) {
         console.log('                          Generate test/impl via LLM');
         console.log('  build <dir>             Compile all .sp files');
         console.log('  run <file>              Compile and execute');
+        console.log('  qa <file|dir>           Run independent QA tests against spec');
         console.log('  analyze [dir]           Analyze regen errors and improve prompt rules');
         console.log('  rules [dir]             Show current learned prompt rules');
         break;
