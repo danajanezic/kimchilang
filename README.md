@@ -466,13 +466,11 @@ if score >= 90 {
   print "C"
 }
 
-// While loop (use with JS interop for mutable state)
-js {
-  let count = 0;
-  while (count < 3) {
-    console.log("Count: " + count);
-    count++;
-  }
+// While loop
+mut count = 0
+while count < 3 {
+  print "Count: ${count}"
+  count = count + 1
 }
 
 // For loop (for-in)
