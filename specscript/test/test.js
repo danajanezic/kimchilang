@@ -2,6 +2,7 @@
 import { splitSections } from '../src/section-splitter.js';
 import { parseSpec } from '../src/spec-parser.js';
 import { computeSpecHash, extractHash, normalizeSpec } from '../src/hasher.js';
+import { tokenize, TokenType } from '../src/lexer.js';
 
 let passed = 0;
 let failed = 0;
@@ -348,6 +349,113 @@ test('extractHash finds hash in HTML comment', () => {
 test('extractHash returns null when no hash present', () => {
   const hash = extractHash('just some code\nno hash here');
   assertEqual(hash, null);
+});
+
+console.log('--- Lexer Tests ---');
+
+test('tokenizes keywords', () => {
+  const tokens = tokenize('dec fn return if else');
+  assertEqual(tokens[0].type, TokenType.DEC);
+  assertEqual(tokens[1].type, TokenType.FN);
+  assertEqual(tokens[2].type, TokenType.RETURN);
+  assertEqual(tokens[3].type, TokenType.IF);
+  assertEqual(tokens[4].type, TokenType.ELSE);
+});
+
+test('tokenizes identifiers', () => {
+  const tokens = tokenize('myVar foo_bar');
+  assertEqual(tokens[0].type, TokenType.IDENTIFIER);
+  assertEqual(tokens[0].value, 'myVar');
+  assertEqual(tokens[1].type, TokenType.IDENTIFIER);
+  assertEqual(tokens[1].value, 'foo_bar');
+});
+
+test('tokenizes numbers', () => {
+  const tokens = tokenize('42 3.14');
+  assertEqual(tokens[0].type, TokenType.NUMBER);
+  assertEqual(tokens[0].value, '42');
+  assertEqual(tokens[1].type, TokenType.NUMBER);
+  assertEqual(tokens[1].value, '3.14');
+});
+
+test('tokenizes strings', () => {
+  const tokens = tokenize('"hello world"');
+  assertEqual(tokens[0].type, TokenType.STRING);
+  assertEqual(tokens[0].value, 'hello world');
+});
+
+test('tokenizes operators', () => {
+  const tokens = tokenize('= == != => ~> >> + - * /');
+  assertEqual(tokens[0].type, TokenType.ASSIGN);
+  assertEqual(tokens[1].type, TokenType.EQ);
+  assertEqual(tokens[2].type, TokenType.NEQ);
+  assertEqual(tokens[3].type, TokenType.FAT_ARROW);
+  assertEqual(tokens[4].type, TokenType.PIPE);
+  assertEqual(tokens[5].type, TokenType.FLOW);
+});
+
+test('tokenizes delimiters', () => {
+  const tokens = tokenize('( ) { } [ ] , .');
+  assertEqual(tokens[0].type, TokenType.LPAREN);
+  assertEqual(tokens[1].type, TokenType.RPAREN);
+  assertEqual(tokens[2].type, TokenType.LBRACE);
+  assertEqual(tokens[3].type, TokenType.RBRACE);
+  assertEqual(tokens[4].type, TokenType.LBRACKET);
+  assertEqual(tokens[5].type, TokenType.RBRACKET);
+  assertEqual(tokens[6].type, TokenType.COMMA);
+  assertEqual(tokens[7].type, TokenType.DOT);
+});
+
+test('tokenizes test block keywords', () => {
+  const tokens = tokenize('test expect');
+  assertEqual(tokens[0].type, TokenType.TEST);
+  assertEqual(tokens[1].type, TokenType.EXPECT);
+});
+
+test('tokenizes logical operators', () => {
+  const tokens = tokenize('and or not');
+  assertEqual(tokens[0].type, TokenType.AND);
+  assertEqual(tokens[1].type, TokenType.OR);
+  assertEqual(tokens[2].type, TokenType.NOT);
+});
+
+test('tokenizes boolean literals', () => {
+  const tokens = tokenize('true false');
+  assertEqual(tokens[0].type, TokenType.BOOLEAN);
+  assertEqual(tokens[0].value, 'true');
+  assertEqual(tokens[1].type, TokenType.BOOLEAN);
+  assertEqual(tokens[1].value, 'false');
+});
+
+test('tokenizes pipe operator in expression', () => {
+  const tokens = tokenize('items ~> filter(x => x > 0)');
+  assertEqual(tokens[0].type, TokenType.IDENTIFIER);
+  assertEqual(tokens[1].type, TokenType.PIPE);
+  assertEqual(tokens[2].type, TokenType.IDENTIFIER);
+});
+
+test('tracks line and column', () => {
+  const tokens = tokenize('dec x = 1\ndec y = 2');
+  assertEqual(tokens[0].line, 1);
+  assertEqual(tokens[0].column, 1);
+  const yToken = tokens.find(t => t.value === 'y');
+  assertEqual(yToken.line, 2);
+});
+
+test('skips comments', () => {
+  const tokens = tokenize('dec x = 1 // this is a comment\ndec y = 2');
+  const identifiers = tokens.filter(t => t.type === TokenType.IDENTIFIER);
+  assertEqual(identifiers.length, 2);
+});
+
+test('skips HTML comments (hash lines)', () => {
+  const tokens = tokenize('<!-- spec-hash: sha256:abc -->\nfn foo() {}');
+  assertEqual(tokens[0].type, TokenType.FN);
+});
+
+test('ends with EOF', () => {
+  const tokens = tokenize('dec x = 1');
+  assertEqual(tokens[tokens.length - 1].type, TokenType.EOF);
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
