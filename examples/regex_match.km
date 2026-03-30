@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Regex Pattern Matching Example
 // Demonstrates two syntaxes:
 // 1. Simple match: expr ~ /regex/ - returns the matched string or undefined

@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Example of shell interop in KimchiLang
 
 fn listFiles() {

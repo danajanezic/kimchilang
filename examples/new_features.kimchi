@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // KimchiLang Feature Showcase
 // Demonstrates string interpolation, pipe, flow, and new features
 

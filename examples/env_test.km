@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Test file for env, arg, and secret keywords
 // Demonstrates: env, !env, arg, secret
 

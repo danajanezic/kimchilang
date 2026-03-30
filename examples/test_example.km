@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Example test file demonstrating KimchiLang's built-in testing framework
 
 // Helper functions to test

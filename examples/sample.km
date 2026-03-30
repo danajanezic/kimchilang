@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 /** @type {string} */
 dec API_URL = "https://api.example.com"
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Pattern matching in Array.reduce callback
 // Demonstrates using pattern matching to categorize and accumulate values
 

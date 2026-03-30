@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Fibonacci sequence in KimchiLang
 
 /**

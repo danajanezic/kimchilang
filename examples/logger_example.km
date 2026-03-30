@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Logger Example
 // Demonstrates structured JSON logging with log levels
 

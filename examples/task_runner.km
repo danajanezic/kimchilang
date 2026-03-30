@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Task Runner — demonstrates KimchiLang features including KMDocs
 // A mini build pipeline that validates, transforms, and reports on tasks
 

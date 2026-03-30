@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Simple greeter module
 
 !arg name

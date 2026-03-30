@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Example of using a static file in KimchiLang
 
 as config dep examples.config

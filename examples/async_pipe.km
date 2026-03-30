@@ -1,3 +1,4 @@
+#!/usr/bin/env kimchi
 // Example: Async pipe (~>) and flow (>>) operators
 // These operators now support async functions seamlessly
 
