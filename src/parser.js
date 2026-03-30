@@ -1100,11 +1100,20 @@ export class Parser {
     const isExternal = this.match(TokenType.AT);
     
     // Parse dotted path (e.g., project_name.salesforce.client)
+    // Accept keywords as path segments since module paths may contain words like 'test', 'string', etc.
     const pathParts = [];
-    pathParts.push(this.expect(TokenType.IDENTIFIER, 'Expected dependency path').value);
-    
+    const token = this.advance();
+    if (token.type !== TokenType.IDENTIFIER && typeof token.value !== 'string') {
+      this.error('Expected dependency path');
+    }
+    pathParts.push(token.value);
+
     while (this.match(TokenType.DOT)) {
-      pathParts.push(this.expect(TokenType.IDENTIFIER, 'Expected path segment').value);
+      const seg = this.advance();
+      if (seg.type !== TokenType.IDENTIFIER && typeof seg.value !== 'string') {
+        this.error('Expected path segment');
+      }
+      pathParts.push(seg.value);
     }
     
     const path = pathParts.join('.');

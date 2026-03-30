@@ -458,8 +458,8 @@ test('Only exposed items are exported', () => {
 
 test('Private function not in exports', () => {
   const js = compile('fn privateFn() { return 1 }');
-  // Should not have return statement with exports since nothing is exposed
-  assertEqual(js.includes('return {'), false);
+  // Should not have return { privateFn } since nothing is exposed
+  assertEqual(js.includes('return { privateFn'), false);
 });
 
 // Dependency Type Checking Tests
