@@ -9,7 +9,7 @@ import { tokenize, TokenType } from '../src/lexer.js';
 import { parse, NodeType } from '../src/parser.js';
 import { generate } from '../src/generator.js';
 import { DependencyGraph } from '../src/dependency-graph.js';
-import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse } from '../src/llm.js';
+import { buildGeneratePrompt, buildReviewPrompt, buildFixPrompt, parseResponse, regen } from '../src/llm.js';
 
 let passed = 0;
 let failed = 0;
@@ -1175,6 +1175,50 @@ await test('parseArgs recognizes --yes flag for non-interactive regen', () => {
 await test('parseArgs recognizes -y shorthand', () => {
   const args = parseArgs(['regen', 'myfile.sp', '--all', '-y']);
   assertEqual(args.yes, true);
+});
+
+console.log('--- LLM Integration E2E Tests ---');
+
+await test('regen with mock LLM generates and applies sections', async () => {
+  const { writeFileSync: ws, readFileSync: rs, unlinkSync: us, existsSync: ex } = await import('node:fs');
+  const { resolve: res } = await import('node:path');
+
+  const testFile = res('test/temp-regen-test.sp');
+  const specSource = `## spec
+
+# TempTest
+
+**intent:** Temporary test module
+**reason:** Testing regen flow
+`;
+
+  ws(testFile, specSource);
+
+  try {
+    const source = rs(testFile, 'utf-8');
+    const specText = source.slice(source.indexOf('## spec') + '## spec'.length);
+    const specHash = computeSpecHash(specText);
+
+    const result = await regen({
+      filePath: testFile,
+      source,
+      specContent: specText,
+      specHash,
+      target: 'all',
+      config: { command: 'node test/mock-llm.js', maxRetries: 3 },
+      autoYes: true,
+    });
+
+    assertEqual(result, true);
+
+    const updated = rs(testFile, 'utf-8');
+    assertContains(updated, '## spec');
+    assertContains(updated, '## test');
+    assertContains(updated, '## impl');
+    assertContains(updated, 'spec-hash:');
+  } finally {
+    if (ex(testFile)) us(testFile);
+  }
 });
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---\n`);
