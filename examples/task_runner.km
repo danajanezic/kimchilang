@@ -1,8 +1,9 @@
-// Task Runner — demonstrates new KimchiLang features
+// Task Runner — demonstrates KimchiLang features including KMDocs
 // A mini build pipeline that validates, transforms, and reports on tasks
 
 // --- Data ---
 
+/** @type {{name: string, status: string, priority: number, runner: string, timeout: number}[]} */
 dec tasks = [
   { name: "lint",    status: "pending",  priority: 3, runner: "eslint",  timeout: null },
   { name: "typecheck", status: "pending", priority: 2, runner: "tsc",    timeout: 30 },
@@ -18,6 +19,11 @@ dec ValidationError = error.create("ValidationError")
 
 // --- Validation with guard ---
 
+/**
+ * Validates that a task has the required fields.
+ * @param {any} task - The task object to validate
+ * @returns {any} The validated task
+ */
 fn validateTask(task) {
   guard task != null else { throw ValidationError("Task is null") }
   guard task.name != null else { throw ValidationError("Task missing name") }
@@ -27,6 +33,11 @@ fn validateTask(task) {
 
 // --- Classify tasks using match expressions ---
 
+/**
+ * Returns a human-readable speed label based on task timeout.
+ * @param {any} task - A task with a timeout field
+ * @returns {string} Speed label: "fast", "normal", "slow", or "unknown"
+ */
 fn getTimeoutLabel(task) {
   dec seconds = task.timeout ?? 30
   return match seconds {
@@ -37,6 +48,11 @@ fn getTimeoutLabel(task) {
   }
 }
 
+/**
+ * Creates a rich description of a task for display.
+ * @param {any} task - Raw task object
+ * @returns {any} Described task with name, runner, timeout, speed, urgent, status
+ */
 fn describeTask(task) {
   dec runner = task.runner ?? "default"
   dec timeout = task.timeout ?? 30
@@ -55,6 +71,11 @@ fn describeTask(task) {
 
 // --- Filter and process pipeline ---
 
+/**
+ * Determines if a task should be executed.
+ * @param {any} task - Task to check
+ * @returns {boolean} True if the task should run
+ */
 fn shouldRun(task) {
   return match task.status {
     "pending" => true
@@ -63,6 +84,11 @@ fn shouldRun(task) {
   }
 }
 
+/**
+ * Executes a task and returns the result with status and notes.
+ * @param {any} task - Task to run
+ * @returns {any} Result object with status and note fields
+ */
 fn runTask(task) {
   dec described = describeTask(task)
   dec prefix = "[${described.urgent}]".if(described.urgent != "").else("[  ]")

@@ -1,5 +1,10 @@
 // Fibonacci sequence in KimchiLang
 
+/**
+ * Computes the nth Fibonacci number recursively.
+ * @param {number} n - Which Fibonacci number to compute
+ * @returns {number} The nth Fibonacci number
+ */
 fn fibonacci(n) {
   if n <= 1 {
     return n

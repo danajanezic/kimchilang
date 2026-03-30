@@ -1,5 +1,10 @@
 // Memoized Fibonacci - demonstrates the memo keyword
 
+/**
+ * Computes the nth Fibonacci number with automatic memoization.
+ * @param {number} n - Which Fibonacci number to compute
+ * @returns {number} The nth Fibonacci number
+ */
 memo fibonacci(n) {
   if n <= 1 {
     return n

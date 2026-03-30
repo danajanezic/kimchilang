@@ -1230,14 +1230,20 @@ export class TypeChecker {
   }
 
   visitFlowExpression(node) {
+    // Flow expression: name >> fn1 fn2
+    // Creates a composed function variable
+    if (node.name && node.functions) {
+      this.defineVariable(node.name, this.createType(Type.Function));
+      return this.createType(Type.Function);
+    }
+
     let currentType = this.visitExpression(node.left);
-    
-    // Flow expression has left and right, not initial and steps
+
     if (node.right) {
       this.visitExpression(node.right);
       currentType = this.createType(Type.Unknown);
     }
-    
+
     return currentType;
   }
 }

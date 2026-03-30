@@ -2,7 +2,11 @@
 // This file demonstrates the core features of KimchiLang
 
 // Variables (all immutable with dec)
+
+/** @type {string} */
 dec name = "World"
+
+/** @type {number} */
 dec PI = 3.14159
 
 // Print statement (convenience syntax)
@@ -10,10 +14,21 @@ print "Hello, KimchiLang!"
 print name
 
 // Functions
+
+/**
+ * Greets a person by name.
+ * @param {string} person - Name to greet
+ * @returns {string} Greeting message
+ */
 fn greet(person) {
   return "Hello, " + person + "!"
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 fn add(a, b) {
   return a + b
 }
@@ -29,7 +44,11 @@ print double(21)
 print multiply(6, 7)
 
 // Arrays
+
+/** @type {number[]} */
 dec numbers = [1, 2, 3, 4, 5]
+
+/** @type {string[]} */
 dec fruits = ["apple", "banana", "cherry"]
 
 print numbers
@@ -69,10 +88,19 @@ for i in 0..5 {
 }
 
 // Flow operator - creates a composed function
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn addOne(x) {
   return x + 1
 }
 
+/**
+ * @param {number} x
+ * @returns {number}
+ */
 fn square(x) {
   return x * x
 }
