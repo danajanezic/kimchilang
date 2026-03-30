@@ -710,6 +710,22 @@ export class Linter {
           this.analyzeExpression(expr);
         }
         break;
+
+      case NodeType.MatchBlock:
+        this.analyzeExpression(node.subject);
+        for (const arm of node.arms) {
+          if (arm.guard) this.analyzeExpression(arm.guard);
+          if (arm.body.type === NodeType.BlockStatement) {
+            this.pushScope();
+            for (const stmt of arm.body.body) {
+              this.analyzeStatement(stmt);
+            }
+            this.popScope();
+          } else {
+            this.analyzeExpression(arm.body);
+          }
+        }
+        break;
     }
   }
 

@@ -846,6 +846,22 @@ test('Generate match returns null when no default arm', () => {
   assertContains(js, 'return null');
 });
 
+test('Type checker: match expression accepted', () => {
+  const source = 'dec x = match 1 {\n1 => "one"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  const errors = checker.check(ast);
+  assertEqual(errors.length, 0, 'match expression should type check without errors');
+});
+
+test('Full compile: match expression works end-to-end', () => {
+  const source = 'dec msg = match 200 {\n200 => "OK"\n_ => "Unknown"\n}';
+  // This should not throw — compile() runs type checker + generator
+  const js = compile(source);
+  assertContains(js, '_subject === 200');
+  assertContains(js, '"OK"');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

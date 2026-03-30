@@ -649,6 +649,8 @@ export class TypeChecker {
         return this.createType(Type.Object); // RegExp is an object type
       case NodeType.MatchExpression:
         return this.visitMatchExpression(node);
+      case NodeType.MatchBlock:
+        return this.visitMatchBlock(node);
       default:
         return this.createType(Type.Unknown);
     }
@@ -856,6 +858,54 @@ export class TypeChecker {
       // Without body: returns string (first match) or null
       return this.createType(Type.String);
     }
+  }
+
+  visitMatchBlock(node) {
+    this.visitExpression(node.subject);
+
+    let resultType = this.createType(Type.Unknown);
+
+    for (const arm of node.arms) {
+      this.pushScope();
+
+      // Define bindings from pattern
+      if (arm.pattern.type === 'BindingPattern') {
+        this.defineVariable(arm.pattern.name, this.createType(Type.Any));
+      } else if (arm.pattern.type === 'ObjectDestructurePattern') {
+        for (const prop of arm.pattern.properties) {
+          if (prop.value && prop.value.type === 'BindingPattern') {
+            this.defineVariable(prop.value.name, this.createType(Type.Any));
+          } else if (!prop.value) {
+            // Shorthand: { data } binds data
+            this.defineVariable(prop.key, this.createType(Type.Any));
+          }
+        }
+      } else if (arm.pattern.type === 'ArrayDestructurePattern') {
+        for (const elem of arm.pattern.elements) {
+          if (elem && elem.type === 'BindingPattern') {
+            this.defineVariable(elem.name, this.createType(Type.Any));
+          }
+        }
+      }
+
+      // Visit guard if present
+      if (arm.guard) {
+        this.visitExpression(arm.guard);
+      }
+
+      // Visit body
+      if (arm.body.type === NodeType.BlockStatement) {
+        for (const stmt of arm.body.body) {
+          this.visitStatement(stmt);
+        }
+      } else {
+        resultType = this.visitExpression(arm.body);
+      }
+
+      this.popScope();
+    }
+
+    return resultType;
   }
 
   visitMemberExpression(node) {
