@@ -130,16 +130,7 @@ export default async function(_opts = {}) {
   });
   
   function getStatusMessage(status) {
-    return (() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "Success";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else {
-        return "Unknown";
-      }
-    })();
+    return (status) === 200 ? "Success" : (status) === 404 ? "Not Found" : "Unknown";
   }
   
   console.log(getStatusMessage(200));
@@ -155,13 +146,13 @@ export default async function(_opts = {}) {
   const score = 85;
   const grade = (() => {
     const _subject = score;
-    if ((() => { const n = _subject; return (n >= 90); })()) {
+    if ((_subject >= 90)) {
       const n = _subject;
       return "A";
-    } else if ((() => { const n = _subject; return (n >= 80); })()) {
+    } else if ((_subject >= 80)) {
       const n = _subject;
       return "B";
-    } else if ((() => { const n = _subject; return (n >= 70); })()) {
+    } else if ((_subject >= 70)) {
       const n = _subject;
       return "C";
     } else {

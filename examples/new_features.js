@@ -126,18 +126,7 @@ export default async function(_opts = {}) {
   console.log(`10 / 3 = ${divide(10, 3)}`);
   console.log(`10 / 0 = ${divide(10, 0)}`);
   const status = 200;
-  const statusMessage = (() => {
-    const _subject = status;
-    if (_subject === 200) {
-      return "OK";
-    } else if (_subject === 404) {
-      return "Not Found";
-    } else if (_subject === 500) {
-      return "Server Error";
-    } else {
-      return "Unknown";
-    }
-  })();
+  const statusMessage = (status) === 200 ? "OK" : (status) === 404 ? "Not Found" : (status) === 500 ? "Server Error" : "Unknown";
   console.log(`Status ${status}: ${statusMessage}`);
   const score = 85;
   const tier = (((score >= 90)) ? "Gold" : (((score >= 80)) ? "Silver" : "Bronze"));

@@ -65,13 +65,13 @@ export default async function(_opts = {}) {
     const seconds = (task?.timeout ?? 30);
     return (() => {
       const _subject = seconds;
-      if ((() => { const n = _subject; return (n <= 10); })()) {
+      if ((_subject <= 10)) {
         const n = _subject;
         return "fast";
-      } else if ((() => { const n = _subject; return (n <= 60); })()) {
+      } else if ((_subject <= 60)) {
         const n = _subject;
         return "normal";
-      } else if ((() => { const n = _subject; return (n > 60); })()) {
+      } else if ((_subject > 60)) {
         const n = _subject;
         return "slow";
       } else {
@@ -89,16 +89,7 @@ export default async function(_opts = {}) {
   }
   
   function shouldRun(task) {
-    return (() => {
-      const _subject = task?.status;
-      if (_subject === "pending") {
-        return true;
-      } else if (_subject === "failed") {
-        return true;
-      } else {
-        return false;
-      }
-    })();
+    return (task?.status) === "pending" ? true : (task?.status) === "failed" ? true : false;
   }
   
   function runTask(task) {

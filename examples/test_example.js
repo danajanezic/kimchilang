@@ -79,7 +79,7 @@ function _expect(actual) {
     toBeLessThan(n) { if (actual >= n) throw new Error(`Expected ${actual} < ${n}`); },
     toHaveLength(n) { if (actual.length !== n) throw new Error(`Expected length ${n} but got ${actual.length}`); },
     toMatch(pattern) { if (!pattern.test(actual)) throw new Error(`Expected ${JSON.stringify(actual)} to match ${pattern}`); },
-    toThrow(msg) { try { actual(); throw new Error("Expected to throw"); } catch(e) { if (msg && !e.message.includes(msg)) throw new Error(`Expected error containing "${msg}" but got "${e.message}"`); } },
+    toThrow(msg) { try { actual(); throw new Error("Expected to throw"); } catch(e) { const eMsg = e.message || String(e); if (msg && !eMsg.includes(msg)) throw new Error(`Expected error containing "${msg}" but got "${eMsg}"`); } },
     toBeDefined() { if (actual === undefined) throw new Error(`Expected value to be defined but got undefined`); },
     toBeUndefined() { if (actual !== undefined) throw new Error(`Expected undefined but got ${JSON.stringify(actual)}`); },
     toBeCloseTo(num, digits = 2) { const precision = Math.pow(10, -digits) / 2; if (Math.abs(actual - num) >= precision) throw new Error(`Expected ${actual} to be close to ${num} (precision: ${digits} digits)`); },
@@ -239,27 +239,11 @@ export default async function(_opts = {}) {
   });
   _describe("Match expressions", () => {
     _test("match returns correct value", async () => {
-      const result = (() => {
-        const _subject = 200;
-        if (_subject === 200) {
-          return "OK";
-        } else if (_subject === 404) {
-          return "Not Found";
-        } else {
-          return "Unknown";
-        }
-      })();
+      const result = (200) === 200 ? "OK" : (200) === 404 ? "Not Found" : "Unknown";
       _expect(result).toBe("OK");
     });
     _test("match with wildcard", async () => {
-      const result = (() => {
-        const _subject = 999;
-        if (_subject === 200) {
-          return "OK";
-        } else {
-          return "Unknown";
-        }
-      })();
+      const result = (999) === 200 ? "OK" : "Unknown";
       _expect(result).toBe("Unknown");
     });
   });

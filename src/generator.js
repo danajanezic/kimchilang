@@ -1296,6 +1296,30 @@ export class CodeGenerator {
   visitMatchBlock(node) {
     const subject = this.visitExpression(node.subject);
 
+    // Optimization: simple match with only literal/wildcard patterns and expression bodies → ternary chain
+    const canTernary = node.arms.every(arm =>
+      (arm.pattern.type === 'LiteralPattern' || arm.pattern.type === 'WildcardPattern' || arm.pattern.type === NodeType.WildcardPattern) &&
+      arm.body.type !== 'BlockStatement' &&
+      !arm.guard
+    );
+
+    if (canTernary && node.arms.length > 0) {
+      let ternary = '';
+      for (const arm of node.arms) {
+        const body = this.visitExpression(arm.body);
+        if (arm.pattern.type === 'WildcardPattern' || arm.pattern.type === NodeType.WildcardPattern) {
+          ternary += body;
+        } else {
+          const val = typeof arm.pattern.value === 'string' ? `"${arm.pattern.value}"` : arm.pattern.value;
+          ternary += `(${subject}) === ${val} ? ${body} : `;
+        }
+      }
+      // If no wildcard, append null
+      const hasDefault = node.arms.some(a => a.pattern.type === 'WildcardPattern' || a.pattern.type === NodeType.WildcardPattern);
+      if (!hasDefault) ternary += 'null';
+      return ternary;
+    }
+
     let code = '(() => {\n';
     const baseIndent = this.getIndent();
     const indent = baseIndent + this.indentStr;
@@ -1386,8 +1410,10 @@ export class CodeGenerator {
       case 'BindingPattern': {
         bindings.push([pattern.name, '_subject']);
         if (guard) {
+          // Replace binding name with _subject in the guard expression
+          // so we avoid an IIFE just to scope the binding
           const guardExpr = this.visitExpression(guard);
-          condition = `(() => { const ${pattern.name} = _subject; return ${guardExpr}; })()`;
+          condition = guardExpr.replace(new RegExp(`\\b${pattern.name}\\b`, 'g'), '_subject');
         } else {
           condition = 'true';
         }

@@ -69,18 +69,7 @@ export default async function(_opts = {}) {
   const numbers = [1, 2, 3, 4, 5];
   const doubled = numbers.map(x => (x * 2));
   function processStatus(status) {
-    const message = (() => {
-      const _subject = status;
-      if (_subject === 200) {
-        return "OK";
-      } else if (_subject === 404) {
-        return "Not Found";
-      } else if (_subject === 500) {
-        return "Server Error";
-      } else {
-        return "Unknown";
-      }
-    })();
+    const message = (status) === 200 ? "OK" : (status) === 404 ? "Not Found" : (status) === 500 ? "Server Error" : "Unknown";
     console.log(message);
   }
   

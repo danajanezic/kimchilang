@@ -76,16 +76,7 @@ export default async function(_opts = {}) {
   console.log(`Is '555-123-4567' a valid phone? ${validatePhone("555-123-4567")}`);
   const logLine = "ERROR: Connection failed";
   const level = (/^(ERROR|WARN|INFO|DEBUG)/.exec(logLine) || [])[0];
-  const severity = (() => {
-    const _subject = level;
-    if (_subject === "ERROR") {
-      return "CRITICAL";
-    } else if (_subject === "WARN") {
-      return "WARNING";
-    } else {
-      return "OK";
-    }
-  })();
+  const severity = (level) === "ERROR" ? "CRITICAL" : (level) === "WARN" ? "WARNING" : "OK";
   console.log("");
   console.log(`Log level: ${level} (${severity})`);
 }

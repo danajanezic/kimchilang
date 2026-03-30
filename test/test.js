@@ -806,10 +806,11 @@ test('Parse match with array destructuring', () => {
 // --- Match Expression Generator Tests ---
 console.log('\n--- Match Expression Generator Tests ---\n');
 
-test('Generate match with literal patterns', () => {
+test('Generate match with literal patterns (ternary)', () => {
   const source = 'dec msg = match 200 {\n200 => "OK"\n404 => "Not Found"\n_ => "Unknown"\n}';
   const js = generate(parse(tokenize(source)));
-  assertContains(js, '_subject === 200');
+  // Simple literal match compiles to ternary chain
+  assertContains(js, '=== 200');
   assertContains(js, '"OK"');
   assertContains(js, '"Not Found"');
   assertContains(js, '"Unknown"');
@@ -845,7 +846,8 @@ test('Generate match with array destructuring', () => {
 test('Generate match returns null when no default arm', () => {
   const source = 'dec r = match x {\n1 => "one"\n}';
   const js = generate(parse(tokenize(source)));
-  assertContains(js, 'return null');
+  // Simple match without default appends null to ternary
+  assertContains(js, 'null');
 });
 
 test('Type checker: match expression accepted', () => {
@@ -858,9 +860,8 @@ test('Type checker: match expression accepted', () => {
 
 test('Full compile: match expression works end-to-end', () => {
   const source = 'dec msg = match 200 {\n200 => "OK"\n_ => "Unknown"\n}';
-  // This should not throw — compile() runs type checker + generator
   const js = compile(source);
-  assertContains(js, '_subject === 200');
+  assertContains(js, '=== 200');
   assertContains(js, '"OK"');
 });
 
@@ -1358,8 +1359,16 @@ test('Opt3: match as statement has no IIFE', () => {
   assertContains(js, 'const _subject');
 });
 
-test('Opt3: match as expression still has IIFE', () => {
+test('Opt3: simple match as expression uses ternary', () => {
   const js = generate(parse(tokenize('dec result = match x {\n1 => "one"\n_ => "other"\n}')));
+  // Simple literal match compiles to ternary, not IIFE
+  assertContains(js, '=== 1');
+  assertContains(js, '?');
+  assertContains(js, '"one"');
+});
+
+test('Opt3: complex match as expression still has IIFE', () => {
+  const js = generate(parse(tokenize('dec result = match obj {\n{ status: 200 } => "ok"\n_ => "other"\n}')));
   assertContains(js, '(() => {');
 });
 
