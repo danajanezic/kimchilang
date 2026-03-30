@@ -238,6 +238,16 @@ export function showDiff(filePath, oldContent, newContent) {
   console.log('');
 }
 
+async function askForFeedback() {
+  const readline = await import('node:readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise(r => {
+    rl.question('What would you like changed? ', r);
+  });
+  rl.close();
+  return answer;
+}
+
 export async function regen({ filePath, source, specContent, specHash, target, config, autoYes }) {
   const maxRetries = config.maxRetries;
 
@@ -298,24 +308,48 @@ export async function regen({ filePath, source, specContent, specHash, target, c
       // Show diff and confirm
       showDiff(filePath, source, newContent);
 
-      let shouldApply = autoYes;
-      if (!autoYes) {
-        const readline = await import('node:readline');
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        const answer = await new Promise(r => {
-          rl.question('Apply these changes? (y/n) ', r);
-        });
-        rl.close();
-        shouldApply = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
-      }
-
-      if (shouldApply) {
+      if (autoYes) {
         writeFileSync(filePath, newContent);
         console.log(`Updated ${filePath}`);
         return true;
-      } else {
-        console.log('Changes not applied.');
+      }
+
+      const readline = await import('node:readline');
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise(r => {
+        rl.question('Apply these changes? (y/n/edit) ', r);
+      });
+      rl.close();
+
+      const choice = answer.toLowerCase().trim();
+      if (choice === 'y' || choice === 'yes') {
+        writeFileSync(filePath, newContent);
+        console.log(`Updated ${filePath}`);
+        return true;
+      } else if (choice === 'n' || choice === 'no') {
+        console.log('Changes discarded.');
         return false;
+      } else {
+        // Treat any other input as change request feedback
+        const userFeedback = choice === 'edit' ? await askForFeedback() : answer;
+        console.log('Regenerating with your feedback...');
+        const fixPrompt = buildFixPrompt({
+          specContent,
+          specHash,
+          generatedContent,
+          reviewFeedback: userFeedback,
+        });
+        const fixResult = invokeLlm(config.command, fixPrompt);
+        if (fixResult.success) {
+          const fixParsed = parseResponse(fixResult.output, specHash);
+          if (fixParsed) {
+            generatedContent = '';
+            if (fixParsed.test) generatedContent += `## test\n\n${fixParsed.test}\n\n`;
+            if (fixParsed.impl) generatedContent += `## impl\n\n${fixParsed.impl}`;
+            generatedContent = generatedContent.trim();
+          }
+        }
+        continue; // Back to review loop
       }
     }
 
