@@ -52,10 +52,7 @@ expose fn groupBy(arr, keyFn) {
   return arr.reduce((acc, item) => {
     dec key = keyFn(item)
     dec group = acc[key] ?? []
-    dec updated = js(acc, key, group, item) {
-      return { ...acc, [key]: [...group, item] };
-    }
-    return updated
+    return { ...acc, [key]: [...group, item] }
   }, {})
 }
 

@@ -2189,13 +2189,32 @@ export class Parser {
             continue;
           }
           
+          // Computed property key: { [expr]: value }
+          if (this.match(TokenType.LBRACKET)) {
+            const keyExpr = this.parseExpression();
+            this.expect(TokenType.RBRACKET, 'Expected ] after computed key');
+            this.expect(TokenType.COLON, 'Expected : after computed key');
+            const value = this.parseExpression();
+            properties.push({
+              type: NodeType.Property,
+              key: keyExpr,
+              value,
+              computed: true,
+            });
+            continue;
+          }
+
           let key;
           if (this.check(TokenType.STRING)) {
             key = this.advance().value;
           } else {
-            key = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
+            const token = this.advance();
+            key = token.value;
+            if (typeof key !== 'string') {
+              this.error('Expected property name');
+            }
           }
-          
+
           let value;
           if (this.match(TokenType.COLON)) {
             value = this.parseExpression();
@@ -2203,7 +2222,7 @@ export class Parser {
             // Shorthand property
             value = { type: NodeType.Identifier, name: key };
           }
-          
+
           properties.push({
             type: NodeType.Property,
             key,

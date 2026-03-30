@@ -1154,6 +1154,10 @@ export class TypeChecker {
         if (spreadType && spreadType.kind === Type.Object && spreadType.properties) {
           Object.assign(properties, spreadType.properties);
         }
+      } else if (prop.computed) {
+        // Computed property: { [expr]: value } — visit both but don't track key statically
+        this.visitExpression(prop.key);
+        this.visitExpression(prop.value);
       } else {
         // Key can be a string directly, or an object with name/value
         let key;

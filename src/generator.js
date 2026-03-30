@@ -1536,9 +1536,16 @@ export class CodeGenerator {
         return `...${this.visitExpression(p.argument)}`;
       }
       
+      // Computed property: { [expr]: value }
+      if (p.computed) {
+        const keyExpr = this.visitExpression(p.key);
+        const value = this.visitExpression(p.value);
+        return `[${keyExpr}]: ${value}`;
+      }
+
       const key = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(p.key) ? p.key : JSON.stringify(p.key);
       const value = this.visitExpression(p.value);
-      
+
       if (p.shorthand && p.value.type === NodeType.Identifier && p.value.name === p.key) {
         return key;
       }
