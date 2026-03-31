@@ -55,6 +55,9 @@ export const TokenType = {
   COLLECT: 'COLLECT',
   HOARD: 'HOARD',
   RACE: 'RACE',
+  WORKER: 'WORKER',
+  SPAWN: 'SPAWN',
+  SPAWN_CONTENT: 'SPAWN_CONTENT',
 
   // Operators
   PLUS: 'PLUS',
@@ -155,6 +158,8 @@ const KEYWORDS = {
   'collect': TokenType.COLLECT,
   'hoard': TokenType.HOARD,
   'race': TokenType.RACE,
+  'worker': TokenType.WORKER,
+  'spawn': TokenType.SPAWN,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,
@@ -609,7 +614,81 @@ export class Lexer {
         return null; // Already added tokens
       }
     }
-    
+
+    // Special handling for spawn keyword - read raw content after {
+    if (type === TokenType.SPAWN) {
+      this.tokens.push(new Token(type, value, startLine, startColumn));
+      this.skipWhitespace();
+
+      // Check for optional (inputs)
+      if (this.peek() === '(') {
+        this.tokens.push(new Token(TokenType.LPAREN, '(', this.line, this.column));
+        this.advance();
+        while (this.peek() !== ')' && this.peek() !== '\0') {
+          this.skipWhitespace();
+          if (this.peek() === ',') {
+            this.tokens.push(new Token(TokenType.COMMA, ',', this.line, this.column));
+            this.advance();
+            continue;
+          }
+          if (/[a-zA-Z_$]/.test(this.peek())) {
+            const idStart = this.line;
+            const idCol = this.column;
+            let id = '';
+            while (/[a-zA-Z0-9_$]/.test(this.peek())) {
+              id += this.advance();
+            }
+            this.tokens.push(new Token(TokenType.IDENTIFIER, id, idStart, idCol));
+          } else {
+            break;
+          }
+        }
+        if (this.peek() === ')') {
+          this.tokens.push(new Token(TokenType.RPAREN, ')', this.line, this.column));
+          this.advance();
+        }
+        this.skipWhitespace();
+      }
+
+      while (this.peek() === '\n') {
+        this.advance();
+      }
+      this.skipWhitespace();
+
+      if (this.peek() === '{') {
+        this.tokens.push(new Token(TokenType.LBRACE, '{', this.line, this.column));
+        this.advance();
+
+        const contentStart = this.line;
+        const contentCol = this.column;
+        let content = '';
+        let braceDepth = 1;
+
+        while (braceDepth > 0 && this.peek() !== '\0') {
+          if (this.peek() === '{') {
+            braceDepth++;
+            content += this.advance();
+          } else if (this.peek() === '}') {
+            braceDepth--;
+            if (braceDepth > 0) {
+              content += this.advance();
+            }
+          } else {
+            content += this.advance();
+          }
+        }
+
+        this.tokens.push(new Token(TokenType.SPAWN_CONTENT, content.trim(), contentStart, contentCol));
+
+        if (this.peek() === '}') {
+          this.tokens.push(new Token(TokenType.RBRACE, '}', this.line, this.column));
+          this.advance();
+        }
+
+        return null;
+      }
+    }
+
     return new Token(type, value, startLine, startColumn);
   }
 

@@ -102,6 +102,32 @@ test('Tokenize race keyword', () => {
   assertEqual(tokens[0].value, 'race');
 });
 
+test('Tokenize worker keyword', () => {
+  const tokens = tokenize('worker() { return 1 }');
+  assertEqual(tokens[0].type, 'WORKER');
+  assertEqual(tokens[0].value, 'worker');
+});
+
+test('Tokenize spawn keyword with raw content', () => {
+  const tokens = tokenize('spawn { ls -la }');
+  assertEqual(tokens[0].type, 'SPAWN');
+  assertEqual(tokens[0].value, 'spawn');
+  // spawn captures raw content like shell
+  assertEqual(tokens[2].type, 'SPAWN_CONTENT');
+  assertEqual(tokens[2].value, 'ls -la');
+});
+
+test('Tokenize spawn with inputs', () => {
+  const tokens = tokenize('spawn(dir) { ls $dir }');
+  assertEqual(tokens[0].type, 'SPAWN');
+  assertEqual(tokens[1].type, 'LPAREN');
+  assertEqual(tokens[2].type, 'IDENTIFIER');
+  assertEqual(tokens[2].value, 'dir');
+  assertEqual(tokens[3].type, 'RPAREN');
+  assertEqual(tokens[5].type, 'SPAWN_CONTENT');
+  assertEqual(tokens[5].value, 'ls $dir');
+});
+
 // Parser Tests
 console.log('\n--- Parser Tests ---\n');
 
