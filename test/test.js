@@ -2379,6 +2379,118 @@ test('Type checker: string | null NOT compatible with string | number', () => {
   assertEqual(tc.isCompatible(expected, actual), false);
 });
 
+// Task 3: Union types in extern declarations
+
+test('Type checker: extern fn with union param validates correctly', () => {
+  const source = 'extern "mod" {\n  fn read(path: string | null): string\n}\ndec x = read("file")';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const readErrors = errors.filter(e => e.message.includes('read'));
+  assertEqual(readErrors.length, 0);
+});
+
+test('Type checker: extern fn with union param rejects wrong type', () => {
+  const source = 'extern "mod" {\n  fn read(path: string | null): string\n}\ndec x = read(123)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('Expected'));
+  assertEqual(typeErrors.length, 1);
+});
+
+test('Type checker: extern fn with union return type', () => {
+  const source = 'extern "mod" {\n  fn find(id: number): string | null\n}\ndec x = find(1)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+// Task 4: Union types in KMDocs
+
+test('Type checker: KMDoc union param validates correctly', () => {
+  const source = '/** @param {string | null} name */\nfn greet(name) { return name }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+test('Type checker: KMDoc union param rejects wrong type at call site', () => {
+  const source = '/** @param {string | null} name */\nfn greet(name) { return name }\ndec x = greet(123)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('Expected'));
+  assertEqual(typeErrors.length, 1);
+});
+
+test('Type checker: KMDoc union return type', () => {
+  const source = '/** @returns {string | null} */\nfn find(id) { return null }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+// Task 5: Guard-based type narrowing
+
+test('Type checker: guard narrows string | null to string', () => {
+  const source = `
+extern "mod" {
+  fn find(id: number): string | null
+}
+fn main() {
+  dec x = find(1)
+  guard x != null else { return null }
+  dec y = x
+}`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+test('Type checker: without guard, union stays wide', () => {
+  const source = `
+/** @param {string | null} name */
+fn greet(name) {
+  return name
+}`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+test('Type checker: guard narrows object | null to object', () => {
+  const source = `
+extern "mod" {
+  fn findUser(id: number): {name: string} | null
+}
+fn main() {
+  dec user = findUser(1)
+  guard user != null else { return null }
+  print user.name
+}`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+// Task 6: Union-aware argument error messages
+
+test('Type checker: error message includes union type', () => {
+  const source = 'extern "mod" {\n  fn read(path: string | null): string\n}\ndec x = read(123)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length >= 1, true);
+  assertContains(errors[0].message, 'string | null');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

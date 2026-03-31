@@ -483,6 +483,33 @@ export class TypeChecker {
       this.visitStatement(stmt);
     }
     this.popScope();
+
+    // Type narrowing: guard x != null else { ... }
+    if (node.test && node.test.type === 'BinaryExpression' && node.test.operator === '!=') {
+      const { left, right } = node.test;
+      let identifier = null;
+      let isNullCheck = false;
+
+      if (left.type === 'Identifier' && right.type === 'Literal' && right.value === null) {
+        identifier = left.name;
+        isNullCheck = true;
+      } else if (right.type === 'Identifier' && left.type === 'Literal' && left.value === null) {
+        identifier = right.name;
+        isNullCheck = true;
+      }
+
+      if (identifier && isNullCheck) {
+        const currentType = this.lookupVariable(identifier);
+        if (currentType && currentType.kind === Type.Union) {
+          const narrowed = currentType.members.filter(m => m.kind !== Type.Null);
+          if (narrowed.length === 1) {
+            this.defineVariable(identifier, narrowed[0]);
+          } else if (narrowed.length > 1) {
+            this.defineVariable(identifier, this.createUnionType(narrowed));
+          }
+        }
+      }
+    }
   }
 
   blockHasExit(block) {
@@ -1065,9 +1092,9 @@ export class TypeChecker {
             const expectedType = fnInfo.kmdocParams.get(paramInfo.name);
             if (argType.kind !== Type.Unknown && argType.kind !== Type.Any &&
                 expectedType.kind !== Type.Any && expectedType.kind !== Type.Unknown &&
-                argType.kind !== expectedType.kind) {
+                !this.isCompatible(expectedType, argType)) {
               this.addError(
-                `Argument ${i + 1} of '${node.callee.name}': Expected ${expectedType.kind}, got ${argType.kind}`,
+                `Argument ${i + 1} of '${node.callee.name}': Expected ${this.typeToString(expectedType)}, got ${this.typeToString(argType)}`,
                 node
               );
             }
