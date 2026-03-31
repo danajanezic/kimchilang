@@ -5,7 +5,7 @@ import { NodeType } from './parser.js';
 // Helper to check if a node or its children contain shell blocks
 function containsAsyncBlock(node) {
   if (!node) return false;
-  if (node.type === NodeType.ShellBlock || node.type === NodeType.SpawnBlock || node.type === NodeType.WorkerExpression) return true;
+  if (node.type === NodeType.ShellBlock || node.type === NodeType.SpawnBlock || node.type === NodeType.WorkerExpression || node.type === NodeType.SleepStatement) return true;
   
   // Check all properties that could contain child nodes
   for (const key of Object.keys(node)) {
@@ -706,6 +706,9 @@ export class CodeGenerator {
         break;
       case NodeType.SpawnBlock:
         this.visitSpawnBlock(node);
+        break;
+      case NodeType.SleepStatement:
+        this.emitLine(`await new Promise(resolve => setTimeout(resolve, ${this.visitExpression(node.duration)}));`);
         break;
       case NodeType.TestBlock:
         this.visitTestBlock(node);
