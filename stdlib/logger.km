@@ -1,94 +1,66 @@
-// KimchiLang Logger
-// Usage: as log dep stdlib.logger
-// Then: log.info("message"), log.debug("message"), etc.
-// Set LOG_LEVEL environment variable to control output (debug, info, warn, error)
+import { _obj, error } from './../kimchi-runtime.js';
 
-env LOG_LEVEL = "info"
-
-dec LOG_LEVELS = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3
-}
-
-fn getLogLevel() {
-  dec level = LOG_LEVEL.toLowerCase()
-  return LOG_LEVELS[level] ?? 1
-}
-
-fn shouldLog(level) {
-  return LOG_LEVELS[level] >= getLogLevel()
-}
-
-fn getCallerInfo() {
-  return js {
-    const err = new Error();
-    const stack = err.stack.split('\n');
-    for (let i = 3; i < stack.length; i++) {
-      const line = stack[i];
-      if (!line.includes('logger') && !line.includes('node:internal')) {
-        const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/);
-        if (match) {
-          return {
-            name: match[1] || '<anonymous>',
-            module: match[2].replace(/^file:\/\//, '').replace(/.*\//, '').replace(/\.(js|km)$/, ''),
-            line: parseInt(match[3], 10),
-          };
-        }
-      }
+export default async function(_opts = {}) {
+  const LOG_LEVEL = process.env["LOG_LEVEL"] !== undefined ? process.env["LOG_LEVEL"] : "info";
+  
+  const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+  function getLogLevel() {
+    const level = LOG_LEVEL?.toLowerCase();
+    return (LOG_LEVELS[level] ?? 1);
+  }
+  
+  function shouldLog(level) {
+    return (LOG_LEVELS[level] >= getLogLevel());
+  }
+  
+  function getCallerInfo() {
+    return (() => { const err = new Error(); const stack = err.stack.split('\n'); for (let i = 3; i < stack.length; i++) { const line = stack[i]; if (!line.includes('logger') && !line.includes('node:internal')) { const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/); if (match) { return { name: match[1] || '<anonymous>', module: match[2].replace(/^file:\/\//, '').replace(/.*\//, '').replace(/\.(js|km)$/, ''), line: parseInt(match[3], 10), }; } } } return { name: '<unknown>', module: '<unknown>', line: 0 }; })();
+  }
+  
+  function formatLog(level, message, data) {
+    const caller = getCallerInfo();
+    const timestamp = (() => { return new Date().toISOString(); })();
+    const base = { timestamp, level, module: caller.module, func: caller.name, line: caller.line, message };
+    const entry = ((data !== null) ? { ...base, ...data } : base);
+    return JSON?.stringify(entry);
+  }
+  
+  function debug(message, data) {
+    if (!(shouldLog("debug"))) {
+      return null;
     }
-    return { name: '<unknown>', module: '<unknown>', line: 0 };
+    const output = formatLog("debug", message, data);
+    console.log(output);
   }
-}
-
-fn formatLog(level, message, data) {
-  dec caller = getCallerInfo()
-  dec timestamp = js { return new Date().toISOString(); }
-
-  dec base = {
-    timestamp: timestamp,
-    level: level,
-    module: caller.module,
-    func: caller.name,
-    line: caller.line,
-    message: message
+  
+  function info(message, data) {
+    if (!(shouldLog("info"))) {
+      return null;
+    }
+    const output = formatLog("info", message, data);
+    console.log(output);
   }
-
-  dec entry = data != null ? { ...base, ...data } : base
-
-  return js(entry) { return JSON.stringify(entry); }
-}
-
-expose fn debug(message, data) {
-  guard shouldLog("debug") else { return null }
-  dec output = formatLog("debug", message, data)
-  js(output) { console.log(output); }
-}
-
-expose fn info(message, data) {
-  guard shouldLog("info") else { return null }
-  dec output = formatLog("info", message, data)
-  js(output) { console.log(output); }
-}
-
-expose fn warn(message, data) {
-  guard shouldLog("warn") else { return null }
-  dec output = formatLog("warn", message, data)
-  js(output) { console.warn(output); }
-}
-
-expose fn error(message, data) {
-  guard shouldLog("error") else { return null }
-  dec output = formatLog("error", message, data)
-  js(output) { console.error(output); }
-}
-
-expose fn child(context) {
-  return {
-    debug: (msg, data) => debug(msg, { ...context, ...(data ?? {}) }),
-    info: (msg, data) => info(msg, { ...context, ...(data ?? {}) }),
-    warn: (msg, data) => warn(msg, { ...context, ...(data ?? {}) }),
-    error: (msg, data) => error(msg, { ...context, ...(data ?? {}) })
+  
+  function warn(message, data) {
+    if (!(shouldLog("warn"))) {
+      return null;
+    }
+    const output = formatLog("warn", message, data);
+    console?.warn(output);
   }
+  
+  function error(message, data) {
+    if (!(shouldLog("error"))) {
+      return null;
+    }
+    const output = formatLog("error", message, data);
+    console?.error(output);
+  }
+  
+  function child(context) {
+    return { debug: (msg, data) => debug(msg, { ...context, ...(data ?? {}) }), info: (msg, data) => info(msg, { ...context, ...(data ?? {}) }), warn: (msg, data) => warn(msg, { ...context, ...(data ?? {}) }), error: (msg, data) => error(msg, { ...context, ...(data ?? {}) }) };
+  }
+  
+  
+  return { debug, info, warn, error, child };
 }
