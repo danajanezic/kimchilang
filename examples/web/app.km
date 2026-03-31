@@ -1,0 +1,42 @@
+#!/usr/bin/env kimchi
+
+as config dep examples.web.server
+as server dep stdlib.web.server({config: config})
+
+dec users = [
+  {id: "1", name: "Alice", email: "alice@example.com"},
+  {id: "2", name: "Bob", email: "bob@example.com"}
+]
+
+fn findUser(id) {
+  return users.find(u => u.id == id)
+}
+
+server.listen((req) => {
+  match req.path {
+    "/hello" => server.ok({message: "Hello, KimchiLang!"})
+
+    "/users" => match req.method {
+      "GET" => server.ok(users)
+      "POST" => {
+        guard req.body != null else { return server.badRequest("body required") }
+        return server.created(req.body)
+      }
+      _ => server.response(405, "Method not allowed")
+    }
+
+    _ => {
+      dec params = req.match("/users/:id")
+      guard params != null else { return server.notFound("not found") }
+
+      dec user = findUser(params.id)
+      guard user != null else { return server.notFound("user not found") }
+
+      match req.method {
+        "GET" => server.ok(user)
+        "DELETE" => server.noContent()
+        _ => server.response(405, "Method not allowed")
+      }
+    }
+  }
+})

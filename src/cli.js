@@ -640,7 +640,12 @@ function compileStaticFile(filePath, options = {}) {
 function checkFile(source, filePath = null) {
   // Check file for errors and return JSON-compatible error array
   const errors = [];
-  
+
+  // Strip shebang line if present
+  if (source.startsWith('#!')) {
+    source = source.replace(/^#![^\n]*\n/, '');
+  }
+
   try {
     // Step 1: Tokenize
     const tokens = tokenize(source);

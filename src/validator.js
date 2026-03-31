@@ -17,6 +17,10 @@ export class KimchiValidator {
       return { diagnostics, success: true };
     }
 
+    // Strip shebang line if present
+    const cleanSource = source.startsWith('#!') ? source.replace(/^#![^\n]*\n/, '') : source;
+    source = cleanSource;
+
     // Phase 1: Tokenize
     let tokens;
     try {
