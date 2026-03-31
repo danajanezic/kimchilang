@@ -111,9 +111,8 @@ export class JS2KM {
     const name = node.id.name;
     const params = node.params.map(p => this.visitPattern(p)).join(', ');
     const prefix = expose ? 'expose ' : '';
-    const asyncPrefix = node.async ? 'async ' : '';
 
-    this.emit(`${prefix}${asyncPrefix}fn ${name}(${params}) {`);
+    this.emit(`${prefix}fn ${name}(${params}) {`);
     this.indent++;
     
     for (const stmt of node.body.body) {
@@ -521,7 +520,6 @@ export class JS2KM {
       case 'ArrowFunctionExpression':
       case 'FunctionExpression': {
         const fnParams = node.params.map(p => this.visitPattern(p)).join(', ');
-        const asyncPrefix = node.async ? 'async ' : '';
         if (node.body.type === 'BlockStatement') {
           // Multi-line function — visit all statements
           const savedOutput = this.output;
@@ -535,10 +533,10 @@ export class JS2KM {
           this.output = savedOutput;
           this.indent = savedIndent;
           if (bodyLines.length <= 1) {
-            return `${asyncPrefix}fn(${fnParams}) { ${bodyLines.join('')} }`;
+            return `fn(${fnParams}) { ${bodyLines.join('')} }`;
           }
           const indented = bodyLines.map(l => '  ' + l).join('\n');
-          return `${asyncPrefix}fn(${fnParams}) {\n${indented}\n}`;
+          return `fn(${fnParams}) {\n${indented}\n}`;
         }
         return `${fnParams} => ${this.visitExpression(node.body)}`;
       }
@@ -553,7 +551,7 @@ export class JS2KM {
         return `...${this.visitExpression(node.argument)}`;
       
       case 'AwaitExpression':
-        return `await ${this.visitExpression(node.argument)}`;
+        return this.visitExpression(node.argument);
       
       default:
         return `/* ${node.type} */`;

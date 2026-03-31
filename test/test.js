@@ -2157,14 +2157,18 @@ test('js2km: new expression emits Foo.new()', () => {
   assertContains(km, 'Date.new()');
 });
 
-test('js2km: async function preserved', () => {
+test('js2km: async function converted without async keyword', () => {
   const km = convertJS('async function fetchData(url) { return await fetch(url); }');
-  assertContains(km, 'async fn fetchData(url)');
+  assertContains(km, 'fn fetchData(url)');
+  const hasAsync = km.includes('async');
+  assertEqual(hasAsync, false);
 });
 
-test('js2km: async arrow function preserved', () => {
+test('js2km: async arrow function converted without async keyword', () => {
   const km = convertJS('const f = async (x) => { return x; };');
-  assertContains(km, 'async fn(x)');
+  assertContains(km, 'fn(x)');
+  const hasAsync = km.includes('async');
+  assertEqual(hasAsync, false);
 });
 
 test('js2km: Express app reverse compiles', () => {
@@ -2198,10 +2202,10 @@ app.listen(3000, () => {
   assertContains(km, 'app.use(json())');
   // new Pool emits Foo.new()
   assertContains(km, 'Pool.new(');
-  // Route handler is async
-  assertContains(km, 'async fn(req, res)');
-  // Await preserved
-  assertContains(km, 'await pool.query(');
+  // Route handler has no async keyword
+  assertContains(km, 'fn(req, res)');
+  // Await stripped — just the call
+  assertContains(km, 'pool.query(');
   // console.log becomes print
   assertContains(km, 'print');
 });
