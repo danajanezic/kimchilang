@@ -73,7 +73,14 @@ A modern, expressive programming language that transpiles to JavaScript.
 - **Smart Member Access** - `.` when object shape is known, `?.` otherwise
 - **Memoization** - Built-in `memo` keyword for memoized functions
 - **KMDocs** - JSDoc-style type annotations (`@param`, `@returns`, `@type`) with gradual typing
+- **Union Types** - `string | null` with one-way compatibility and guard-based narrowing
+- **Generics** - Parameterized type aliases (`type Result<T> = ...`) and generic functions with inference
 - **Type Inference** - Compile-time type checking, KMDoc types first then inference
+- **Concurrency Primitives** - `collect`, `hoard`, `race` for safe concurrent I/O (Promise.all/allSettled/race)
+- **Parallel Computation** - `worker` threads for CPU-bound work, `spawn` for non-blocking child processes
+- **Extern Declarations** - Typed contracts for JS modules with tree-shaken imports
+- **Constructor Syntax** - `Foo.new(args)` compiles to `new Foo(args)`, enables chaining
+- **Bind Syntax** - `fn.(args)` for deferred function application
 - **Built-in Testing** - `test`/`describe`/`expect` with 15 matchers, `.not`, `.only`/`.skip`, lifecycle hooks
 - **LSP Server** - Real-time diagnostics for editors via `kimchi lsp`
 - **JavaScript Interop** - Embed raw JavaScript with `js { }` blocks
@@ -1072,6 +1079,124 @@ myapp/
 │   └── api.km           # API service (depends on http)
 ├── main.km              # Main app (depends on api)
 └── main_with_mock.km    # Main app with mocked dependencies
+```
+
+### Extern Declarations
+
+Typed contracts for JavaScript modules. Compiles to tree-shaken static `import` statements — only used symbols are imported.
+
+```kimchi
+// Named exports
+extern "node:fs" {
+  fn readFileSync(path: string): string
+  fn existsSync(path: string): boolean
+}
+
+// Default exports
+extern default "express" as express: any
+
+// Use them like normal functions
+dec content = readFileSync("file.txt")
+dec app = express()
+```
+
+### Constructor Syntax
+
+`Foo.new(args)` compiles to `new Foo(args)`. Enables chaining without variable assignment.
+
+```kimchi
+dec date = Date.new()
+dec isoString = Date.new().toISOString()
+dec pool = Pool.new({host: "localhost", port: 5432})
+```
+
+### Union Types
+
+Supported in extern declarations and KMDocs. One-way compatibility with guard-based narrowing.
+
+```kimchi
+extern "mod" {
+  fn findUser(id: number): {name: string} | null
+}
+
+/** @param {string | null} name */
+fn greet(name) {
+  guard name != null else { return "anonymous" }
+  // name is now narrowed to string
+  return "hello " + name
+}
+```
+
+### Generics
+
+Type aliases with parameters and generic functions. Type parameters inferred from arguments at call sites.
+
+```kimchi
+type Result<T> = {ok: boolean, value: T}
+type Optional<T> = T | null
+
+extern "mod" {
+  fn identity<T>(value: T): T
+  fn first<T>(arr: T[]): Optional<T>
+  fn query<T>(sql: string): Result<T>
+}
+
+dec x = identity("hello")       // T inferred as string
+dec nums = [1, 2, 3]
+dec n = first(nums)              // T inferred as number, returns number | null
+```
+
+### Concurrency (I/O)
+
+Three primitives for concurrent execution. All must be inside `async fn` and implicitly await.
+
+```kimchi
+// collect — fail fast (Promise.all)
+async fn main() {
+  dec [users, posts] = collect [fetchUsers, fetchPosts]
+
+  // With arguments using bind syntax
+  dec [a, b] = collect [fetchUser.(1), fetchUser.(2)]
+}
+
+// hoard — get everything even if some fail (Promise.allSettled)
+async fn main() {
+  dec results = hoard [api1, api2]
+  // results[0].status == STATUS.OK or STATUS.REJECTED
+  // results[0].value or results[0].error
+}
+
+// race — first to finish wins (Promise.race)
+async fn main() {
+  dec winner = race [fast.(url1), fast.(url2)]
+}
+```
+
+### Parallel Computation
+
+```kimchi
+// worker — CPU-bound code on a separate thread
+async fn main() {
+  dec result = worker(data) {
+    return expensiveComputation(data)
+  }
+}
+
+// spawn — non-blocking child process
+async fn main() {
+  dec result = spawn { ls -la }
+  print result.stdout
+  print result.pid
+}
+```
+
+### Bind Syntax
+
+`fn.(args)` creates a deferred call — bundles a function with its arguments without invoking it.
+
+```kimchi
+dec bound = fetchUser.(1)          // () => fetchUser(1)
+dec [a, b] = collect [fetch.(1), fetch.(2)]   // used with concurrency
 ```
 
 ## CLI Commands

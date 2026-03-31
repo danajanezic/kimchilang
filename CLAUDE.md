@@ -66,7 +66,7 @@ Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
 
 ## KMDocs (Type Annotations)
 
-JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and `@type {type}`. The type checker uses KMDoc types first, then falls back to inference. Types: `number`, `string`, `boolean`, `null`, `void`, `any`, `number[]` (arrays), `{key: type}` (object shapes), `(type) => type` (functions), custom type names.
+JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and `@type {type}`. The type checker uses KMDoc types first, then falls back to inference. Types: `number`, `string`, `boolean`, `null`, `void`, `any`, `number[]` (arrays), `{key: type}` (object shapes), `(type) => type` (functions), `type1 | type2` (union types), `Name<T>` (generic instantiation), custom type names.
 
 ## New Language Features
 
@@ -75,6 +75,16 @@ JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and 
 - `guard cond else { return/throw }` — precondition check. Compiles to negated `if`. Type checker enforces the else block must exit via return or throw.
 - `match subject { pattern => body }` — expression returning a value. Supports literal, `is` type, object/array destructuring, binding, and wildcard (`_`) patterns with optional `when` guards. Compiles to IIFE with if/else chain. Returns `null` if no arm matches.
 - `value.if(cond).else(fallback)` — inline conditional expression. Compiles to ternary. `.else()` is optional (returns `null` without it).
+- `collect [fn1, fn2]` — concurrent I/O, fail fast. Compiles to `await Promise.all(...)`. Returns array of results. Destructurable: `dec [a, b] = collect [fn1, fn2]`. Must be inside `async fn`.
+- `hoard [fn1, fn2]` — concurrent I/O, get everything even failures. Compiles to `await Promise.allSettled(...)` mapped to `{ status: STATUS.OK/REJECTED, value/error }`. Tree-shaken `STATUS` enum emitted when used.
+- `race [fn1, fn2]` — concurrent I/O, first to finish wins. Compiles to `await Promise.race(...)`. Returns single result.
+- `someFunc.(arg1, arg2)` — bind syntax, creates deferred call. Compiles to `() => someFunc(arg1, arg2)`. Inside `collect`/`hoard`/`race`, inlined as direct call.
+- `worker(args) { body }` — run CPU-bound KimchiLang code on a `worker_threads` thread. Data serialized in/out, no shared memory. Returns Promise. Must be inside `async fn`. Compiles to `await _worker(fn, args)`.
+- `spawn { command }` — non-blocking child process (like `shell` but async). Raw shell text, supports `$var` interpolation. Returns Promise resolving to `{ stdout, stderr, exitCode, pid }`. Must be inside `async fn`.
+- `Foo.new(args)` — constructor syntax. Compiles to `new Foo(args)`. Enables chaining: `Date.new().toISOString()`.
+- `extern "module" { fn name(p: type): type; dec name: type }` — typed contracts for JS modules. Compiles to tree-shaken static `import` statements. Only used symbols are imported. Supports named and default exports (`extern default "mod" as name: type`).
+- `type Name<T> = body` — generic type aliases. `type Result<T> = {ok: boolean, value: T}`, `type Optional<T> = T | null`. Type parameters substituted on instantiation.
+- `string | null` — union types in extern declarations and KMDocs. One-way compatibility: `string` fits `string | null`, but not reverse. `guard x != null else { ... }` narrows the type.
 
 ## Test Structure
 
@@ -104,13 +114,14 @@ KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
 - **No `_deepFreeze` at runtime** — immutability is compile-time only. `dec` vars are `Object.freeze`d only at the `js()` block boundary.
 - **Smart optional chaining** — generator tracks known object shapes from literals and `guard` statements. Uses `.` when safe, `?.` otherwise.
 - **Match ternary compilation** — simple literal/wildcard match expressions compile to ternary chains instead of IIFEs. Binding+guard patterns avoid nested IIFEs.
-- **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_Secret`, and the testing framework are only emitted when the AST uses them.
+- **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_spawn`, `_worker`, `_Secret`, `STATUS` enum, and the testing framework are only emitted when the AST uses them.
+- **Extern imports** — `extern` declarations compile to static `import` statements. Only symbols actually used in the file are imported (tree-shaken). Extern blocks produce zero runtime code.
 - **Shared runtime module** — `src/runtime.js` contains stdlib extensions, `_obj`, and `error`. Compiled files import it; interpreter inlines it.
 
 ## Other Components
 
 - `src/interpreter.js` — cached transpiler for `kimchi run` and shebang scripts
-- `src/js2km.js` — reverse transpiler (JavaScript → KimchiLang)
+- `src/js2km.js` — reverse transpiler (JavaScript → KimchiLang). Emits `extern` declarations for JS imports, `Foo.new()` for constructors.
 - `src/static-parser.js` — parses `.static` config files (like `project.static`)
 - `src/package-manager.js` — GitHub-based dependency management
 - `stdlib/` — standard library modules (array, string, object, math, http, etc.)
