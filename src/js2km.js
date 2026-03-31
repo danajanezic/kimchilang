@@ -95,13 +95,12 @@ export class JS2KM {
       const init = decl.init ? this.visitExpression(decl.init) : 'null';
       const prefix = expose ? 'expose ' : '';
       
-      // Handle require() calls - convert to dep statement
+      // Handle require() calls - convert to extern statement
       if (decl.init && decl.init.type === 'CallExpression' &&
           decl.init.callee.name === 'require' &&
           decl.init.arguments.length > 0) {
         const modulePath = decl.init.arguments[0].value;
-        const depPath = modulePath.replace(/[\/\.]/g, '.').replace(/^\.+/, '');
-        this.emit(`as ${name} dep ${depPath}`);
+        this.emit(`extern default "${modulePath}" as ${name}: any`);
       } else {
         this.emit(`${prefix}dec ${name} = ${init}`);
       }
@@ -415,15 +414,30 @@ export class JS2KM {
 
   visitImportDeclaration(node) {
     const source = node.source.value;
-    
-    for (const spec of node.specifiers) {
-      if (spec.type === 'ImportDefaultSpecifier') {
-        this.emit(`// Import: ${spec.local.name} from "${source}"`);
-        this.emit(`as ${spec.local.name} dep ${source.replace(/[\/\.]/g, '.')}`);
-      } else if (spec.type === 'ImportSpecifier') {
-        this.emit(`// Import: { ${spec.imported.name} } from "${source}"`);
-        this.emit(`as ${spec.local.name} dep ${source.replace(/[\/\.]/g, '.')}`);
+
+    const namedSpecs = node.specifiers.filter(s => s.type === 'ImportSpecifier');
+    const defaultSpec = node.specifiers.find(s => s.type === 'ImportDefaultSpecifier');
+    const namespaceSpec = node.specifiers.find(s => s.type === 'ImportNamespaceSpecifier');
+
+    // Named imports: extern "module" { dec name: any ... }
+    if (namedSpecs.length > 0) {
+      this.emit(`extern "${source}" {`);
+      this.indent++;
+      for (const spec of namedSpecs) {
+        this.emit(`dec ${spec.local.name}: any`);
       }
+      this.indent--;
+      this.emit('}');
+    }
+
+    // Default import: extern default "module" as name: any
+    if (defaultSpec) {
+      this.emit(`extern default "${source}" as ${defaultSpec.local.name}: any`);
+    }
+
+    // Namespace import: extern default "module" as name: any
+    if (namespaceSpec) {
+      this.emit(`extern default "${source}" as ${namespaceSpec.local.name}: any`);
     }
   }
 
