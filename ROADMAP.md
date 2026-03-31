@@ -35,7 +35,8 @@ Planned improvements:
 - [x] ~~Remove `js { }` interop~~ — replaced by extern declarations and `Foo.new()` constructor syntax
 - [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
 - [x] ~~Drop `async`/`await`~~ — compiler auto-detects async-ness from call graph. `sleep ms` replaces manual Promise construction.
-- [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords.
+- [ ] Frontend build system — bundle `.km` files into browser-ready JS. Dev server with hot reload, production builds with minification/tree-shaking. Prerequisite for `.kmx` frontend development.
+- [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords. Requires frontend build system.
 
 ## Tooling
 
