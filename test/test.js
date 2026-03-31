@@ -1593,6 +1593,40 @@ test('STATUS enum not emitted without hoard', () => {
   assertEqual(hasStatus, false);
 });
 
+test('Generate worker inside collect without double await', () => {
+  const source = `async fn main() {
+  dec [a, b] = collect [
+    worker(x) { return x * 2 },
+    worker(y) { return y + 1 }
+  ]
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  // Worker inside collect should NOT have await — collect handles it
+  assertContains(js, 'Promise.all([');
+  assertContains(js, '_worker(');
+  // The worker calls inside Promise.all should not be individually awaited
+  const workerInAll = js.match(/Promise\.all\(\[([^\]]+)\]/);
+  assertEqual(workerInAll !== null, true);
+  const insideAll = workerInAll[1];
+  assertEqual(insideAll.includes('await'), false);
+});
+
+test('Generate spawn inside collect without double await', () => {
+  const source = `async fn main() {
+  dec [a, b] = collect [
+    spawn { cmd1 },
+    spawn { cmd2 }
+  ]
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'Promise.all([');
+  assertContains(js, '_spawn(');
+  const spawnInAll = js.match(/Promise\.all\(\[([^\]]+)\]/);
+  assertEqual(spawnInAll !== null, true);
+  const insideAll = spawnInAll[1];
+  assertEqual(insideAll.includes('await'), false);
+});
+
 // === E2E: Concurrency Primitives ===
 
 test('E2E: collect compiles to working Promise.all', () => {

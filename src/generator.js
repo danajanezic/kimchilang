@@ -1273,6 +1273,34 @@ export class CodeGenerator {
         const args = elem.arguments.map(a => this.visitExpression(a)).join(', ');
         return `${callee}(${args})`;
       }
+      if (elem.type === NodeType.WorkerExpression) {
+        // Worker inside collect/hoard/race — emit without await
+        const params = elem.inputs.join(', ');
+        const savedOutput = this.output;
+        this.output = '';
+        const savedIndent = this.indent;
+        this.indent = 0;
+        if (elem.body && elem.body.body) {
+          for (const stmt of elem.body.body) {
+            this.visitStatement(stmt);
+          }
+        }
+        const bodyCode = this.output;
+        this.output = savedOutput;
+        this.indent = savedIndent;
+        const fnLiteral = `function(${params}) {\n${bodyCode}}`;
+        const argsList = elem.inputs.length > 0 ? `[${elem.inputs.join(', ')}]` : '[]';
+        return `_worker(${fnLiteral}, ${argsList})`;
+      }
+      if (elem.type === NodeType.SpawnBlock) {
+        // Spawn inside collect/hoard/race — emit without await
+        const command = JSON.stringify(elem.command);
+        if (elem.inputs.length === 0) {
+          return `_spawn(${command})`;
+        }
+        const inputsObj = `{ ${elem.inputs.join(', ')} }`;
+        return `_spawn(${command}, ${inputsObj})`;
+      }
       // Bare identifier — invoke with no args
       return `${this.visitExpression(elem)}()`;
     });
