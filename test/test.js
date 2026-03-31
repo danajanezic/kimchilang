@@ -2090,6 +2090,87 @@ test('Generate multiple extern blocks from same module', () => {
   assertContains(js, "from 'node:fs'");
 });
 
+test('E2E: extern named fn compiles with type checking', () => {
+  const source = `
+extern "node:fs" {
+  fn readFileSync(path: string): string
+  fn existsSync(path: string): boolean
+}
+
+fn main() {
+  dec content = readFileSync("file.txt")
+  dec exists = existsSync("file.txt")
+  print content
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { readFileSync, existsSync } from 'node:fs'");
+  assertContains(js, 'readFileSync("file.txt")');
+  assertContains(js, 'existsSync("file.txt")');
+});
+
+test('E2E: extern default compiles with type checking', () => {
+  const source = `
+extern default "express" as express: any
+
+fn main() {
+  dec app = express()
+  print app
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import express from 'express'");
+  assertContains(js, 'express()');
+});
+
+test('E2E: extern dec value compiles with type checking', () => {
+  const source = `
+extern "node:process" {
+  dec argv: any
+}
+
+fn main() {
+  dec args = argv
+  print args
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { argv } from 'node:process'");
+});
+
+test('E2E: extern with async and collect', () => {
+  const source = `
+extern "node:fs/promises" {
+  fn readFile(path: string): any
+}
+
+async fn main() {
+  dec [a, b] = collect [readFile.("a.txt"), readFile.("b.txt")]
+  print a
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { readFile } from 'node:fs/promises'");
+  assertContains(js, 'Promise.all([readFile("a.txt"), readFile("b.txt")])');
+});
+
+test('E2E: extern unused symbols not imported', () => {
+  const source = `
+extern "node:fs" {
+  fn readFileSync(path: string): string
+  fn writeFileSync(path: string, data: string): void
+}
+
+fn main() {
+  dec x = readFileSync("f")
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { readFileSync } from 'node:fs'");
+  const importLine = js.split('\n').find(l => l.includes("from 'node:fs'"));
+  assertEqual(importLine.includes('writeFileSync'), false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
