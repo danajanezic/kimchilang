@@ -84,6 +84,24 @@ test('Tokenize operators', () => {
   assertEqual(tokens2[13].type, 'FLOW');
 });
 
+test('Tokenize collect keyword', () => {
+  const tokens = tokenize('collect [a, b]');
+  assertEqual(tokens[0].type, 'COLLECT');
+  assertEqual(tokens[0].value, 'collect');
+});
+
+test('Tokenize hoard keyword', () => {
+  const tokens = tokenize('hoard [a, b]');
+  assertEqual(tokens[0].type, 'HOARD');
+  assertEqual(tokens[0].value, 'hoard');
+});
+
+test('Tokenize race keyword', () => {
+  const tokens = tokenize('race [a, b]');
+  assertEqual(tokens[0].type, 'RACE');
+  assertEqual(tokens[0].value, 'race');
+});
+
 // Parser Tests
 console.log('\n--- Parser Tests ---\n');
 

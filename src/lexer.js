@@ -52,6 +52,9 @@ export const TokenType = {
   AFTER_EACH: 'AFTER_EACH',
   MATCH_KEYWORD: 'MATCH_KEYWORD',
   WHEN: 'WHEN',
+  COLLECT: 'COLLECT',
+  HOARD: 'HOARD',
+  RACE: 'RACE',
 
   // Operators
   PLUS: 'PLUS',
@@ -149,6 +152,9 @@ const KEYWORDS = {
   'afterEach': TokenType.AFTER_EACH,
   'match': TokenType.MATCH_KEYWORD,
   'when': TokenType.WHEN,
+  'collect': TokenType.COLLECT,
+  'hoard': TokenType.HOARD,
+  'race': TokenType.RACE,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,
