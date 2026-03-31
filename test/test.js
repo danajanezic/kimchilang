@@ -2491,6 +2491,46 @@ test('Type checker: error message includes union type', () => {
   assertContains(errors[0].message, 'string | null');
 });
 
+// Task 7: End-to-end tests for union types
+
+test('E2E: extern with union types compiles', () => {
+  const source = `
+extern "node:fs" {
+  fn readFileSync(path: string, encoding: string | null): string | null
+}
+fn main() {
+  dec content = readFileSync("file.txt", null)
+  guard content != null else { return null }
+  print content
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { readFileSync } from 'node:fs'");
+  assertContains(js, 'readFileSync("file.txt", null)');
+});
+
+test('E2E: KMDoc union types compile', () => {
+  const source = `
+/** @param {string | null} name */
+fn greet(name) {
+  guard name != null else { return "anonymous" }
+  return "hello " + name
+}
+dec result = greet(null)
+print result`;
+  const js = compile(source);
+  assertContains(js, 'function greet(name)');
+});
+
+test('E2E: union type error is caught at compile time', () => {
+  const source = 'extern "mod" {\n  fn read(path: string | null): string\n}\ndec x = read(123)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length >= 1, true);
+  assertContains(errors[0].message, 'string | null');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
