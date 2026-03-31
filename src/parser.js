@@ -55,6 +55,7 @@ export const NodeType = {
   ExternDeclaration: 'ExternDeclaration',
   ExternDefaultDeclaration: 'ExternDefaultDeclaration',
   TypeDeclaration: 'TypeDeclaration',
+  ModuleDirective: 'ModuleDirective',
 
   // Patterns
   Property: 'Property',
@@ -265,6 +266,10 @@ export class Parser {
       const decl = this.parseMutDeclaration();
       if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
+    }
+
+    if (this.check(TokenType.MODULE)) {
+      return this.parseModuleDirective();
     }
 
     if (this.check(TokenType.TYPE)) {
@@ -1432,6 +1437,22 @@ export class Parser {
       inputs,
       command,
       isExpression: true,
+    };
+  }
+
+  parseModuleDirective() {
+    this.expect(TokenType.MODULE, 'Expected module');
+    const directiveToken = this.expect(TokenType.IDENTIFIER, 'Expected directive name after module');
+    const directive = directiveToken.value;
+
+    const validDirectives = ['singleton'];
+    if (!validDirectives.includes(directive)) {
+      this.error(`Unknown module directive '${directive}'. Valid directives: ${validDirectives.join(', ')}`);
+    }
+
+    return {
+      type: NodeType.ModuleDirective,
+      directive,
     };
   }
 

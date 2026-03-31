@@ -2780,6 +2780,28 @@ test('Auto-async: extern non-async fn call is NOT awaited', () => {
   assertEqual(hasAwait, false);
 });
 
+test('Tokenize module keyword', () => {
+  const tokens = tokenize('module singleton');
+  assertEqual(tokens[0].type, 'MODULE');
+  assertEqual(tokens[0].value, 'module');
+});
+
+test('Parse module singleton directive', () => {
+  const ast = parse(tokenize('module singleton\nfn main() { return 1 }'));
+  assertEqual(ast.body[0].type, 'ModuleDirective');
+  assertEqual(ast.body[0].directive, 'singleton');
+});
+
+test('Parse module with unknown directive errors', () => {
+  let threw = false;
+  try {
+    parse(tokenize('module foobar'));
+  } catch(e) {
+    threw = true;
+  }
+  assertEqual(threw, true);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
