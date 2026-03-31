@@ -1625,8 +1625,16 @@ export class Parser {
         if (this.check(TokenType.COMMA) || this.check(TokenType.RPAREN) || this.check(TokenType.RBRACE) || this.check(TokenType.NEWLINE)) {
           break;
         }
-        // Stop at keywords that start a new declaration inside extern block
-        if (this.check(TokenType.FN) || this.check(TokenType.DEC)) {
+        // Stop at keywords that start a new declaration
+        if (this.check(TokenType.FN) || this.check(TokenType.DEC) ||
+            this.check(TokenType.EXTERN) || this.check(TokenType.TYPE) ||
+            this.check(TokenType.EXPOSE) || this.check(TokenType.ASYNC) ||
+            this.check(TokenType.AS) || this.check(TokenType.IF) ||
+            this.check(TokenType.FOR) || this.check(TokenType.WHILE) ||
+            this.check(TokenType.RETURN) || this.check(TokenType.MUT) ||
+            this.check(TokenType.ENUM) || this.check(TokenType.GUARD) ||
+            this.check(TokenType.TEST) || this.check(TokenType.DESCRIBE) ||
+            this.check(TokenType.PRINT)) {
           break;
         }
       }
