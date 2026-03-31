@@ -2718,6 +2718,76 @@ dec x = find([1, 2], 123)`;
   assertEqual(typeErrors.length, 1);
 });
 
+// --- Generics: End-to-End Tests (Task 6) ---
+console.log('\n--- Generics: End-to-End Tests ---\n');
+
+test('E2E: type declaration compiles (produces no JS)', () => {
+  const source = `
+type Optional<T> = T | null
+type Result<T> = {ok: boolean, value: T}
+
+fn main() {
+  dec x = 1
+  print x
+}
+main()`;
+  const js = compile(source);
+  const hasTypeDec = js.includes('Optional') || js.includes('Result');
+  assertEqual(hasTypeDec, false);
+  assertContains(js, 'function main()');
+});
+
+test('E2E: extern generic fn compiles with type checking', () => {
+  const source = `
+extern "mod" {
+  fn identity<T>(value: T): T
+}
+fn main() {
+  dec x = identity("hello")
+  print x
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { identity } from 'mod'");
+  assertContains(js, 'identity("hello")');
+});
+
+test('E2E: type alias used in extern', () => {
+  const source = `
+type Result<T> = {ok: boolean, value: T}
+
+extern "mod" {
+  fn query(sql: string): Result<string>
+}
+
+fn main() {
+  dec r = query("SELECT 1")
+  print r.ok
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { query } from 'mod'");
+});
+
+test('E2E: generic + union types compose', () => {
+  const source = `
+type Optional<T> = T | null
+
+extern "mod" {
+  fn find<T>(arr: T[]): Optional<T>
+}
+
+fn main() {
+  dec nums = [1, 2, 3]
+  dec x = find(nums)
+  guard x != null else { return null }
+  print x
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, "import { find } from 'mod'");
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
