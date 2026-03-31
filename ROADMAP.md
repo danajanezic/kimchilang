@@ -47,6 +47,7 @@
 - [x] ~~`worker { code }` — run CPU-bound code on a separate thread (`worker_threads`). Data serialized in/out, no shared memory. Returns Promise.~~
 - [x] ~~`spawn { command }` — async child process (non-blocking `shell`), returns handle with `stdout`, `stderr`, `pid`, `kill()`~~
 - [ ] Channel-based communication between workers
+- [ ] Cancellable timers — `dec timer = after ms { body }` with `timer.cancel()`. Scheduled async callbacks with cancellation support.
 
 ## Web Framework
 
