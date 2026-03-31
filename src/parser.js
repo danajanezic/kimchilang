@@ -616,7 +616,9 @@ export class Parser {
   parseFunctionDeclaration() {
     this.expect(TokenType.FN, 'Expected fn');
     const async = false; // TODO: handle async
-    const name = this.expect(TokenType.IDENTIFIER, 'Expected function name').value;
+    // Accept keywords as function names (e.g., fn race(...))
+    const nameToken = this.advance();
+    const name = nameToken.value;
     
     this.expect(TokenType.LPAREN, 'Expected (');
     const params = this.parseParameterList();

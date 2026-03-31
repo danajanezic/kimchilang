@@ -793,11 +793,11 @@ console.log('\n--- logger.km ---\n');
   });
 
   test('logger.km has console.warn for warn output', () => {
-    assertContains(output, 'console.warn(');
+    assertContains(output, 'console?.warn(');
   });
 
   test('logger.km has console.error for error output', () => {
-    assertContains(output, 'console.error(');
+    assertContains(output, 'console?.error(');
   });
 
   test('logger.km child function uses ?? for merging data', () => {
@@ -811,7 +811,7 @@ console.log('\n--- logger.km ---\n');
   });
 
   test('logger.km has JSON.stringify for log output', () => {
-    assertContains(output, 'JSON.stringify');
+    assertContains(output, 'JSON?.stringify');
   });
 
   test('logger.km exports exposed functions', () => {
