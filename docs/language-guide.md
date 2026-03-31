@@ -305,7 +305,7 @@ See also: [Concurrency & Parallel Computation](concurrency.md)
 
 ### Async Behavior
 
-The compiler auto-detects which functions are async. No `async` or `await` keywords — just call functions normally. Functions containing `shell`, `spawn`, `worker`, `collect`, `hoard`, `race`, `sleep`, or calls to extern `async fn` are automatically compiled as JavaScript `async` functions with `await` inserted at call sites.
+The compiler auto-detects which functions are async. No `async` or `await` keywords — just call functions normally. Functions containing `shell`, `spawn`, `worker`, `collect`, `hoard`, `race`, `sleep`, or calls to async extern functions are automatically compiled as JavaScript `async` functions with `await` inserted at call sites.
 
 ```kimchi
 fn fetchUser(id) {

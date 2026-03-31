@@ -67,10 +67,10 @@ The reverse transpiler handles:
 - Function declarations -> `fn`
 - Classes -> factory functions
 - `import` / `require()` -> `extern` declarations
-- `new X()` -> `js { return new X(); }` (until `Foo.new()` is used)
+- `new X()` -> `X.new()`
 - Named/default exports -> `expose`
 - `console.log` -> `print`
-- `async` functions preserved
+- `async`/`await` stripped (compiler auto-detects)
 
 ## NPM Integration
 
