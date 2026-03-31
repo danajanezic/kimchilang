@@ -1481,7 +1481,15 @@ export class Parser {
 
     this.skipNewlines();
     while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
-      if (this.check(TokenType.FN)) {
+      if (this.check(TokenType.FN) || this.check(TokenType.ASYNC)) {
+        let isAsync = false;
+        if (this.check(TokenType.ASYNC)) {
+          this.advance(); // consume async
+          isAsync = true;
+          if (!this.check(TokenType.FN)) {
+            this.error('Expected fn after async in extern block');
+          }
+        }
         this.advance(); // consume fn
         const name = this.expect(TokenType.IDENTIFIER, 'Expected function name').value;
 
@@ -1511,7 +1519,7 @@ export class Parser {
         this.expect(TokenType.COLON, 'Expected : before return type');
         const returnType = this.parseExternType();
 
-        declarations.push({ kind: 'function', name, typeParams, params, returnType });
+        declarations.push({ kind: 'function', name, typeParams, params, returnType, async: isAsync });
       } else if (this.check(TokenType.DEC)) {
         this.advance(); // consume dec
         // Value name might be a keyword token (e.g. 'env'), so accept any non-delimiter token

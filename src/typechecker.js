@@ -601,6 +601,7 @@ export class TypeChecker {
               typeParams,
               params: paramTypes,
               returnType,
+              async: !!decl.async,
               kmdocParams: new Map(paramTypes.map(p => [p.name, p.type])),
             });
           } else if (decl.kind === 'value') {

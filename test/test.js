@@ -2579,6 +2579,16 @@ test('Parse extern fn without type params still works', () => {
   assertEqual(fn.typeParams.length, 0);
 });
 
+test('Parse extern async fn', () => {
+  const source = 'extern "pg" {\n  async fn query(sql: string): any\n  fn escape(str: string): string\n}';
+  const ast = parse(tokenize(source));
+  const decls = ast.body[0].declarations;
+  assertEqual(decls[0].async, true);
+  assertEqual(decls[0].name, 'query');
+  assertEqual(decls[1].async, false);
+  assertEqual(decls[1].name, 'escape');
+});
+
 // --- Generics: Type Aliases & Substitution (Task 3) ---
 console.log('\n--- Generics: Type Aliases & Substitution ---\n');
 
