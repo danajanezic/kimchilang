@@ -6,6 +6,8 @@ Remove `async` and `await` keywords from KimchiLang syntax. The compiler auto-de
 
 This is the final step in the async simplification journey. The concurrency primitives (`collect`, `hoard`, `race`, `worker`, `spawn`) already use implicit await. Now all async operations become implicit.
 
+Also adds `sleep ms` as a built-in statement — pauses execution for N milliseconds. This eliminates the last reason a user would need to construct a `Promise` manually. With `sleep`, `extern async fn`, and the concurrency primitives, Promises are purely a compiler implementation detail.
+
 ## Before and after
 
 ### Before
@@ -40,6 +42,47 @@ fn main() {
 
 Both produce identical JavaScript output — the compiler inserts `async` and `await` automatically.
 
+## sleep statement
+
+`sleep ms` pauses execution for the given number of milliseconds. It is a statement (no return value), like `print`.
+
+```kimchi
+fn retryWithBackoff(attempts) {
+  mut i = 0
+  while i < attempts {
+    dec result = tryOperation()
+    guard result == null else { return result }
+    sleep 1000 * (i + 1)
+    i += 1
+  }
+  return null
+}
+```
+
+Compiles to:
+
+```javascript
+await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+```
+
+`sleep` is an async marker — any function containing `sleep` is auto-detected as async. Functions calling a function that contains `sleep` are also auto-async (transitive propagation).
+
+### AST node
+
+```
+{
+  type: "SleepStatement",
+  duration: Expression    // any expression that evaluates to a number
+}
+```
+
+### Compiler pipeline
+
+- **Lexer:** Add `SLEEP` keyword token
+- **Parser:** Parse `sleep <expression>` as `SleepStatement`
+- **Generator:** Emit `await new Promise(resolve => setTimeout(resolve, <duration>));`
+- **Auto-detection:** `SleepStatement` is an async marker (like shell/spawn/worker)
+
 ## Auto-detection algorithm
 
 ### Two-pass approach in the generator
@@ -51,6 +94,7 @@ Both produce identical JavaScript output — the compiler inserts `async` and `a
    - `spawn { }` blocks
    - `worker(args) { }` expressions
    - `collect [...]` / `hoard [...]` / `race [...]` expressions
+   - `sleep ms` statements
    - Calls to extern functions marked `async fn`
 
 2. **Propagation pass:** Mark functions that call any async-marked function. A function is async if it calls another async function.
@@ -120,11 +164,14 @@ Wait — we're removing the `ASYNC` token. Instead, recognize `async` as an iden
 ### Lexer
 - Keep `ASYNC` token (needed for extern `async fn`)
 - Remove `AWAIT` token and `'await'` keyword mapping
+- Add `SLEEP` token and `'sleep'` keyword mapping
 
 ### Parser
 - Remove `AwaitExpression` from NodeType enum
+- Add `SleepStatement` to NodeType enum
 - Remove the `if (this.check(TokenType.ASYNC))` block in `parseStatement` that handles `async fn` declarations. Replace with a parse error: `"async/await keywords have been removed. The compiler auto-detects async functions."`
 - Remove await expression parsing from `parsePrimary`
+- Add `sleep <expression>` parsing in `parseStatement`
 - Add `async fn` support in extern declarations (decl.async field)
 
 ### Type checker
@@ -198,12 +245,13 @@ Note: since `fetchUser`/`enrichUser`/`formatUser` in this example are actually s
 
 ## Implementation order
 
-1. Add `async fn` support to extern declaration parsing (parser)
-2. Update extern `httpRequest` in stdlib to be `async fn`
-3. Build the two-pass auto-detection in the generator
-4. Remove `await` keyword and `AwaitExpression` from lexer/parser
-5. Remove `async fn` from regular function declarations (keep in extern only)
-6. Remove `_insideAsync` from type checker
-7. Migrate stdlib and examples
-8. Update tests
-9. Update docs and roadmap
+1. Add `sleep` keyword, parser, generator support
+2. Add `async fn` support to extern declaration parsing (parser)
+3. Update extern `httpRequest` in stdlib to be `async fn`
+4. Build the two-pass auto-detection in the generator
+5. Remove `await` keyword and `AwaitExpression` from lexer/parser
+6. Remove `async fn` from regular function declarations (keep in extern only)
+7. Remove `_insideAsync` from type checker
+8. Migrate stdlib and examples (remove `async fn` and `await`)
+9. Update tests
+10. Update docs and roadmap
