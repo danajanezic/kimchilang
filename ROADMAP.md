@@ -10,7 +10,7 @@
 - [x] ~~Require all-implicit or all-explicit enum values~~ — mixed is now a parse error
 - [ ] Algebraic data types / tagged unions for richer domain modeling
 - [x] ~~Exhaustiveness checking on match patterns~~ — implemented for enum variant matching
-- [ ] Union types (`string | null`)
+- [x] ~~Union types (`string | null`)~~ — supported in extern and KMDocs, one-way compatibility, guard-based narrowing
 - [ ] Generic/parameterized types
 - [x] ~~Compound assignment operators for mut (`+=`, `-=`, `*=`, `/=`)~~ — already supported
 - [x] ~~`Foo.new(args)` constructor syntax — `new` as a static method on the base object/function, compiles to `new Foo(args)`. Enables chaining without variable assignment: `Date.new().toISOString()`. Replaces broken `new Foo()` keyword form.~~
