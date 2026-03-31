@@ -2843,6 +2843,51 @@ test('Generate module singleton with deps', () => {
   assertContains(js, '_dep_db');
 });
 
+test('E2E: module singleton compiles with type checking', () => {
+  const source = `
+module singleton
+
+expose fn greet(name) {
+  return "hello " + name
+}`;
+  const js = compile(source);
+  assertContains(js, 'let _singletonCache;');
+  assertContains(js, 'if (_singletonCache && !_hasOverrides) return _singletonCache;');
+  assertContains(js, 'function greet(name)');
+});
+
+test('E2E: module singleton with args compiles', () => {
+  const source = `
+module singleton
+
+!arg dbUrl
+
+expose fn getUrl() {
+  return dbUrl
+}`;
+  const js = compile(source);
+  assertContains(js, '_singletonCache');
+  assertContains(js, "Required argument 'dbUrl'");
+});
+
+test('E2E: module singleton with extern compiles', () => {
+  const source = `
+module singleton
+
+extern "pg" {
+  dec Pool: any
+}
+
+dec pool = Pool.new({host: "localhost"})
+
+expose fn query(sql) {
+  return pool
+}`;
+  const js = compile(source);
+  assertContains(js, '_singletonCache');
+  assertContains(js, "import { Pool } from 'pg'");
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
