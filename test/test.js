@@ -3,6 +3,7 @@
 import { compile, tokenize, parse, generate, KimchiCompiler } from '../src/index.js';
 import { TypeChecker } from '../src/typechecker.js';
 import { Linter } from '../src/linter.js';
+import { convertJS } from '../src/js2km.js';
 
 let passed = 0;
 let failed = 0;
@@ -2169,6 +2170,80 @@ main()`;
   assertContains(js, "import { readFileSync } from 'node:fs'");
   const importLine = js.split('\n').find(l => l.includes("from 'node:fs'"));
   assertEqual(importLine.includes('writeFileSync'), false);
+});
+
+// --- Reverse Compiler (js2km) Tests ---
+console.log('\n--- Reverse Compiler Tests ---\n');
+
+test('js2km: named imports become extern block', () => {
+  const km = convertJS('import { readFileSync, writeFileSync } from "node:fs";');
+  assertContains(km, 'extern "node:fs" {');
+  assertContains(km, 'dec readFileSync: any');
+  assertContains(km, 'dec writeFileSync: any');
+});
+
+test('js2km: default import becomes extern default', () => {
+  const km = convertJS('import express from "express";');
+  assertContains(km, 'extern default "express" as express: any');
+});
+
+test('js2km: require becomes extern default', () => {
+  const km = convertJS('const pg = require("pg");');
+  assertContains(km, 'extern default "pg" as pg: any');
+});
+
+test('js2km: new expression emits js block', () => {
+  const km = convertJS('const d = new Date();');
+  assertContains(km, 'js { return new Date(); }');
+});
+
+test('js2km: async function preserved', () => {
+  const km = convertJS('async function fetchData(url) { return await fetch(url); }');
+  assertContains(km, 'async fn fetchData(url)');
+});
+
+test('js2km: async arrow function preserved', () => {
+  const km = convertJS('const f = async (x) => { return x; };');
+  assertContains(km, 'async fn(x)');
+});
+
+test('js2km: Express app reverse compiles', () => {
+  const km = convertJS(`
+import express from 'express';
+import { json } from 'express';
+import { Pool } from 'pg';
+
+const app = express();
+app.use(json());
+
+const pool = new Pool({ host: 'localhost' });
+
+app.get('/users', async (req, res) => {
+  const result = await pool.query('SELECT * FROM users');
+  res.json(result.rows);
+});
+
+app.listen(3000, () => {
+  console.log('running');
+});
+`);
+  // Extern declarations
+  assertContains(km, 'extern default "express" as express: any');
+  assertContains(km, 'extern "express" {');
+  assertContains(km, 'dec json: any');
+  assertContains(km, 'extern "pg" {');
+  assertContains(km, 'dec Pool: any');
+  // App setup
+  assertContains(km, 'dec app = express()');
+  assertContains(km, 'app.use(json())');
+  // new Pool uses js {} block
+  assertContains(km, 'js { return new Pool(');
+  // Route handler is async
+  assertContains(km, 'async fn(req, res)');
+  // Await preserved
+  assertContains(km, 'await pool.query(');
+  // console.log becomes print
+  assertContains(km, 'print');
 });
 
 // Summary

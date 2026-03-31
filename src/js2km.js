@@ -111,8 +111,9 @@ export class JS2KM {
     const name = node.id.name;
     const params = node.params.map(p => this.visitPattern(p)).join(', ');
     const prefix = expose ? 'expose ' : '';
-    
-    this.emit(`${prefix}fn ${name}(${params}) {`);
+    const asyncPrefix = node.async ? 'async ' : '';
+
+    this.emit(`${prefix}${asyncPrefix}fn ${name}(${params}) {`);
     this.indent++;
     
     for (const stmt of node.body.body) {
@@ -488,11 +489,12 @@ export class JS2KM {
         const args = node.arguments.map(a => this.visitExpression(a)).join(', ');
         return `${callee}(${args})`;
       
-      case 'NewExpression':
-        // Transform new X() to createX() or X()
-        const className = this.visitExpression(node.callee);
+      case 'NewExpression': {
+        // Emit as js { new X(...) } until Foo.new() is implemented
+        const ctorName = this.visitExpression(node.callee);
         const newArgs = node.arguments.map(a => this.visitExpression(a)).join(', ');
-        return `create${className}(${newArgs})`;
+        return `js { return new ${ctorName}(${newArgs}); }`;
+      }
       
       case 'ArrayExpression':
         const elements = node.elements.map(e => {
@@ -518,20 +520,29 @@ export class JS2KM {
         return `{ ${props} }`;
       
       case 'ArrowFunctionExpression':
-      case 'FunctionExpression':
+      case 'FunctionExpression': {
         const fnParams = node.params.map(p => this.visitPattern(p)).join(', ');
+        const asyncPrefix = node.async ? 'async ' : '';
         if (node.body.type === 'BlockStatement') {
-          // Multi-line arrow function
-          let body = [];
+          // Multi-line function — visit all statements
+          const savedOutput = this.output;
+          const savedIndent = this.indent;
+          this.output = [];
+          this.indent = 0;
           for (const stmt of node.body.body) {
-            // Simplified - just get the expression
-            if (stmt.type === 'ReturnStatement' && stmt.argument) {
-              body.push(`return ${this.visitExpression(stmt.argument)}`);
-            }
+            this.visitNode(stmt);
           }
-          return `fn(${fnParams}) { ${body.join('; ')} }`;
+          const bodyLines = this.output;
+          this.output = savedOutput;
+          this.indent = savedIndent;
+          if (bodyLines.length <= 1) {
+            return `${asyncPrefix}fn(${fnParams}) { ${bodyLines.join('')} }`;
+          }
+          const indented = bodyLines.map(l => '  ' + l).join('\n');
+          return `${asyncPrefix}fn(${fnParams}) {\n${indented}\n}`;
         }
         return `${fnParams} => ${this.visitExpression(node.body)}`;
+      }
       
       case 'ConditionalExpression':
         return `${this.visitExpression(node.test)} ? ${this.visitExpression(node.consequent)} : ${this.visitExpression(node.alternate)}`;
