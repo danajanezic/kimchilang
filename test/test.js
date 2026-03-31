@@ -2802,6 +2802,47 @@ test('Parse module with unknown directive errors', () => {
   assertEqual(threw, true);
 });
 
+// Generator: module singleton tests
+
+test('Generate module singleton has cache variable', () => {
+  const source = 'module singleton\nexpose fn hello() { return "hi" }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'let _singletonCache;');
+});
+
+test('Generate module singleton has cache check', () => {
+  const source = 'module singleton\nexpose fn hello() { return "hi" }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_singletonCache');
+  assertContains(js, 'return _singletonCache');
+});
+
+test('Generate module singleton caches result', () => {
+  const source = 'module singleton\nexpose fn hello() { return "hi" }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_singletonCache =');
+});
+
+test('Generate module singleton bypasses cache with overrides', () => {
+  const source = 'module singleton\nexpose fn hello() { return "hi" }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_hasOverrides');
+});
+
+test('Generate non-singleton module has no cache', () => {
+  const source = 'expose fn hello() { return "hi" }';
+  const js = compile(source, { skipTypeCheck: true });
+  const hasCache = js.includes('_singletonCache');
+  assertEqual(hasCache, false);
+});
+
+test('Generate module singleton with deps', () => {
+  const source = 'module singleton\nas db dep myapp.db\nexpose fn query() { return db.run() }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_singletonCache');
+  assertContains(js, '_dep_db');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

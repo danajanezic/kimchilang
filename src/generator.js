@@ -556,8 +556,13 @@ export class CodeGenerator {
       stmt.type !== NodeType.EnvDeclaration &&
       stmt.type !== NodeType.ExternDeclaration &&
       stmt.type !== NodeType.ExternDefaultDeclaration &&
-      stmt.type !== NodeType.TypeDeclaration
+      stmt.type !== NodeType.TypeDeclaration &&
+      stmt.type !== NodeType.ModuleDirective
     );
+
+    // Detect module directives
+    const moduleDirectives = node.body.filter(stmt => stmt.type === NodeType.ModuleDirective);
+    const isSingleton = moduleDirectives.some(d => d.directive === 'singleton');
     
     // Build list of dep paths for distinguishing deps from args in _opts
     const depPaths = depStatements.map(dep => dep.path);
@@ -639,9 +644,19 @@ export class CodeGenerator {
     // Emit conditional runtime helpers (only those actually used)
     this.emitRuntimeExtensions();
     
+    if (isSingleton) {
+      this.emitLine('let _singletonCache;');
+    }
+
     // Export default async factory function
     this.emitLine('export default async function(_opts = {}) {');
     this.pushIndent();
+
+    if (isSingleton) {
+      this.emitLine('const _hasOverrides = Object.keys(_opts).length > 0;');
+      this.emitLine('if (_singletonCache && !_hasOverrides) return _singletonCache;');
+      this.emitLine();
+    }
     
     // Validate required args
     for (const arg of argDeclarations) {
@@ -718,7 +733,13 @@ export class CodeGenerator {
     const exports = this.collectExports(otherStatements);
     if (exports.length > 0) {
       this.emitLine();
-      this.emitLine(`return { ${exports.join(', ')} };`);
+      if (isSingleton) {
+        this.emitLine(`const _exports = { ${exports.join(', ')} };`);
+        this.emitLine('if (!_hasOverrides) _singletonCache = _exports;');
+        this.emitLine('return _exports;');
+      } else {
+        this.emitLine(`return { ${exports.join(', ')} };`);
+      }
     }
     
     this.popIndent();
@@ -859,6 +880,8 @@ export class CodeGenerator {
         break;
       case NodeType.TypeDeclaration:
         // Type declarations are compile-time only — no runtime code
+        break;
+      case NodeType.ModuleDirective:
         break;
       case NodeType.ExpressionStatement:
         if (node.expression.type === NodeType.MatchBlock) {
