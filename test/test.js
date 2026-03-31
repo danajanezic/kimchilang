@@ -1567,6 +1567,77 @@ test('STATUS enum not emitted without hoard', () => {
   assertEqual(hasStatus, false);
 });
 
+// === E2E: Concurrency Primitives ===
+
+test('E2E: collect compiles to working Promise.all', () => {
+  const source = `
+async fn fetchA() { return 1 }
+async fn fetchB() { return 2 }
+async fn main() {
+  dec [a, b] = collect [fetchA, fetchB]
+  print a
+  print b
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await Promise.all([fetchA(), fetchB()])');
+});
+
+test('E2E: hoard compiles with STATUS mapping', () => {
+  const source = `
+async fn ok() { return "yes" }
+async fn fail() { throw error("no") }
+async fn main() {
+  dec results = hoard [ok, fail]
+  print results
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await Promise.allSettled([ok(), fail()])');
+  assertContains(js, 'STATUS.OK');
+  assertContains(js, 'const STATUS = Object.freeze');
+});
+
+test('E2E: race compiles to Promise.race', () => {
+  const source = `
+async fn fast() { return "first" }
+async fn slow() { return "second" }
+async fn main() {
+  dec winner = race [fast, slow]
+  print winner
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await Promise.race([fast(), slow()])');
+});
+
+test('E2E: bind expression with args in collect', () => {
+  const source = `
+async fn fetch(id) { return id }
+async fn main() {
+  dec [a, b] = collect [fetch.(1), fetch.(2)]
+  print a
+  print b
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await Promise.all([fetch(1), fetch(2)])');
+});
+
+test('E2E: bind expression standalone compiles to arrow', () => {
+  const js = compile('async fn main() { dec f = fetch.(1, 2) }', { skipTypeCheck: true });
+  assertContains(js, '() => fetch(1, 2)');
+});
+
+test('E2E: collect outside async fn produces type error', () => {
+  const source = 'fn main() { dec x = collect [a, b] }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length >= 1, true);
+  assertContains(errors[0].message, 'must be inside an async function');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
