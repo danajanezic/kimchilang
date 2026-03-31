@@ -1520,6 +1520,53 @@ test('Type checker: collect at top level is an error', () => {
   assertEqual(concurrencyErrors.length, 1);
 });
 
+// === Generator: collect and race ===
+
+test('Generate collect expression with bare identifiers', () => {
+  const js = compile('async fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.all([a(), b()])');
+});
+
+test('Generate collect with bind expressions', () => {
+  const js = compile('async fn main() { dec x = collect [fetch.(1), fetch.(2)] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.all([fetch(1), fetch(2)])');
+});
+
+test('Generate collect with mixed identifiers and bind', () => {
+  const js = compile('async fn main() { dec x = collect [fetchAll, fetchOne.(1)] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.all([fetchAll(), fetchOne(1)])');
+});
+
+test('Generate race expression', () => {
+  const js = compile('async fn main() { dec x = race [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.race([a(), b()])');
+});
+
+test('Generate race with bind expressions', () => {
+  const js = compile('async fn main() { dec x = race [fast.("url1"), fast.("url2")] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.race([fast("url1"), fast("url2")])');
+});
+
+// === Generator: hoard with STATUS enum ===
+
+test('Generate hoard expression', () => {
+  const js = compile('async fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.allSettled([a(), b()])');
+  assertContains(js, 'STATUS.OK');
+  assertContains(js, 'STATUS.REJECTED');
+});
+
+test('Generate hoard emits STATUS enum', () => {
+  const js = compile('async fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'const STATUS = Object.freeze({ OK: "OK", REJECTED: "REJECTED" })');
+});
+
+test('STATUS enum not emitted without hoard', () => {
+  const js = compile('async fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  const hasStatus = js.includes('const STATUS');
+  assertEqual(hasStatus, false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

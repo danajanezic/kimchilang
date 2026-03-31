@@ -64,6 +64,7 @@ export class CodeGenerator {
     const scan = (node) => {
       if (!node || typeof node !== 'object') return;
       if (node.type) features.add(node.type);
+      if (node.type === 'ConcurrentExpression' && node.mode === 'hoard') features.add('hoard');
       if (node.secret) features.add('secret');
       for (const key of Object.keys(node)) {
         const val = node[key];
@@ -197,7 +198,12 @@ export class CodeGenerator {
     this.emitLine('}');
     this.emitLine();
     }
-    
+
+    // STATUS enum for hoard results
+    if (this.usedFeatures && this.usedFeatures.has('hoard')) {
+      this.emitLine('const STATUS = Object.freeze({ OK: "OK", REJECTED: "REJECTED" });');
+    }
+
     // Testing framework runtime
     const hasTests = this.usedFeatures && (
       this.usedFeatures.has('TestBlock') ||
@@ -1125,6 +1131,10 @@ export class CodeGenerator {
         return this.visitMatchBlock(node);
       case NodeType.ConditionalMethodExpression:
         return this.visitConditionalMethodExpression(node);
+      case NodeType.ConcurrentExpression:
+        return this.visitConcurrentExpression(node);
+      case NodeType.BindExpression:
+        return this.visitBindExpression(node);
       default:
         throw new Error(`Unknown expression type: ${node.type}`);
     }
@@ -1135,6 +1145,35 @@ export class CodeGenerator {
     const condition = this.visitExpression(node.condition);
     const fallback = node.fallback ? this.visitExpression(node.fallback) : 'null';
     return `((${condition}) ? ${receiver} : ${fallback})`;
+  }
+
+  visitConcurrentExpression(node) {
+    const elements = node.elements.map(elem => {
+      if (elem.type === NodeType.BindExpression) {
+        const callee = this.visitExpression(elem.callee);
+        const args = elem.arguments.map(a => this.visitExpression(a)).join(', ');
+        return `${callee}(${args})`;
+      }
+      // Bare identifier — invoke with no args
+      return `${this.visitExpression(elem)}()`;
+    });
+
+    const list = elements.join(', ');
+
+    switch (node.mode) {
+      case 'collect':
+        return `await Promise.all([${list}])`;
+      case 'race':
+        return `await Promise.race([${list}])`;
+      case 'hoard':
+        return `await Promise.allSettled([${list}]).then(r => r.map(x => x.status === "fulfilled" ? { status: STATUS.OK, value: x.value } : { status: STATUS.REJECTED, error: x.reason }))`;
+    }
+  }
+
+  visitBindExpression(node) {
+    const callee = this.visitExpression(node.callee);
+    const args = node.arguments.map(a => this.visitExpression(a)).join(', ');
+    return `() => ${callee}(${args})`;
   }
 
   visitLiteral(node) {
