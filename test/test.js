@@ -1751,6 +1751,65 @@ test('Type checker: spawn inside async fn is valid', () => {
   assertEqual(spawnErrors.length, 0);
 });
 
+// --- Generator: spawn tests ---
+
+test('Generate spawn expression', () => {
+  const js = compile('async fn main() { dec x = spawn { ls -la } }', { skipTypeCheck: true });
+  assertContains(js, 'await _spawn("ls -la")');
+});
+
+test('Generate spawn expression with inputs', () => {
+  const js = compile('async fn main() { dec x = spawn(dir) { ls $dir } }', { skipTypeCheck: true });
+  assertContains(js, 'await _spawn("ls $dir", { dir })');
+});
+
+test('Generate spawn as statement', () => {
+  const js = compile('async fn main() { spawn { echo hello } }', { skipTypeCheck: true });
+  assertContains(js, 'await _spawn("echo hello")');
+});
+
+test('Generate spawn emits _spawn helper', () => {
+  const js = compile('async fn main() { dec x = spawn { ls } }', { skipTypeCheck: true });
+  assertContains(js, 'async function _spawn(');
+});
+
+test('_spawn helper not emitted without spawn', () => {
+  const js = compile('fn main() { dec x = 1 }', { skipTypeCheck: true });
+  const hasSpawn = js.includes('function _spawn');
+  assertEqual(hasSpawn, false);
+});
+
+// --- Generator: worker tests ---
+
+test('Generate worker expression with inputs', () => {
+  const js = compile('async fn main() { dec x = worker(data) { return data * 2 } }', { skipTypeCheck: true });
+  assertContains(js, 'await _worker(');
+  assertContains(js, 'data * 2');
+});
+
+test('Generate worker expression with no inputs', () => {
+  const js = compile('async fn main() { dec x = worker() { return 42 } }', { skipTypeCheck: true });
+  assertContains(js, 'await _worker(');
+  assertContains(js, 'return 42');
+});
+
+test('Generate worker expression with multiple inputs', () => {
+  const js = compile('async fn main() { dec x = worker(a, b) { return a + b } }', { skipTypeCheck: true });
+  assertContains(js, 'await _worker(');
+  assertContains(js, '[a, b]');
+});
+
+test('Generate worker emits _worker helper', () => {
+  const js = compile('async fn main() { dec x = worker() { return 1 } }', { skipTypeCheck: true });
+  assertContains(js, 'async function _worker(');
+});
+
+test('_worker helper not emitted without worker', () => {
+  const js = compile('fn main() { dec x = 1 }', { skipTypeCheck: true });
+  const hasWorker = js.includes('function _worker');
+  assertEqual(hasWorker, false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

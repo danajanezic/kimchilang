@@ -3,21 +3,21 @@
 import { NodeType } from './parser.js';
 
 // Helper to check if a node or its children contain shell blocks
-function containsShellBlock(node) {
+function containsAsyncBlock(node) {
   if (!node) return false;
-  if (node.type === NodeType.ShellBlock) return true;
+  if (node.type === NodeType.ShellBlock || node.type === NodeType.SpawnBlock || node.type === NodeType.WorkerExpression) return true;
   
   // Check all properties that could contain child nodes
   for (const key of Object.keys(node)) {
     const value = node[key];
     if (Array.isArray(value)) {
       for (const item of value) {
-        if (item && typeof item === 'object' && containsShellBlock(item)) {
+        if (item && typeof item === 'object' && containsAsyncBlock(item)) {
           return true;
         }
       }
     } else if (value && typeof value === 'object' && value.type) {
-      if (containsShellBlock(value)) return true;
+      if (containsAsyncBlock(value)) return true;
     }
   }
   return false;
@@ -202,6 +202,71 @@ export class CodeGenerator {
     // STATUS enum for hoard results
     if (this.usedFeatures && this.usedFeatures.has('hoard')) {
       this.emitLine('const STATUS = Object.freeze({ OK: "OK", REJECTED: "REJECTED" });');
+    }
+
+    // _spawn helper for non-blocking child process
+    if (this.usedFeatures && this.usedFeatures.has('SpawnBlock')) {
+      this.emitLine('async function _spawn(command, inputs = {}) {');
+      this.pushIndent();
+      this.emitLine('const { spawn } = await import("child_process");');
+      this.emitLine('let cmd = command;');
+      this.emitLine('for (const [key, value] of Object.entries(inputs)) {');
+      this.pushIndent();
+      this.emitLine('cmd = cmd.replace(new RegExp("\\\\$" + key + "\\\\b", "g"), String(value));');
+      this.popIndent();
+      this.emitLine('}');
+      this.emitLine('return new Promise((resolve, reject) => {');
+      this.pushIndent();
+      this.emitLine('const proc = spawn("sh", ["-c", cmd]);');
+      this.emitLine('let stdout = "", stderr = "";');
+      this.emitLine('proc.stdout.on("data", (d) => stdout += d);');
+      this.emitLine('proc.stderr.on("data", (d) => stderr += d);');
+      this.emitLine('proc.on("error", reject);');
+      this.emitLine('proc.on("close", (exitCode) => {');
+      this.pushIndent();
+      this.emitLine('resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: exitCode || 0, pid: proc.pid });');
+      this.popIndent();
+      this.emitLine('});');
+      this.popIndent();
+      this.emitLine('});');
+      this.popIndent();
+      this.emitLine('}');
+    }
+
+    // _worker helper for CPU-bound thread execution
+    if (this.usedFeatures && this.usedFeatures.has('WorkerExpression')) {
+      this.emitLine('async function _worker(fn, args) {');
+      this.pushIndent();
+      this.emitLine('const { Worker } = await import("worker_threads");');
+      this.emitLine('return new Promise((resolve, reject) => {');
+      this.pushIndent();
+      this.emitLine('const code = `');
+      this.emitLine('  const { parentPort, workerData } = require("worker_threads");');
+      this.emitLine('  const fn = ${fn.toString()};');
+      this.emitLine('  try {');
+      this.emitLine('    const result = fn(...workerData.args);');
+      this.emitLine('    parentPort.postMessage({ value: result });');
+      this.emitLine('  } catch (e) {');
+      this.emitLine('    parentPort.postMessage({ error: e.message });');
+      this.emitLine('  }');
+      this.emitLine('`;');
+      this.emitLine('const worker = new Worker(code, { eval: true, workerData: { args } });');
+      this.emitLine('worker.on("message", (msg) => {');
+      this.pushIndent();
+      this.emitLine('if (msg.error) reject(new Error(msg.error));');
+      this.emitLine('else resolve(msg.value);');
+      this.popIndent();
+      this.emitLine('});');
+      this.emitLine('worker.on("error", reject);');
+      this.emitLine('worker.on("exit", (exitCode) => {');
+      this.pushIndent();
+      this.emitLine('if (exitCode !== 0) reject(new Error(`Worker exited with code ${exitCode}`));');
+      this.popIndent();
+      this.emitLine('});');
+      this.popIndent();
+      this.emitLine('});');
+      this.popIndent();
+      this.emitLine('}');
     }
 
     // Testing framework runtime
@@ -577,6 +642,9 @@ export class CodeGenerator {
       case NodeType.ShellBlock:
         this.visitShellBlock(node);
         break;
+      case NodeType.SpawnBlock:
+        this.visitSpawnBlock(node);
+        break;
       case NodeType.TestBlock:
         this.visitTestBlock(node);
         break;
@@ -685,7 +753,7 @@ export class CodeGenerator {
 
   visitFunctionDeclaration(node) {
     // Auto-make functions async if they contain shell blocks
-    const hasShellBlock = containsShellBlock(node.body);
+    const hasShellBlock = containsAsyncBlock(node.body);
     const async = (node.async || hasShellBlock) ? 'async ' : '';
     const params = this.generateParams(node.params);
     
@@ -843,6 +911,53 @@ export class CodeGenerator {
       const inputsObj = `{ ${node.inputs.join(', ')} }`;
       return `await _shell(${command}, ${inputsObj})`;
     }
+  }
+
+  visitSpawnBlock(node) {
+    const command = JSON.stringify(node.command);
+
+    if (node.inputs.length === 0) {
+      this.emitLine(`await _spawn(${command});`);
+    } else {
+      const inputsObj = `{ ${node.inputs.join(', ')} }`;
+      this.emitLine(`await _spawn(${command}, ${inputsObj});`);
+    }
+  }
+
+  visitSpawnBlockExpression(node) {
+    const command = JSON.stringify(node.command);
+
+    if (node.inputs.length === 0) {
+      return `await _spawn(${command})`;
+    } else {
+      const inputsObj = `{ ${node.inputs.join(', ')} }`;
+      return `await _spawn(${command}, ${inputsObj})`;
+    }
+  }
+
+  visitWorkerExpression(node) {
+    const params = node.inputs.join(', ');
+
+    // Generate the body statements into a temporary buffer
+    const savedOutput = this.output;
+    this.output = '';
+    const savedIndent = this.indent;
+    this.indent = 0;
+
+    if (node.body && node.body.body) {
+      for (const stmt of node.body.body) {
+        this.visitStatement(stmt);
+      }
+    }
+
+    const bodyCode = this.output;
+    this.output = savedOutput;
+    this.indent = savedIndent;
+
+    const fnLiteral = `function(${params}) {\n${bodyCode}}`;
+    const argsList = node.inputs.length > 0 ? `[${node.inputs.join(', ')}]` : '[]';
+
+    return `await _worker(${fnLiteral}, ${argsList})`;
   }
 
   generateParams(params) {
@@ -1123,6 +1238,10 @@ export class CodeGenerator {
         return this.visitJSBlockExpression(node);
       case NodeType.ShellBlock:
         return this.visitShellBlockExpression(node);
+      case NodeType.SpawnBlock:
+        return this.visitSpawnBlockExpression(node);
+      case NodeType.WorkerExpression:
+        return this.visitWorkerExpression(node);
       case NodeType.RegexLiteral:
         return this.visitRegexLiteral(node);
       case NodeType.MatchExpression:
@@ -1612,7 +1731,7 @@ export class CodeGenerator {
       : `(${params})`;
     
     // Auto-make arrow functions async if they contain shell blocks
-    const hasShellBlock = containsShellBlock(node.body);
+    const hasShellBlock = containsAsyncBlock(node.body);
     const asyncPrefix = hasShellBlock ? 'async ' : '';
     
     if (node.body.type === NodeType.BlockStatement) {
