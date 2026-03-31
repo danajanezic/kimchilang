@@ -2172,6 +2172,38 @@ main()`;
   assertEqual(importLine.includes('writeFileSync'), false);
 });
 
+// --- Foo.new() Constructor Syntax Tests ---
+console.log('\n--- Constructor Syntax Tests ---\n');
+
+test('Generate Foo.new() compiles to new Foo()', () => {
+  const js = compile('dec x = Date.new()', { skipTypeCheck: true });
+  assertContains(js, 'new Date()');
+});
+
+test('Generate Foo.new(args) compiles to new Foo(args)', () => {
+  const js = compile('dec x = Pool.new({host: "localhost"})', { skipTypeCheck: true });
+  assertContains(js, 'new Pool(');
+  assertContains(js, 'host: "localhost"');
+});
+
+test('Generate Foo.new().method() chains correctly', () => {
+  const js = compile('dec x = Date.new().toISOString()', { skipTypeCheck: true });
+  assertContains(js, 'new Date()');
+  assertContains(js, 'toISOString()');
+});
+
+test('Generate Foo.new() with multiple args', () => {
+  const js = compile('dec x = Error.new("something failed")', { skipTypeCheck: true });
+  assertContains(js, 'new Error("something failed")');
+});
+
+test('Generate Foo.new() with extern', () => {
+  const source = 'extern "pg" {\n  dec Pool: any\n}\ndec pool = Pool.new({host: "localhost"})';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, "import { Pool } from 'pg'");
+  assertContains(js, 'new Pool(');
+});
+
 // --- Reverse Compiler (js2km) Tests ---
 console.log('\n--- Reverse Compiler Tests ---\n');
 

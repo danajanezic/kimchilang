@@ -1730,6 +1730,12 @@ export class CodeGenerator {
   }
 
   visitCallExpression(node) {
+    // Foo.new(args) → new Foo(args)
+    if (node.callee.type === NodeType.MemberExpression && node.callee.property === 'new' && !node.callee.computed) {
+      const object = this.visitExpression(node.callee.object);
+      const args = node.arguments.map(a => this.visitExpression(a)).join(', ');
+      return `new ${object}(${args})`;
+    }
     const callee = this.visitExpression(node.callee);
     const args = node.arguments.map(a => this.visitExpression(a)).join(', ');
     return `${callee}(${args})`;
