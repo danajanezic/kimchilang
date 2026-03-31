@@ -1474,6 +1474,52 @@ test('Opt4: flow code includes _flow but not _pipe', () => {
   assertEqual(js.includes('function _pipe'), false, 'Should not emit _pipe when unused');
 });
 
+test('Type checker: collect inside async fn is valid', () => {
+  const source = 'async fn main() { dec x = collect [a, b] }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  // Should not have an error about collect outside async
+  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(concurrencyErrors.length, 0);
+});
+
+test('Type checker: collect outside async fn is an error', () => {
+  const source = 'fn main() { dec x = collect [a, b] }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(concurrencyErrors.length, 1);
+});
+
+test('Type checker: hoard outside async fn is an error', () => {
+  const source = 'fn main() { dec x = hoard [a, b] }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(concurrencyErrors.length, 1);
+});
+
+test('Type checker: race outside async fn is an error', () => {
+  const source = 'fn main() { dec x = race [a, b] }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(concurrencyErrors.length, 1);
+});
+
+test('Type checker: collect at top level is an error', () => {
+  const source = 'dec x = collect [a, b]';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(concurrencyErrors.length, 1);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

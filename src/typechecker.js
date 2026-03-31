@@ -43,6 +43,7 @@ export class TypeChecker {
     
     this.mutVariables = new Set();
     this._insideClosure = false;
+    this._insideAsync = false;
 
     // Register built-in globals
     this.defineVariable('error', this.createType(Type.Function));
@@ -561,6 +562,9 @@ export class TypeChecker {
     
     this.pushScope();
 
+    const previousAsync = this._insideAsync;
+    this._insideAsync = !!node.async;
+
     // Build KMDoc param type map if available
     const kmdocParams = new Map();
     if (node.kmdoc && node.kmdoc.params) {
@@ -620,6 +624,7 @@ export class TypeChecker {
       });
     }
 
+    this._insideAsync = previousAsync;
     this.popScope();
   }
 
@@ -781,6 +786,22 @@ export class TypeChecker {
         const receiverType = this.visitExpression(node.receiver);
         if (node.fallback) this.visitExpression(node.fallback);
         return receiverType;
+      }
+      case NodeType.ConcurrentExpression: {
+        if (!this._insideAsync) {
+          this.addError(`${node.mode} must be inside an async function`, node);
+        }
+        for (const elem of node.elements) {
+          this.visitExpression(elem);
+        }
+        return this.createType(Type.Array);
+      }
+      case NodeType.BindExpression: {
+        this.visitExpression(node.callee);
+        for (const arg of node.arguments) {
+          this.visitExpression(arg);
+        }
+        return this.createType(Type.Function);
       }
       default:
         return this.createType(Type.Unknown);
