@@ -144,17 +144,10 @@ expose fn add(a, b) {
   return a + b
 }
 
-// Async functions
-async fn fetchData(url) {
-  dec response = await fetch(url)
-  dec data = await response.json()
-  return data
-}
-
-// Async memoized functions
-async memo cachedFetch(url) {
-  dec response = await fetch(url)
-  return await response.json()
+// Async memoized functions — async auto-detected, no keyword needed
+memo cachedFetch(url) {
+  dec response = fetch(url)
+  return response.json()
 }
 
 // Default parameters
@@ -309,6 +302,32 @@ dec bound = fetchUser.(1)  // () => fetchUser(1)
 ```
 
 See also: [Concurrency & Parallel Computation](concurrency.md)
+
+### Async Behavior
+
+The compiler auto-detects which functions are async. No `async` or `await` keywords — just call functions normally. Functions containing `shell`, `spawn`, `worker`, `collect`, `hoard`, `race`, `sleep`, or calls to extern `async fn` are automatically compiled as JavaScript `async` functions with `await` inserted at call sites.
+
+```kimchi
+fn fetchUser(id) {
+  dec response = fetch("https://api.example.com/users/" + id)
+  return response.json()
+}
+
+fn main() {
+  dec user = fetchUser(1)  // await inserted automatically
+  print user.name
+}
+```
+
+`sleep ms` pauses execution for N milliseconds:
+
+```kimchi
+fn main() {
+  print "before"
+  sleep 1000
+  print "after (1 second later)"
+}
+```
 
 ### Type System
 

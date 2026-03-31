@@ -5,6 +5,23 @@
 - [ ] Alias-free imports — `dep myapp.lib.http` without `as`, accessible via full path `myapp.lib.http.get()`. The `as` form remains for shorthand. No index files — files are modules, directories are just organization.
 - [ ] Remove index file fallback from CLI's `modulePathToFilePath` (currently tries `/index.km` — inconsistent with the explicit-path philosophy)
 
+### Default Module Function Exporting
+
+Current limitations of the async factory pattern (`export default async function(_args)`):
+
+- **No module caching** — every `dep` import calls the factory again, creating a new instance. Stateful services (e.g., database pools) get duplicated instead of shared.
+- **No lifecycle hooks** — modules can't declare setup/teardown. No way to close resources on shutdown.
+- **No compile-time validation of module args** — the factory accepts any object. Required args (`!arg`) throw at runtime, but callers aren't checked at compile time.
+- **Everything is async** — the factory is always `async function` even for pure synchronous modules, adding unnecessary Promise wrapping.
+
+Planned improvements:
+
+- [ ] Module singleton mode — mark a module as "instantiate once, share everywhere" (service registry pattern)
+- [ ] Typed module interfaces — use generics/type system to type-check module exports and required args at compile time
+- [ ] Graceful shutdown — `expose fn _shutdown()` convention that `kimchi run` calls on SIGTERM/SIGINT
+- [ ] Lazy dep resolution — deps only instantiated when first accessed, not at module load time
+- [ ] Expose type declarations — let modules export type aliases so consumers can use them (currently types are file-scoped)
+
 ## Language Design
 
 - [x] ~~Require all-implicit or all-explicit enum values~~ — mixed is now a parse error
@@ -17,7 +34,7 @@
 - [x] ~~`extern` declarations — typed contracts for JS modules (`extern "node:fs" { fn readFileSync(path: string): string }`). Compiles to tree-shaken `import` statements. Supports named and default exports.~~
 - [x] ~~Remove `js { }` interop~~ — replaced by extern declarations and `Foo.new()` constructor syntax
 - [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
-- [ ] Drop `async`/`await` — compiler auto-detects async-ness from call graph. Blocked by removing `js { }` (can't detect async across JS boundary). Concurrency primitives (`collect`, `hoard`, `race`, `worker`, `spawn`) already implicit-await.
+- [x] ~~Drop `async`/`await`~~ — compiler auto-detects async-ness from call graph. `sleep ms` replaces manual Promise construction.
 - [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords.
 
 ## Tooling

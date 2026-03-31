@@ -14,7 +14,7 @@ A modern, expressive programming language that transpiles to JavaScript. Purely 
 - **Guard Clauses** - `guard cond else { return }` for flat, readable precondition checks
 - **Modern Operators** - Pipe (`~>`), flow (`>>`), nullish coalescing (`??`), range (`0..10`), bind (`fn.(args)`)
 - **Type System** - Compile-time type inference, [union types](docs/language-guide.md#union-types) (`string | null`), [generics](docs/language-guide.md#generics) (`type Result<T> = ...`)
-- **Concurrency** - [`collect`/`hoard`/`race`](docs/concurrency.md) for safe concurrent I/O, [`worker`](docs/concurrency.md#worker--cpu-bound-threads) threads, [`spawn`](docs/concurrency.md#spawn--non-blocking-child-processes) processes
+- **Concurrency** - [`collect`/`hoard`/`race`](docs/concurrency.md) for safe concurrent I/O, [`worker`](docs/concurrency.md#worker--cpu-bound-threads) threads, [`spawn`](docs/concurrency.md#spawn--non-blocking-child-processes) processes — async auto-detected, no `async`/`await` keywords
 - **JS Interop** - [`extern` declarations](docs/language-guide.md#extern-declarations) for typed JS module contracts, [`Foo.new()`](docs/language-guide.md#constructor-syntax) constructor syntax
 - **Built-in Testing** - `test`/`describe`/`expect` with [15 matchers](docs/testing.md#matchers), `.not`, `.only`/`.skip`, lifecycle hooks
 - **Developer Tools** - [LSP server](docs/editors.md#lsp-server), [VS Code extension](docs/editors.md), watch mode, linter, formatter

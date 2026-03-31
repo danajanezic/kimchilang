@@ -75,12 +75,14 @@ JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and 
 - `guard cond else { return/throw }` — precondition check. Compiles to negated `if`. Type checker enforces the else block must exit via return or throw.
 - `match subject { pattern => body }` — expression returning a value. Supports literal, `is` type, object/array destructuring, binding, and wildcard (`_`) patterns with optional `when` guards. Compiles to IIFE with if/else chain. Returns `null` if no arm matches.
 - `value.if(cond).else(fallback)` — inline conditional expression. Compiles to ternary. `.else()` is optional (returns `null` without it).
-- `collect [fn1, fn2]` — concurrent I/O, fail fast. Compiles to `await Promise.all(...)`. Returns array of results. Destructurable: `dec [a, b] = collect [fn1, fn2]`. Must be inside `async fn`.
+- The compiler auto-detects async functions — no `async` or `await` keywords. Functions containing shell, spawn, worker, collect, hoard, race, sleep, or calls to other async functions are automatically compiled as `async` with `await` inserted at call sites.
+- `sleep ms` — pauses execution for N milliseconds. Compiles to `await new Promise(resolve => setTimeout(resolve, ms))`.
+- `collect [fn1, fn2]` — concurrent I/O, fail fast. Compiles to `await Promise.all(...)`. Returns array of results. Destructurable: `dec [a, b] = collect [fn1, fn2]`.
 - `hoard [fn1, fn2]` — concurrent I/O, get everything even failures. Compiles to `await Promise.allSettled(...)` mapped to `{ status: STATUS.OK/REJECTED, value/error }`. Tree-shaken `STATUS` enum emitted when used.
 - `race [fn1, fn2]` — concurrent I/O, first to finish wins. Compiles to `await Promise.race(...)`. Returns single result.
 - `someFunc.(arg1, arg2)` — bind syntax, creates deferred call. Compiles to `() => someFunc(arg1, arg2)`. Inside `collect`/`hoard`/`race`, inlined as direct call.
-- `worker(args) { body }` — run CPU-bound KimchiLang code on a `worker_threads` thread. Data serialized in/out, no shared memory. Returns Promise. Must be inside `async fn`. Compiles to `await _worker(fn, args)`.
-- `spawn { command }` — non-blocking child process (like `shell` but async). Raw shell text, supports `$var` interpolation. Returns Promise resolving to `{ stdout, stderr, exitCode, pid }`. Must be inside `async fn`.
+- `worker(args) { body }` — run CPU-bound KimchiLang code on a `worker_threads` thread. Data serialized in/out, no shared memory. Returns Promise. Compiles to `await _worker(fn, args)`.
+- `spawn { command }` — non-blocking child process (like `shell` but async). Raw shell text, supports `$var` interpolation. Returns Promise resolving to `{ stdout, stderr, exitCode, pid }`.
 - `Foo.new(args)` — constructor syntax. Compiles to `new Foo(args)`. Enables chaining: `Date.new().toISOString()`.
 - `extern "module" { fn name(p: type): type; dec name: type }` — typed contracts for JS modules. Compiles to tree-shaken static `import` statements. Only used symbols are imported. Supports named and default exports (`extern default "mod" as name: type`).
 - `type Name<T> = body` — generic type aliases. `type Result<T> = {ok: boolean, value: T}`, `type Optional<T> = T | null`. Type parameters substituted on instantiation.

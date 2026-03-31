@@ -4,12 +4,12 @@
 
 ## Concurrency (I/O)
 
-Three primitives for concurrent execution. All must be inside `async fn` and implicitly await.
+Three primitives for concurrent execution. Functions containing concurrency primitives are automatically compiled as async — no `async fn` or `await` keywords needed.
 
 ### collect — fail fast (Promise.all)
 
 ```kimchi
-async fn main() {
+fn main() {
   // Bare function references
   dec [users, posts] = collect [fetchUsers, fetchPosts]
 
@@ -23,7 +23,7 @@ If any callable rejects, `collect` rejects immediately.
 ### hoard — get everything (Promise.allSettled)
 
 ```kimchi
-async fn main() {
+fn main() {
   dec results = hoard [api1, api2]
 
   // Each result has { status, value/error }
@@ -40,7 +40,7 @@ The `STATUS` enum is auto-emitted (tree-shaken) when `hoard` is used.
 ### race — first to finish wins (Promise.race)
 
 ```kimchi
-async fn main() {
+fn main() {
   dec winner = race [fast.(url1), fast.(url2)]
 }
 ```
@@ -63,7 +63,7 @@ Inside `collect`/`hoard`/`race`, bind expressions are inlined as direct calls fo
 Run KimchiLang code on a separate `worker_threads` thread. Data is serialized in/out — no shared memory. Only explicitly passed inputs are available inside the worker body.
 
 ```kimchi
-async fn main() {
+fn main() {
   dec result = worker(data) {
     return expensiveComputation(data)
   }
@@ -74,7 +74,7 @@ async fn main() {
 Workers with `collect` for parallel computation:
 
 ```kimchi
-async fn main() {
+fn main() {
   dec [a, b] = collect [
     worker(chunk1) { return process(chunk1) },
     worker(chunk2) { return process(chunk2) }
@@ -87,20 +87,20 @@ async fn main() {
 Like `shell` but non-blocking. Raw shell text with `$var` interpolation. Returns a Promise resolving to `{ stdout, stderr, exitCode, pid }`.
 
 ```kimchi
-async fn main() {
+fn main() {
   dec result = spawn { ls -la }
   print result.stdout
   print result.pid
 }
 
 // With input variables
-async fn main() {
+fn main() {
   dec result = spawn(dir) { ls $dir }
   print result.stdout
 }
 
 // Parallel spawns
-async fn main() {
+fn main() {
   dec [tests, lint] = collect [
     spawn { npm test },
     spawn { npm run lint }
@@ -110,8 +110,7 @@ async fn main() {
 
 ## Constraints
 
-- `collect`, `hoard`, `race`, `worker`, and `spawn` must be inside an `async fn` — compile-time error otherwise.
-- All five implicitly `await` — no `await` keyword needed.
+- Functions containing concurrency primitives are automatically compiled as async.
+- `collect`, `hoard`, `race`, `worker`, and `spawn` all implicitly `await` — no `await` keyword needed.
 - `worker` body: only inputs are in scope. Explicit `return` required.
 - `spawn` body: raw shell text, variable interpolation via `$name`.
-- Functions containing `worker` or `spawn` are automatically made `async`.
