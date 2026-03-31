@@ -54,6 +54,7 @@ export const NodeType = {
   SpawnBlock: 'SpawnBlock',
   ExternDeclaration: 'ExternDeclaration',
   ExternDefaultDeclaration: 'ExternDefaultDeclaration',
+  TypeDeclaration: 'TypeDeclaration',
 
   // Patterns
   Property: 'Property',
@@ -261,6 +262,10 @@ export class Parser {
       const decl = this.parseMutDeclaration();
       if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
+    }
+
+    if (this.check(TokenType.TYPE)) {
+      return this.parseTypeDeclaration();
     }
 
     if (this.check(TokenType.EXTERN)) {
@@ -1484,6 +1489,32 @@ export class Parser {
     };
   }
 
+  parseTypeDeclaration() {
+    this.expect(TokenType.TYPE, 'Expected type');
+    const name = this.expect(TokenType.IDENTIFIER, 'Expected type name').value;
+
+    // Optional type parameters: <T, U>
+    const typeParams = [];
+    if (this.match(TokenType.LT)) {
+      do {
+        const param = this.expect(TokenType.IDENTIFIER, 'Expected type parameter name').value;
+        typeParams.push(param);
+      } while (this.match(TokenType.COMMA));
+      this.expect(TokenType.GT, 'Expected > after type parameters');
+    }
+
+    this.expect(TokenType.ASSIGN, 'Expected = after type name');
+
+    const body = this.parseExternType();
+
+    return {
+      type: NodeType.TypeDeclaration,
+      name,
+      typeParams,
+      body,
+    };
+  }
+
   parseExternDeclaration() {
     this.expect(TokenType.EXTERN, 'Expected extern');
 
@@ -1506,6 +1537,17 @@ export class Parser {
       if (this.check(TokenType.FN)) {
         this.advance(); // consume fn
         const name = this.expect(TokenType.IDENTIFIER, 'Expected function name').value;
+
+        // Optional type parameters: fn name<T, U>(...)
+        const typeParams = [];
+        if (this.match(TokenType.LT)) {
+          do {
+            const param = this.expect(TokenType.IDENTIFIER, 'Expected type parameter name').value;
+            typeParams.push(param);
+          } while (this.match(TokenType.COMMA));
+          this.expect(TokenType.GT, 'Expected > after type parameters');
+        }
+
         this.expect(TokenType.LPAREN, 'Expected ( after function name');
 
         const params = [];
@@ -1522,7 +1564,7 @@ export class Parser {
         this.expect(TokenType.COLON, 'Expected : before return type');
         const returnType = this.parseExternType();
 
-        declarations.push({ kind: 'function', name, params, returnType });
+        declarations.push({ kind: 'function', name, typeParams, params, returnType });
       } else if (this.check(TokenType.DEC)) {
         this.advance(); // consume dec
         // Value name might be a keyword token (e.g. 'env'), so accept any non-delimiter token

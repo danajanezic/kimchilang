@@ -2531,6 +2531,69 @@ test('E2E: union type error is caught at compile time', () => {
   assertContains(errors[0].message, 'string | null');
 });
 
+// === Type declarations and generic params ===
+
+test('Tokenize type keyword', () => {
+  const tokens = tokenize('type Result = any');
+  assertEqual(tokens[0].type, 'TYPE');
+  assertEqual(tokens[0].value, 'type');
+});
+
+test('Parse type declaration without params', () => {
+  const ast = parse(tokenize('type UserId = number'));
+  const decl = ast.body[0];
+  assertEqual(decl.type, 'TypeDeclaration');
+  assertEqual(decl.name, 'UserId');
+  assertEqual(decl.typeParams.length, 0);
+  assertEqual(decl.body, 'number');
+});
+
+test('Parse type declaration with one param', () => {
+  const ast = parse(tokenize('type Optional<T> = T | null'));
+  const decl = ast.body[0];
+  assertEqual(decl.type, 'TypeDeclaration');
+  assertEqual(decl.name, 'Optional');
+  assertEqual(decl.typeParams.length, 1);
+  assertEqual(decl.typeParams[0], 'T');
+});
+
+test('Parse type declaration with multiple params', () => {
+  const ast = parse(tokenize('type Pair<A, B> = {first: A, second: B}'));
+  const decl = ast.body[0];
+  assertEqual(decl.name, 'Pair');
+  assertEqual(decl.typeParams.length, 2);
+  assertEqual(decl.typeParams[0], 'A');
+  assertEqual(decl.typeParams[1], 'B');
+});
+
+test('Parse extern fn with type params', () => {
+  const source = 'extern "mod" {\n  fn identity<T>(value: T): T\n}';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0].declarations[0];
+  assertEqual(fn.kind, 'function');
+  assertEqual(fn.name, 'identity');
+  assertEqual(fn.typeParams.length, 1);
+  assertEqual(fn.typeParams[0], 'T');
+  assertEqual(fn.params[0].typeAnnotation, 'T');
+  assertEqual(fn.returnType, 'T');
+});
+
+test('Parse extern fn with multiple type params', () => {
+  const source = 'extern "mod" {\n  fn map<T, U>(arr: T[], f: (T) => U): U[]\n}';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0].declarations[0];
+  assertEqual(fn.typeParams.length, 2);
+  assertEqual(fn.typeParams[0], 'T');
+  assertEqual(fn.typeParams[1], 'U');
+});
+
+test('Parse extern fn without type params still works', () => {
+  const source = 'extern "mod" {\n  fn read(path: string): string\n}';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0].declarations[0];
+  assertEqual(fn.typeParams.length, 0);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
