@@ -2040,6 +2040,56 @@ test('Type checker: extern fn validates param types', () => {
   assertEqual(typeErrors.length, 1);
 });
 
+test('Generate extern named import for used symbol', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n}\ndec x = readFileSync("file.txt")';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, "import { readFileSync } from 'node:fs'");
+});
+
+test('Generate extern does not import unused symbols', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n  fn writeFileSync(path: string, data: string): void\n}\ndec x = readFileSync("file.txt")';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, "import { readFileSync } from 'node:fs'");
+  const importLine = js.split('\n').find(l => l.includes('import') && l.includes('node:fs'));
+  assertEqual(importLine.includes('writeFileSync'), false);
+});
+
+test('Generate extern default import', () => {
+  const source = 'extern default "express" as express: any\ndec app = express()';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, "import express from 'express'");
+});
+
+test('Generate extern default not imported if unused', () => {
+  const source = 'extern default "express" as express: any\ndec x = 1';
+  const js = compile(source, { skipTypeCheck: true });
+  const hasImport = js.includes("import express from");
+  assertEqual(hasImport, false);
+});
+
+test('Generate extern imports before runtime import', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n}\ndec x = readFileSync("f")';
+  const js = compile(source, { skipTypeCheck: true });
+  const fsImportIdx = js.indexOf("import { readFileSync }");
+  const runtimeImportIdx = js.indexOf("import { _obj, error }");
+  assertEqual(fsImportIdx < runtimeImportIdx, true);
+});
+
+test('Generate extern produces no runtime code for the block itself', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n}';
+  const js = compile(source, { skipTypeCheck: true });
+  const hasRead = js.includes('readFileSync');
+  assertEqual(hasRead, false);
+});
+
+test('Generate multiple extern blocks from same module', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n}\nextern "node:fs" {\n  fn existsSync(path: string): boolean\n}\ndec a = readFileSync("f")\ndec b = existsSync("f")';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'readFileSync');
+  assertContains(js, 'existsSync');
+  assertContains(js, "from 'node:fs'");
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

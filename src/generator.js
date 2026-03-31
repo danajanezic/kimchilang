@@ -437,14 +437,54 @@ export class CodeGenerator {
     const argDeclarations = node.body.filter(stmt => stmt.type === NodeType.ArgDeclaration);
     const envDeclarations = node.body.filter(stmt => stmt.type === NodeType.EnvDeclaration);
     const decDeclarations = node.body.filter(stmt => stmt.type === NodeType.DecDeclaration);
-    const otherStatements = node.body.filter(stmt => 
-      stmt.type !== NodeType.DepStatement && stmt.type !== NodeType.ArgDeclaration && stmt.type !== NodeType.EnvDeclaration
+    const otherStatements = node.body.filter(stmt =>
+      stmt.type !== NodeType.DepStatement &&
+      stmt.type !== NodeType.ArgDeclaration &&
+      stmt.type !== NodeType.EnvDeclaration &&
+      stmt.type !== NodeType.ExternDeclaration &&
+      stmt.type !== NodeType.ExternDefaultDeclaration
     );
     
     // Build list of dep paths for distinguishing deps from args in _opts
     const depPaths = depStatements.map(dep => dep.path);
     const argNames = argDeclarations.map(arg => arg.name);
     
+    // Collect extern declarations and emit tree-shaken imports
+    const externDeclarations = node.body.filter(stmt => stmt.type === NodeType.ExternDeclaration);
+    const externDefaults = node.body.filter(stmt => stmt.type === NodeType.ExternDefaultDeclaration);
+    const usedIdentifiers = this.collectUsedIdentifiers(node);
+
+    // Group named externs by source module
+    const namedByModule = new Map();
+    for (const ext of externDeclarations) {
+      const usedNames = ext.declarations
+        .map(d => d.name)
+        .filter(name => usedIdentifiers.has(name));
+      if (usedNames.length > 0) {
+        if (!namedByModule.has(ext.source)) {
+          namedByModule.set(ext.source, []);
+        }
+        namedByModule.get(ext.source).push(...usedNames);
+      }
+    }
+
+    // Emit named extern imports
+    for (const [source, names] of namedByModule) {
+      const uniqueNames = [...new Set(names)];
+      this.emitLine(`import { ${uniqueNames.join(', ')} } from '${source}';`);
+    }
+
+    // Emit default extern imports (only if alias is used)
+    for (const ext of externDefaults) {
+      if (usedIdentifiers.has(ext.alias)) {
+        this.emitLine(`import ${ext.alias} from '${ext.source}';`);
+      }
+    }
+
+    if (namedByModule.size > 0 || externDefaults.some(e => usedIdentifiers.has(e.alias))) {
+      this.emitLine();
+    }
+
     // First, emit the raw imports for all dependencies
     // Static files (.static) are imported directly, regular modules use factory pattern
     // External modules (@ prefix) are resolved from .km_modules directory
@@ -583,6 +623,30 @@ export class CodeGenerator {
     return exports;
   }
 
+  collectUsedIdentifiers(node) {
+    const used = new Set();
+    const walk = (n) => {
+      if (!n || typeof n !== 'object') return;
+      if (n.type === 'Identifier' && n.name) used.add(n.name);
+      if (n.type === 'CallExpression' && n.callee && n.callee.type === 'Identifier') used.add(n.callee.name);
+      if (n.type === 'CallExpression' && n.callee && n.callee.type === 'MemberExpression' && n.callee.object && n.callee.object.type === 'Identifier') used.add(n.callee.object.name);
+      if (n.type === 'MemberExpression' && n.object && n.object.type === 'Identifier') used.add(n.object.name);
+      for (const key of Object.keys(n)) {
+        if (key === 'type') continue;
+        const val = n[key];
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item && typeof item === 'object') walk(item);
+          }
+        } else if (val && typeof val === 'object' && val.type) {
+          walk(val);
+        }
+      }
+    };
+    walk(node);
+    return used;
+  }
+
   visitStatement(node, isTopLevel = false) {
     switch (node.type) {
       case NodeType.DecDeclaration:
@@ -671,6 +735,10 @@ export class CodeGenerator {
         break;
       case NodeType.GuardStatement:
         this.visitGuardStatement(node);
+        break;
+      case NodeType.ExternDeclaration:
+      case NodeType.ExternDefaultDeclaration:
+        // Extern declarations produce no runtime code — imports handled in visitProgram
         break;
       case NodeType.ExpressionStatement:
         if (node.expression.type === NodeType.MatchBlock) {
