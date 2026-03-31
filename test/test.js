@@ -1844,6 +1844,81 @@ test('_worker helper not emitted without worker', () => {
   assertEqual(hasWorker, false);
 });
 
+// === E2E: worker and spawn ===
+
+test('E2E: worker compiles with type checking', () => {
+  const source = `
+async fn main() {
+  dec result = worker(x) {
+    return x * 2
+  }
+  print result
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await _worker(');
+  assertContains(js, 'async function _worker(');
+});
+
+test('E2E: spawn compiles with type checking', () => {
+  const source = `
+async fn main() {
+  dec result = spawn { echo hello }
+  print result.stdout
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await _spawn("echo hello")');
+  assertContains(js, 'async function _spawn(');
+});
+
+test('E2E: worker outside async fn produces type error', () => {
+  const source = 'fn main() { dec x = worker() { return 1 } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(workerErrors.length, 1);
+});
+
+test('E2E: spawn outside async fn produces type error', () => {
+  const source = 'fn main() { dec x = spawn { ls } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(spawnErrors.length, 1);
+});
+
+test('E2E: worker and spawn with collect', () => {
+  const source = `
+async fn main() {
+  dec [computed, listed] = collect [
+    worker(n) { return n * n },
+    spawn { ls }
+  ]
+  print computed
+  print listed.stdout
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'Promise.all([');
+  assertContains(js, '_worker(');
+  assertContains(js, '_spawn(');
+});
+
+test('E2E: spawn with input variables compiles correctly', () => {
+  const source = `
+async fn main() {
+  dec dir = "/tmp"
+  dec result = spawn(dir) { ls $dir }
+  print result.stdout
+}
+main()`;
+  const js = compile(source);
+  assertContains(js, 'await _spawn("ls $dir", { dir })');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
