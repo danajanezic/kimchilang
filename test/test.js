@@ -1492,101 +1492,77 @@ test('Opt4: flow code includes _flow but not _pipe', () => {
   assertEqual(js.includes('function _pipe'), false, 'Should not emit _pipe when unused');
 });
 
-test('Type checker: collect inside async fn is valid', () => {
-  const source = 'async fn main() { dec x = collect [a, b] }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  // Should not have an error about collect outside async
-  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(concurrencyErrors.length, 0);
+test('collect works without async fn keyword', () => {
+  const js = compile('fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'await Promise.all(');
+  assertContains(js, 'async function main()');
 });
 
-test('Type checker: collect outside async fn is an error', () => {
-  const source = 'fn main() { dec x = collect [a, b] }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(concurrencyErrors.length, 1);
+test('sleep auto-makes function async', () => {
+  const js = compile('fn main() { sleep 500 }', { skipTypeCheck: true });
+  assertContains(js, 'async function main()');
 });
 
-test('Type checker: hoard outside async fn is an error', () => {
-  const source = 'fn main() { dec x = hoard [a, b] }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(concurrencyErrors.length, 1);
-});
-
-test('Type checker: race outside async fn is an error', () => {
-  const source = 'fn main() { dec x = race [a, b] }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(concurrencyErrors.length, 1);
-});
-
-test('Type checker: collect at top level is an error', () => {
-  const source = 'dec x = collect [a, b]';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const concurrencyErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(concurrencyErrors.length, 1);
+test('async fn produces parse error', () => {
+  let threw = false;
+  try {
+    compile('async fn main() { sleep 1000 }');
+  } catch(e) {
+    threw = true;
+  }
+  assertEqual(threw, true);
 });
 
 // === Generator: collect and race ===
 
 test('Generate collect expression with bare identifiers', () => {
-  const js = compile('async fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.all([a(), b()])');
+
 });
 
 test('Generate collect with bind expressions', () => {
-  const js = compile('async fn main() { dec x = collect [fetch.(1), fetch.(2)] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = collect [fetch.(1), fetch.(2)] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.all([fetch(1), fetch(2)])');
 });
 
 test('Generate collect with mixed identifiers and bind', () => {
-  const js = compile('async fn main() { dec x = collect [fetchAll, fetchOne.(1)] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = collect [fetchAll, fetchOne.(1)] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.all([fetchAll(), fetchOne(1)])');
 });
 
 test('Generate race expression', () => {
-  const js = compile('async fn main() { dec x = race [a, b] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = race [a, b] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.race([a(), b()])');
 });
 
 test('Generate race with bind expressions', () => {
-  const js = compile('async fn main() { dec x = race [fast.("url1"), fast.("url2")] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = race [fast.("url1"), fast.("url2")] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.race([fast("url1"), fast("url2")])');
 });
 
 // === Generator: hoard with STATUS enum ===
 
 test('Generate hoard expression', () => {
-  const js = compile('async fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
   assertContains(js, 'await Promise.allSettled([a(), b()])');
   assertContains(js, 'STATUS.OK');
   assertContains(js, 'STATUS.REJECTED');
 });
 
 test('Generate hoard emits STATUS enum', () => {
-  const js = compile('async fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = hoard [a, b] }', { skipTypeCheck: true });
   assertContains(js, 'const STATUS = Object.freeze({ OK: "OK", REJECTED: "REJECTED" })');
 });
 
 test('STATUS enum not emitted without hoard', () => {
-  const js = compile('async fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
   const hasStatus = js.includes('const STATUS');
   assertEqual(hasStatus, false);
 });
 
 test('Generate worker inside collect without double await', () => {
-  const source = `async fn main() {
+  const source = `fn main() {
   dec [a, b] = collect [
     worker(x) { return x * 2 },
     worker(y) { return y + 1 }
@@ -1604,7 +1580,7 @@ test('Generate worker inside collect without double await', () => {
 });
 
 test('Generate spawn inside collect without double await', () => {
-  const source = `async fn main() {
+  const source = `fn main() {
   dec [a, b] = collect [
     spawn { cmd1 },
     spawn { cmd2 }
@@ -1623,9 +1599,9 @@ test('Generate spawn inside collect without double await', () => {
 
 test('E2E: collect compiles to working Promise.all', () => {
   const source = `
-async fn fetchA() { return 1 }
-async fn fetchB() { return 2 }
-async fn main() {
+fn fetchA() { return 1 }
+fn fetchB() { return 2 }
+fn main() {
   dec [a, b] = collect [fetchA, fetchB]
   print a
   print b
@@ -1637,9 +1613,9 @@ main()`;
 
 test('E2E: hoard compiles with STATUS mapping', () => {
   const source = `
-async fn ok() { return "yes" }
-async fn fail() { throw error("no") }
-async fn main() {
+fn ok() { return "yes" }
+fn fail() { throw error("no") }
+fn main() {
   dec results = hoard [ok, fail]
   print results
 }
@@ -1652,9 +1628,9 @@ main()`;
 
 test('E2E: race compiles to Promise.race', () => {
   const source = `
-async fn fast() { return "first" }
-async fn slow() { return "second" }
-async fn main() {
+fn fast() { return "first" }
+fn slow() { return "second" }
+fn main() {
   dec winner = race [fast, slow]
   print winner
 }
@@ -1665,8 +1641,8 @@ main()`;
 
 test('E2E: bind expression with args in collect', () => {
   const source = `
-async fn fetch(id) { return id }
-async fn main() {
+fn fetch(id) { return id }
+fn main() {
   dec [a, b] = collect [fetch.(1), fetch.(2)]
   print a
   print b
@@ -1677,18 +1653,10 @@ main()`;
 });
 
 test('E2E: bind expression standalone compiles to arrow', () => {
-  const js = compile('async fn main() { dec f = fetch.(1, 2) }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec f = fetch.(1, 2) }', { skipTypeCheck: true });
   assertContains(js, '() => fetch(1, 2)');
 });
 
-test('E2E: collect outside async fn produces type error', () => {
-  const source = 'fn main() { dec x = collect [a, b] }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  assertEqual(errors.length >= 1, true);
-  assertContains(errors[0].message, 'must be inside an async function');
-});
 
 // === Worker and Spawn parsing tests ===
 
@@ -1741,61 +1709,26 @@ test('Parse spawn as statement', () => {
   assertEqual(stmt.command, 'echo hello');
 });
 
-test('Type checker: worker inside async fn is valid', () => {
-  const source = 'async fn main() { dec x = worker(data) { return data } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(workerErrors.length, 0);
-});
-
-test('Type checker: worker outside async fn is an error', () => {
-  const source = 'fn main() { dec x = worker(data) { return data } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(workerErrors.length, 1);
-});
-
-test('Type checker: spawn outside async fn is an error', () => {
-  const source = 'fn main() { dec x = spawn { ls } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(spawnErrors.length, 1);
-});
-
-test('Type checker: spawn inside async fn is valid', () => {
-  const source = 'async fn main() { dec x = spawn { ls } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(spawnErrors.length, 0);
-});
 
 // --- Generator: spawn tests ---
 
 test('Generate spawn expression', () => {
-  const js = compile('async fn main() { dec x = spawn { ls -la } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = spawn { ls -la } }', { skipTypeCheck: true });
   assertContains(js, 'await _spawn("ls -la")');
 });
 
 test('Generate spawn expression with inputs', () => {
-  const js = compile('async fn main() { dec x = spawn(dir) { ls $dir } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = spawn(dir) { ls $dir } }', { skipTypeCheck: true });
   assertContains(js, 'await _spawn("ls $dir", { dir })');
 });
 
 test('Generate spawn as statement', () => {
-  const js = compile('async fn main() { spawn { echo hello } }', { skipTypeCheck: true });
+  const js = compile('fn main() { spawn { echo hello } }', { skipTypeCheck: true });
   assertContains(js, 'await _spawn("echo hello")');
 });
 
 test('Generate spawn emits _spawn helper', () => {
-  const js = compile('async fn main() { dec x = spawn { ls } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = spawn { ls } }', { skipTypeCheck: true });
   assertContains(js, 'async function _spawn(');
 });
 
@@ -1808,25 +1741,25 @@ test('_spawn helper not emitted without spawn', () => {
 // --- Generator: worker tests ---
 
 test('Generate worker expression with inputs', () => {
-  const js = compile('async fn main() { dec x = worker(data) { return data * 2 } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = worker(data) { return data * 2 } }', { skipTypeCheck: true });
   assertContains(js, 'await _worker(');
   assertContains(js, 'data * 2');
 });
 
 test('Generate worker expression with no inputs', () => {
-  const js = compile('async fn main() { dec x = worker() { return 42 } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = worker() { return 42 } }', { skipTypeCheck: true });
   assertContains(js, 'await _worker(');
   assertContains(js, 'return 42');
 });
 
 test('Generate worker expression with multiple inputs', () => {
-  const js = compile('async fn main() { dec x = worker(a, b) { return a + b } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = worker(a, b) { return a + b } }', { skipTypeCheck: true });
   assertContains(js, 'await _worker(');
   assertContains(js, '[a, b]');
 });
 
 test('Generate worker emits _worker helper', () => {
-  const js = compile('async fn main() { dec x = worker() { return 1 } }', { skipTypeCheck: true });
+  const js = compile('fn main() { dec x = worker() { return 1 } }', { skipTypeCheck: true });
   assertContains(js, 'async function _worker(');
 });
 
@@ -1840,7 +1773,7 @@ test('_worker helper not emitted without worker', () => {
 
 test('E2E: worker compiles with type checking', () => {
   const source = `
-async fn main() {
+fn main() {
   dec result = worker(x) {
     return x * 2
   }
@@ -1854,7 +1787,7 @@ main()`;
 
 test('E2E: spawn compiles with type checking', () => {
   const source = `
-async fn main() {
+fn main() {
   dec result = spawn { echo hello }
   print result.stdout
 }
@@ -1864,27 +1797,10 @@ main()`;
   assertContains(js, 'async function _spawn(');
 });
 
-test('E2E: worker outside async fn produces type error', () => {
-  const source = 'fn main() { dec x = worker() { return 1 } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(workerErrors.length, 1);
-});
-
-test('E2E: spawn outside async fn produces type error', () => {
-  const source = 'fn main() { dec x = spawn { ls } }';
-  const ast = parse(tokenize(source));
-  const tc = new TypeChecker();
-  const errors = tc.check(ast);
-  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
-  assertEqual(spawnErrors.length, 1);
-});
 
 test('E2E: worker and spawn with collect', () => {
   const source = `
-async fn main() {
+fn main() {
   dec [computed, listed] = collect [
     worker(n) { return n * n },
     spawn { ls }
@@ -1901,7 +1817,7 @@ main()`;
 
 test('E2E: spawn with input variables compiles correctly', () => {
   const source = `
-async fn main() {
+fn main() {
   dec dir = "/tmp"
   dec result = spawn(dir) { ls $dir }
   print result.stdout
@@ -1909,6 +1825,33 @@ async fn main() {
 main()`;
   const js = compile(source);
   assertContains(js, 'await _spawn("ls $dir", { dir })');
+});
+
+// --- Sleep Statement Tests ---
+console.log('\n--- Sleep Statement Tests ---\n');
+
+test('Tokenize sleep keyword', () => {
+  const tokens = tokenize('sleep 1000');
+  assertEqual(tokens[0].type, 'SLEEP');
+});
+
+test('Parse sleep statement', () => {
+  const ast = parse(tokenize('fn main() { sleep 1000 }'));
+  const stmt = ast.body[0].body.body[0];
+  assertEqual(stmt.type, 'SleepStatement');
+  assertEqual(stmt.duration.value, 1000);
+});
+
+test('Parse sleep with expression', () => {
+  const ast = parse(tokenize('fn main() { sleep x * 1000 }'));
+  const stmt = ast.body[0].body.body[0];
+  assertEqual(stmt.type, 'SleepStatement');
+  assertEqual(stmt.duration.type, 'BinaryExpression');
+});
+
+test('Generate sleep statement', () => {
+  const js = compile('fn main() { sleep 1000 }', { skipTypeCheck: true });
+  assertContains(js, 'await new Promise(resolve => setTimeout(resolve, 1000))');
 });
 
 // Extern Declaration Tests
@@ -2130,7 +2073,7 @@ extern "node:fs/promises" {
   fn readFile(path: string): any
 }
 
-async fn main() {
+fn main() {
   dec [a, b] = collect [readFile.("a.txt"), readFile.("b.txt")]
   print a
 }
@@ -2781,6 +2724,56 @@ fn main() {
 main()`;
   const js = compile(source);
   assertContains(js, "import { find } from 'mod'");
+});
+
+// ==================== Auto-async detection ====================
+
+test('Auto-async: function with shell is async', () => {
+  const js = compile('fn main() { dec x = shell { ls } }', { skipTypeCheck: true });
+  assertContains(js, 'async function main()');
+});
+
+test('Auto-async: function with sleep is async', () => {
+  const js = compile('fn main() { sleep 1000 }', { skipTypeCheck: true });
+  assertContains(js, 'async function main()');
+});
+
+test('Auto-async: function with collect is async', () => {
+  const js = compile('fn main() { dec x = collect [a, b] }', { skipTypeCheck: true });
+  assertContains(js, 'async function main()');
+});
+
+test('Auto-async: pure function is NOT async', () => {
+  const js = compile('fn add(a, b) { return a + b }', { skipTypeCheck: true });
+  const hasAsync = js.includes('async function add');
+  assertEqual(hasAsync, false);
+});
+
+test('Auto-async: transitive — caller of async fn is async', () => {
+  const source = 'fn inner() { sleep 1000 }\nfn outer() { inner() }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'async function inner()');
+  assertContains(js, 'async function outer()');
+});
+
+test('Auto-async: transitive inserts await on call', () => {
+  const source = 'fn inner() { sleep 1000 }\nfn outer() { dec x = inner() }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'await inner()');
+});
+
+test('Auto-async: extern async fn call is awaited', () => {
+  const source = 'extern "mod" {\n  async fn fetch(url: string): any\n}\nfn main() { dec x = fetch("url") }';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'async function main()');
+  assertContains(js, 'await fetch("url")');
+});
+
+test('Auto-async: extern non-async fn call is NOT awaited', () => {
+  const source = 'extern "mod" {\n  fn parse(s: string): any\n}\nfn main() { dec x = parse("data") }';
+  const js = compile(source, { skipTypeCheck: true });
+  const hasAwait = js.includes('await parse(');
+  assertEqual(hasAwait, false);
 });
 
 // Summary

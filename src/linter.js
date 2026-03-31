@@ -692,9 +692,6 @@ export class Linter {
         }
         break;
 
-      case NodeType.AwaitExpression:
-        this.analyzeExpression(node.argument);
-        break;
 
       case NodeType.SpreadElement:
         this.analyzeExpression(node.argument);

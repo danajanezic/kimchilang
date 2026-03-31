@@ -41,7 +41,6 @@ export const NodeType = {
   ObjectExpression: 'ObjectExpression',
   ArrowFunctionExpression: 'ArrowFunctionExpression',
   ConditionalExpression: 'ConditionalExpression',
-  AwaitExpression: 'AwaitExpression',
   SpreadElement: 'SpreadElement',
   RangeExpression: 'RangeExpression',
   FlowExpression: 'FlowExpression',
@@ -52,6 +51,7 @@ export const NodeType = {
   BindExpression: 'BindExpression',
   WorkerExpression: 'WorkerExpression',
   SpawnBlock: 'SpawnBlock',
+  SleepStatement: 'SleepStatement',
   ExternDeclaration: 'ExternDeclaration',
   ExternDefaultDeclaration: 'ExternDefaultDeclaration',
   TypeDeclaration: 'TypeDeclaration',
@@ -230,6 +230,10 @@ export class Parser {
       this.skipNewlines();
     }
 
+    if (this.check(TokenType.SLEEP)) {
+      return this.parseSleepStatement();
+    }
+
     // Check for expose modifier
     let exposed = false;
     if (this.check(TokenType.EXPOSE)) {
@@ -272,22 +276,8 @@ export class Parser {
     }
 
     if (this.check(TokenType.ASYNC)) {
-      this.advance();
-      if (this.check(TokenType.FN)) {
-        const decl = this.parseFunctionDeclaration();
-        decl.async = true;
-        decl.exposed = exposed;
-        if (kmdoc) decl.kmdoc = kmdoc;
-        return decl;
-      }
-      if (this.check(TokenType.MEMO)) {
-        const decl = this.parseMemoDeclaration();
-        decl.async = true;
-        decl.exposed = exposed;
-        if (kmdoc) decl.kmdoc = kmdoc;
-        return decl;
-      }
-      this.error('async must be followed by fn or memo');
+      // async fn is only allowed in extern blocks
+      this.error('async/await keywords have been removed. The compiler auto-detects async functions.');
     }
     
     if (this.check(TokenType.FN)) {
@@ -1375,6 +1365,15 @@ export class Parser {
     };
   }
 
+  parseSleepStatement() {
+    this.expect(TokenType.SLEEP, 'Expected sleep');
+    const duration = this.parseExpression();
+    return {
+      type: NodeType.SleepStatement,
+      duration,
+    };
+  }
+
   parseSpawnBlock() {
     this.expect(TokenType.SPAWN, 'Expected spawn');
 
@@ -2061,13 +2060,6 @@ export class Parser {
       };
     }
     
-    if (this.match(TokenType.AWAIT)) {
-      const argument = this.parseUnary();
-      return {
-        type: NodeType.AwaitExpression,
-        argument,
-      };
-    }
     
     if (this.match(TokenType.SPREAD)) {
       const argument = this.parseUnary();

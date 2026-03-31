@@ -2,27 +2,6 @@
 
 import { NodeType } from './parser.js';
 
-// Helper to check if a node or its children contain shell blocks
-function containsAsyncBlock(node) {
-  if (!node) return false;
-  if (node.type === NodeType.ShellBlock || node.type === NodeType.SpawnBlock || node.type === NodeType.WorkerExpression || node.type === NodeType.SleepStatement) return true;
-  
-  // Check all properties that could contain child nodes
-  for (const key of Object.keys(node)) {
-    const value = node[key];
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item && typeof item === 'object' && containsAsyncBlock(item)) {
-          return true;
-        }
-      }
-    } else if (value && typeof value === 'object' && value.type) {
-      if (containsAsyncBlock(value)) return true;
-    }
-  }
-  return false;
-}
-
 export class CodeGenerator {
   constructor(options = {}) {
     this.indent = 0;
@@ -79,6 +58,140 @@ export class CodeGenerator {
     };
     scan(ast);
     return features;
+  }
+
+  buildAsyncMap(ast) {
+    const asyncFunctions = new Set();
+    const functionBodies = new Map();
+    const functionCalls = new Map();
+
+    // Collect all function declarations
+    for (const node of ast.body) {
+      if (node.type === NodeType.FunctionDeclaration) {
+        functionBodies.set(node.name, node.body);
+        functionCalls.set(node.name, new Set());
+      }
+    }
+
+    // Collect extern async functions
+    const externAsyncFns = new Set();
+    for (const node of ast.body) {
+      if (node.type === NodeType.ExternDeclaration) {
+        for (const decl of node.declarations) {
+          if (decl.kind === 'function' && decl.async) {
+            externAsyncFns.add(decl.name);
+          }
+        }
+      }
+    }
+
+    // Check if node contains async markers (non-recursive into child function declarations)
+    const containsAsyncMarker = (node) => {
+      if (!node || typeof node !== 'object') return false;
+      // Don't recurse into nested function declarations
+      if (node.type === NodeType.FunctionDeclaration) return false;
+      if (node.type === NodeType.ShellBlock ||
+          node.type === NodeType.SpawnBlock ||
+          node.type === NodeType.WorkerExpression ||
+          node.type === NodeType.SleepStatement ||
+          node.type === NodeType.ConcurrentExpression) return true;
+      for (const key of Object.keys(node)) {
+        if (key === 'type') continue;
+        const val = node[key];
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item && typeof item === 'object' && containsAsyncMarker(item)) return true;
+          }
+        } else if (val && typeof val === 'object' && val.type) {
+          if (containsAsyncMarker(val)) return true;
+        }
+      }
+      return false;
+    };
+
+    // Collect function calls from a node (non-recursive into child function declarations)
+    const collectCalls = (node, calls) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === NodeType.FunctionDeclaration) return; // don't recurse into nested fns
+      if (node.type === 'CallExpression' && node.callee && node.callee.type === 'Identifier') {
+        calls.add(node.callee.name);
+      }
+      for (const key of Object.keys(node)) {
+        if (key === 'type') continue;
+        const val = node[key];
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            if (item && typeof item === 'object') collectCalls(item, calls);
+          }
+        } else if (val && typeof val === 'object' && val.type) {
+          collectCalls(val, calls);
+        }
+      }
+    };
+
+    // Seed pass: mark functions with direct async markers
+    for (const [name, body] of functionBodies) {
+      if (containsAsyncMarker(body)) {
+        asyncFunctions.add(name);
+      }
+      const calls = functionCalls.get(name);
+      collectCalls(body, calls);
+    }
+
+    // Seed: functions calling extern async functions
+    for (const [name, calls] of functionCalls) {
+      for (const calledFn of calls) {
+        if (externAsyncFns.has(calledFn)) {
+          asyncFunctions.add(name);
+        }
+      }
+    }
+
+    // Propagation: fixed-point iteration
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [name, calls] of functionCalls) {
+        if (asyncFunctions.has(name)) continue;
+        for (const calledFn of calls) {
+          if (asyncFunctions.has(calledFn)) {
+            asyncFunctions.add(name);
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // Include extern async functions for call-site await insertion
+    for (const fn of externAsyncFns) {
+      asyncFunctions.add(fn);
+    }
+
+    return asyncFunctions;
+  }
+
+  _containsAsyncMarker(node) {
+    if (!node || typeof node !== 'object') return false;
+    if (node.type === NodeType.ShellBlock ||
+        node.type === NodeType.SpawnBlock ||
+        node.type === NodeType.WorkerExpression ||
+        node.type === NodeType.SleepStatement ||
+        node.type === NodeType.ConcurrentExpression) return true;
+    if (node.type === 'CallExpression' && node.callee && node.callee.type === 'Identifier' &&
+        this.asyncFunctions && this.asyncFunctions.has(node.callee.name)) return true;
+    for (const key of Object.keys(node)) {
+      if (key === 'type') continue;
+      const val = node[key];
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          if (item && typeof item === 'object' && this._containsAsyncMarker(item)) return true;
+        }
+      } else if (val && typeof val === 'object' && val.type) {
+        if (this._containsAsyncMarker(val)) return true;
+      }
+    }
+    return false;
   }
 
   generate(ast) {
@@ -516,6 +629,9 @@ export class CodeGenerator {
     // Scan AST for used features to tree-shake runtime helpers
     this.usedFeatures = this.scanUsedFeatures(node);
 
+    // Build async function map for auto-detection
+    this.asyncFunctions = this.buildAsyncMap(node);
+
     // Import shared runtime (stdlib extensions, _obj, error)
     this.emitRuntimeImport();
     this.emitLine();
@@ -824,9 +940,9 @@ export class CodeGenerator {
   }
 
   visitFunctionDeclaration(node) {
-    // Auto-make functions async if they contain shell blocks
-    const hasShellBlock = containsAsyncBlock(node.body);
-    const async = (node.async || hasShellBlock) ? 'async ' : '';
+    // Auto-make functions async if they contain async operations or call async functions
+    const isAsync = this.asyncFunctions && this.asyncFunctions.has(node.name);
+    const async = (node.async || isAsync) ? 'async ' : '';
     const params = this.generateParams(node.params);
     
     if (node.memoized) {
@@ -840,7 +956,7 @@ export class CodeGenerator {
       this.emitLine('if (_cache.has(_key)) return _cache.get(_key);');
       // Generate function body, capturing the result
       // For async functions, the inner IIFE must also be async and awaited
-      if (node.async) {
+      if (node.async || isAsync) {
         this.emitLine('const _result = await (async () => {');
       } else {
         this.emitLine('const _result = (() => {');
@@ -1238,8 +1354,6 @@ export class CodeGenerator {
         return this.visitArrowFunctionExpression(node);
       case NodeType.ConditionalExpression:
         return this.visitConditionalExpression(node);
-      case NodeType.AwaitExpression:
-        return `await ${this.visitExpression(node.argument)}`;
       case NodeType.SpreadElement:
         return `...${this.visitExpression(node.argument)}`;
       case NodeType.RangeExpression:
@@ -1684,7 +1798,14 @@ export class CodeGenerator {
     }
     const callee = this.visitExpression(node.callee);
     const args = node.arguments.map(a => this.visitExpression(a)).join(', ');
-    return `${callee}(${args})`;
+    const call = `${callee}(${args})`;
+
+    // Auto-insert await for calls to async functions
+    if (this.asyncFunctions && node.callee.type === 'Identifier' && this.asyncFunctions.has(node.callee.name)) {
+      return `await ${call}`;
+    }
+
+    return call;
   }
 
   visitMemberExpression(node) {
@@ -1778,9 +1899,9 @@ export class CodeGenerator {
       ? node.params[0].name 
       : `(${params})`;
     
-    // Auto-make arrow functions async if they contain shell blocks
-    const hasShellBlock = containsAsyncBlock(node.body);
-    const asyncPrefix = hasShellBlock ? 'async ' : '';
+    // Auto-make arrow functions async if they contain async operations
+    const hasAsyncContent = this._containsAsyncMarker(node.body);
+    const asyncPrefix = hasAsyncContent ? 'async ' : '';
     
     if (node.body.type === NodeType.BlockStatement) {
       const bodyLines = [];

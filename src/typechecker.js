@@ -47,7 +47,6 @@ export class TypeChecker {
     
     this.mutVariables = new Set();
     this._insideClosure = false;
-    this._insideAsync = false;
 
     // Register built-in globals
     this.defineVariable('error', this.createType(Type.Function));
@@ -550,9 +549,9 @@ export class TypeChecker {
         // Shell blocks are opaque - no type checking inside
         break;
       case NodeType.SpawnBlock:
-        if (!this._insideAsync) {
-          this.addError('spawn must be inside an async function', node);
-        }
+        break;
+      case NodeType.SleepStatement:
+        this.visitExpression(node.duration);
         break;
       case NodeType.TestBlock:
       case NodeType.DescribeBlock:
@@ -855,9 +854,6 @@ export class TypeChecker {
     
     this.pushScope();
 
-    const previousAsync = this._insideAsync;
-    this._insideAsync = !!node.async;
-
     // Build KMDoc param type map if available
     const kmdocParams = new Map();
     if (node.kmdoc && node.kmdoc.params) {
@@ -917,7 +913,6 @@ export class TypeChecker {
       });
     }
 
-    this._insideAsync = previousAsync;
     this.popScope();
   }
 
@@ -1060,8 +1055,6 @@ export class TypeChecker {
         return this.visitConditionalExpression(node);
       case NodeType.AssignmentExpression:
         return this.visitAssignmentExpression(node);
-      case NodeType.AwaitExpression:
-        return this.visitExpression(node.argument);
       case NodeType.SpreadElement:
         return this.visitExpression(node.argument);
       case NodeType.RangeExpression:
@@ -1081,9 +1074,6 @@ export class TypeChecker {
         return receiverType;
       }
       case NodeType.ConcurrentExpression: {
-        if (!this._insideAsync) {
-          this.addError(`${node.mode} must be inside an async function`, node);
-        }
         for (const elem of node.elements) {
           this.visitExpression(elem);
         }
@@ -1097,9 +1087,6 @@ export class TypeChecker {
         return this.createType(Type.Function);
       }
       case NodeType.WorkerExpression: {
-        if (!this._insideAsync) {
-          this.addError('worker must be inside an async function', node);
-        }
         // Visit body in isolated scope — only inputs are accessible
         this.pushScope();
         for (const input of node.inputs) {
@@ -1114,9 +1101,6 @@ export class TypeChecker {
         return this.createType(Type.Any);
       }
       case NodeType.SpawnBlock: {
-        if (!this._insideAsync) {
-          this.addError('spawn must be inside an async function', node);
-        }
         return this.createType(Type.Object);
       }
       default:

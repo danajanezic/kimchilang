@@ -17,8 +17,8 @@ expose fn _describe() {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn get(url, options) {
-  return await request(url, { ...options, method: "GET" })
+expose fn get(url, options) {
+  return request(url, { ...options, method: "GET" })
 }
 
 /**
@@ -27,8 +27,8 @@ expose async fn get(url, options) {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn post(url, body, options) {
-  return await request(url, { ...options, method: "POST", body: body })
+expose fn post(url, body, options) {
+  return request(url, { ...options, method: "POST", body: body })
 }
 
 /**
@@ -37,8 +37,8 @@ expose async fn post(url, body, options) {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn put(url, body, options) {
-  return await request(url, { ...options, method: "PUT", body: body })
+expose fn put(url, body, options) {
+  return request(url, { ...options, method: "PUT", body: body })
 }
 
 /**
@@ -47,8 +47,8 @@ expose async fn put(url, body, options) {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn patch(url, body, options) {
-  return await request(url, { ...options, method: "PATCH", body: body })
+expose fn patch(url, body, options) {
+  return request(url, { ...options, method: "PATCH", body: body })
 }
 
 /**
@@ -56,8 +56,8 @@ expose async fn patch(url, body, options) {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn del(url, options) {
-  return await request(url, { ...options, method: "DELETE" })
+expose fn del(url, options) {
+  return request(url, { ...options, method: "DELETE" })
 }
 
 /**
@@ -65,7 +65,7 @@ expose async fn del(url, options) {
  * @param {any} options
  * @returns {HttpResponse}
  */
-expose async fn request(url, options) {
+expose fn request(url, options) {
   guard url != null else { throw "request() requires a url" }
 
   dec opts = options ?? {}

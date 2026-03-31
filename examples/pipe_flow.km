@@ -1,6 +1,6 @@
 #!/usr/bin/env kimchi
-// Example: Async pipe (~>) and flow (>>) operators
-// These operators now support async functions seamlessly
+// Example: Pipe (~>) and flow (>>) operators
+// These operators support async functions seamlessly via auto-detection
 
 /**
  * @param {number} x
@@ -27,7 +27,7 @@ fn square(x) { return x * x }
  * @param {number} id - User ID to fetch
  * @returns {any} User object with id and name
  */
-async fn fetchUser(id) {
+fn fetchUser(id) {
   // Simulate async operation
   return { id: id, name: "User" + id }
 }
@@ -37,7 +37,7 @@ async fn fetchUser(id) {
  * @param {any} user - User object to enrich
  * @returns {any} Enriched user with email
  */
-async fn enrichUser(user) {
+fn enrichUser(user) {
   // Simulate enriching user data
   return { ...user, email: user.name + "@example.com" }
 }
@@ -47,37 +47,37 @@ async fn enrichUser(user) {
  * @param {any} user - User to format
  * @returns {string} Formatted user string
  */
-async fn formatUser(user) {
+fn formatUser(user) {
   return "Name: " + user.name + ", Email: " + user.email
 }
 
-// Main async function to demonstrate the operators
-async fn main() {
-  print "=== Async Pipe Operator (~>) ==="
+// Main function to demonstrate the operators
+fn main() {
+  print "=== Pipe Operator (~>) ==="
 
-  // Pipe with async functions - each step is awaited
-  dec userInfo = await (1 ~> fetchUser ~> enrichUser ~> formatUser)
+  // Pipe with functions - each step is awaited if async
+  dec userInfo = 1 ~> fetchUser ~> enrichUser ~> formatUser
   print userInfo
 
   // Mixed sync and async in pipe chain
-  dec result = await (5 ~> double ~> addOne)
+  dec result = 5 ~> double ~> addOne
   print "5 ~> double ~> addOne = ${result}"
 
   print ""
-  print "=== Async Flow Operator (>>) ==="
+  print "=== Flow Operator (>>) ==="
 
-  // Flow creates a reusable async composed function
+  // Flow creates a reusable composed function
   processUser >> fetchUser enrichUser formatUser
 
-  // Call the composed function - it's async so we await it
-  dec user1 = await processUser(1)
-  dec user2 = await processUser(2)
+  // Call the composed function
+  dec user1 = processUser(1)
+  dec user2 = processUser(2)
   print "User 1: ${user1}"
   print "User 2: ${user2}"
 
   // Flow with sync functions also works
   transform >> double addOne square
-  dec transformed = await transform(5)
+  dec transformed = transform(5)
   print "transform(5) = ${transformed}"
 
   print ""
