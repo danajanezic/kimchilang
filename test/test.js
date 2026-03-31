@@ -1664,6 +1664,57 @@ test('E2E: collect outside async fn produces type error', () => {
   assertContains(errors[0].message, 'must be inside an async function');
 });
 
+// === Worker and Spawn parsing tests ===
+
+test('Parse worker expression with inputs', () => {
+  const ast = parse(tokenize('dec x = worker(data) { return data }'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'WorkerExpression');
+  assertEqual(init.inputs.length, 1);
+  assertEqual(init.inputs[0], 'data');
+  assertEqual(init.body.type, 'BlockStatement');
+});
+
+test('Parse worker expression with no inputs', () => {
+  const ast = parse(tokenize('dec x = worker() { return 42 }'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'WorkerExpression');
+  assertEqual(init.inputs.length, 0);
+});
+
+test('Parse worker expression with multiple inputs', () => {
+  const ast = parse(tokenize('dec x = worker(a, b) { return a + b }'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'WorkerExpression');
+  assertEqual(init.inputs.length, 2);
+  assertEqual(init.inputs[0], 'a');
+  assertEqual(init.inputs[1], 'b');
+});
+
+test('Parse spawn expression', () => {
+  const ast = parse(tokenize('dec x = spawn { ls -la }'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'SpawnBlock');
+  assertEqual(init.command, 'ls -la');
+  assertEqual(init.inputs.length, 0);
+});
+
+test('Parse spawn expression with inputs', () => {
+  const ast = parse(tokenize('dec x = spawn(dir) { ls $dir }'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'SpawnBlock');
+  assertEqual(init.inputs.length, 1);
+  assertEqual(init.inputs[0], 'dir');
+  assertEqual(init.command, 'ls $dir');
+});
+
+test('Parse spawn as statement', () => {
+  const ast = parse(tokenize('spawn { echo hello }'));
+  const stmt = ast.body[0];
+  assertEqual(stmt.type, 'SpawnBlock');
+  assertEqual(stmt.command, 'echo hello');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

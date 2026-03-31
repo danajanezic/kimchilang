@@ -50,6 +50,8 @@ export const NodeType = {
   ConditionalMethodExpression: 'ConditionalMethodExpression',
   ConcurrentExpression: 'ConcurrentExpression',
   BindExpression: 'BindExpression',
+  WorkerExpression: 'WorkerExpression',
+  SpawnBlock: 'SpawnBlock',
 
   // Patterns
   Property: 'Property',
@@ -392,7 +394,11 @@ export class Parser {
     if (this.check(TokenType.SHELL)) {
       return this.parseShellBlock();
     }
-    
+
+    if (this.check(TokenType.SPAWN)) {
+      return this.parseSpawnBlock();
+    }
+
     // Lifecycle hooks
     if (this.check(TokenType.BEFORE_ALL)) {
       this.advance();
@@ -1388,6 +1394,90 @@ export class Parser {
     };
   }
 
+  parseWorkerExpression() {
+    this.expect(TokenType.WORKER, 'Expected worker');
+
+    const inputs = [];
+
+    this.expect(TokenType.LPAREN, 'Expected ( after worker');
+    if (!this.check(TokenType.RPAREN)) {
+      do {
+        const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+        inputs.push(name);
+      } while (this.match(TokenType.COMMA));
+    }
+    this.expect(TokenType.RPAREN, 'Expected ) after worker inputs');
+
+    const body = this.parseBlock();
+
+    return {
+      type: NodeType.WorkerExpression,
+      inputs,
+      body,
+    };
+  }
+
+  parseSpawnBlock() {
+    this.expect(TokenType.SPAWN, 'Expected spawn');
+
+    const inputs = [];
+
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after spawn');
+
+    const contentToken = this.expect(TokenType.SPAWN_CONTENT, 'Expected spawn command');
+    const command = contentToken.value;
+
+    this.expect(TokenType.RBRACE, 'Expected } to close spawn block');
+
+    return {
+      type: NodeType.SpawnBlock,
+      inputs,
+      command,
+    };
+  }
+
+  parseSpawnBlockExpression() {
+    this.expect(TokenType.SPAWN, 'Expected spawn');
+
+    const inputs = [];
+
+    if (this.match(TokenType.LPAREN)) {
+      if (!this.check(TokenType.RPAREN)) {
+        do {
+          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
+          inputs.push(name);
+        } while (this.match(TokenType.COMMA));
+      }
+      this.expect(TokenType.RPAREN, 'Expected )');
+    }
+
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after spawn');
+
+    const contentToken = this.expect(TokenType.SPAWN_CONTENT, 'Expected spawn command');
+    const command = contentToken.value;
+
+    this.expect(TokenType.RBRACE, 'Expected } to close spawn block');
+
+    return {
+      type: NodeType.SpawnBlock,
+      inputs,
+      command,
+      isExpression: true,
+    };
+  }
+
   tokenToSource(token) {
     // Convert a token back to source code representation
     switch (token.type) {
@@ -2039,6 +2129,10 @@ export class Parser {
       return this.parseConcurrentExpression();
     }
 
+    if (this.check(TokenType.WORKER)) {
+      return this.parseWorkerExpression();
+    }
+
     if (this.check(TokenType.MATCH_KEYWORD)) {
       return this.parseMatchBlock();
     }
@@ -2144,7 +2238,11 @@ export class Parser {
     if (this.check(TokenType.SHELL)) {
       return this.parseShellBlockExpression();
     }
-    
+
+    if (this.check(TokenType.SPAWN)) {
+      return this.parseSpawnBlockExpression();
+    }
+
     // Arrow function with single param (no parens) - check before identifier
     if (this.check(TokenType.IDENTIFIER) && this.peek(1).type === TokenType.FAT_ARROW) {
       const param = this.advance().value;
