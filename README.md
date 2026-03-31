@@ -107,6 +107,7 @@ All examples have `#!/usr/bin/env kimchi` shebangs and are directly executable:
 - `test_example.km` - Testing framework
 - `testing/` - Unit testing with mocks
 - `myapp/` - Dependency injection example
+- `web/` - HTTP server with routing, guards, and CORS
 
 ## File Extensions
 

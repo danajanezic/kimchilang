@@ -71,7 +71,9 @@ Planned improvements:
 
 ## Web Framework
 
-- [ ] Built-in minimal web server — batteries-included like Go's `net/http`, but KimchiLang-native. Immutable request/response objects, pattern-matched routing, guard-based middleware, pipe operator for request pipelines. No external dependencies. Ships with the language.
+- [x] ~~Built-in minimal web server (`stdlib.web.server`)~~ — single callback, immutable request objects, response helpers, CORS. Routing via match, validation via guard, middleware via pipes. No external dependencies.
+- [ ] WebSocket support
+- [ ] Server-sent events
 
 ## Runtime
 
