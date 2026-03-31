@@ -786,11 +786,17 @@ async function runTests(filePath, options = {}) {
       basePath: dirname(resolve(filePath)),
     });
 
-    // Append test runner invocation
-    const testCode = code.replace(
-      /await _module\(\{\}\);\s*$/,
-      'await _module({});\nawait _runTests();\n'
-    );
+    // Append test runner invocation (only if file has test blocks)
+    let testCode = code;
+    if (code.includes('function _runTests')) {
+      testCode = code.replace(
+        /await _module\(\{\}\);\s*$/,
+        'await _module({});\nawait _runTests();\n'
+      );
+    } else {
+      console.error(`Error: No test or describe blocks found in ${filePath}`);
+      process.exit(1);
+    }
 
     const os = await import('os');
     const crypto = await import('crypto');

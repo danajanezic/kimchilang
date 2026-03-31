@@ -96,10 +96,10 @@ enum HttpStatus {
 }
 
 enum Priority {
-  Low,
-  Medium,
+  Low = 0,
+  Medium = 1,
   High = 10,
-  Critical
+  Critical = 20
 }
 
 /**
