@@ -339,6 +339,11 @@ export class TypeChecker {
       case NodeType.ShellBlock:
         // JS/Shell blocks are opaque - no type checking inside
         break;
+      case NodeType.SpawnBlock:
+        if (!this._insideAsync) {
+          this.addError('spawn must be inside an async function', node);
+        }
+        break;
       case NodeType.TestBlock:
       case NodeType.DescribeBlock:
       case NodeType.ExpectStatement:
@@ -802,6 +807,29 @@ export class TypeChecker {
           this.visitExpression(arg);
         }
         return this.createType(Type.Function);
+      }
+      case NodeType.WorkerExpression: {
+        if (!this._insideAsync) {
+          this.addError('worker must be inside an async function', node);
+        }
+        // Visit body in isolated scope — only inputs are accessible
+        this.pushScope();
+        for (const input of node.inputs) {
+          this.defineVariable(input, this.createType(Type.Any));
+        }
+        if (node.body && node.body.body) {
+          for (const stmt of node.body.body) {
+            this.visitStatement(stmt);
+          }
+        }
+        this.popScope();
+        return this.createType(Type.Any);
+      }
+      case NodeType.SpawnBlock: {
+        if (!this._insideAsync) {
+          this.addError('spawn must be inside an async function', node);
+        }
+        return this.createType(Type.Object);
       }
       default:
         return this.createType(Type.Unknown);

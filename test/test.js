@@ -1715,6 +1715,42 @@ test('Parse spawn as statement', () => {
   assertEqual(stmt.command, 'echo hello');
 });
 
+test('Type checker: worker inside async fn is valid', () => {
+  const source = 'async fn main() { dec x = worker(data) { return data } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(workerErrors.length, 0);
+});
+
+test('Type checker: worker outside async fn is an error', () => {
+  const source = 'fn main() { dec x = worker(data) { return data } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const workerErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(workerErrors.length, 1);
+});
+
+test('Type checker: spawn outside async fn is an error', () => {
+  const source = 'fn main() { dec x = spawn { ls } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(spawnErrors.length, 1);
+});
+
+test('Type checker: spawn inside async fn is valid', () => {
+  const source = 'async fn main() { dec x = spawn { ls } }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const spawnErrors = errors.filter(e => e.message.includes('must be inside an async function'));
+  assertEqual(spawnErrors.length, 0);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
