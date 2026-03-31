@@ -3,8 +3,11 @@
 // Then: log.info("message"), log.debug("message"), etc.
 // Set LOG_LEVEL environment variable to control output (debug, info, warn, error)
 
+type CallerInfo = {name: string, module: string, line: number}
+type LogEntry = {timestamp: string, level: string, module: string, func: string, line: number, message: string}
+
 extern "./_logger_helpers.js" {
-  fn getCallerInfo(): any
+  fn getCallerInfo(): CallerInfo
 }
 
 env LOG_LEVEL = "info"
@@ -27,6 +30,12 @@ fn shouldLog(level) {
 
 // getCallerInfo is extern'd from _logger_helpers.js
 
+/**
+ * @param {string} level
+ * @param {string} message
+ * @param {any} data
+ * @returns {string}
+ */
 fn formatLog(level, message, data) {
   dec caller = getCallerInfo()
   dec timestamp = Date.new().toISOString()
@@ -45,24 +54,40 @@ fn formatLog(level, message, data) {
   return JSON.stringify(entry)
 }
 
+/**
+ * @param {string} message
+ * @param {any} data
+ */
 expose fn debug(message, data) {
   guard shouldLog("debug") else { return null }
   dec output = formatLog("debug", message, data)
   print output
 }
 
+/**
+ * @param {string} message
+ * @param {any} data
+ */
 expose fn info(message, data) {
   guard shouldLog("info") else { return null }
   dec output = formatLog("info", message, data)
   print output
 }
 
+/**
+ * @param {string} message
+ * @param {any} data
+ */
 expose fn warn(message, data) {
   guard shouldLog("warn") else { return null }
   dec output = formatLog("warn", message, data)
   console.warn(output)
 }
 
+/**
+ * @param {string} message
+ * @param {any} data
+ */
 expose fn error(message, data) {
   guard shouldLog("error") else { return null }
   dec output = formatLog("error", message, data)

@@ -1,40 +1,70 @@
 // KimchiLang Standard Library - HTTP Client
 // Wrapper for Node.js http/https modules with a simple, promise-based API
 
+type HttpResponse = {status: number, statusText: string, headers: any, body: any, ok: boolean}
+type HttpOptions = {method: string, headers: any, body: any, timeout: number}
+
 extern "./_http_helpers.js" {
-  fn httpRequest(url: string, method: string, headers: any, body: any, timeout: number): any
+  fn httpRequest(url: string, method: string, headers: any, body: any, timeout: number): HttpResponse
 }
 
 expose fn _describe() {
   return "HTTP client: get, post, put, patch, delete, request"
 }
 
-// Make an HTTP GET request
+/**
+ * @param {string} url
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn get(url, options) {
   return await request(url, { ...options, method: "GET" })
 }
 
-// Make an HTTP POST request
+/**
+ * @param {string} url
+ * @param {any} body
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn post(url, body, options) {
   return await request(url, { ...options, method: "POST", body: body })
 }
 
-// Make an HTTP PUT request
+/**
+ * @param {string} url
+ * @param {any} body
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn put(url, body, options) {
   return await request(url, { ...options, method: "PUT", body: body })
 }
 
-// Make an HTTP PATCH request
+/**
+ * @param {string} url
+ * @param {any} body
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn patch(url, body, options) {
   return await request(url, { ...options, method: "PATCH", body: body })
 }
 
-// Make an HTTP DELETE request
+/**
+ * @param {string} url
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn del(url, options) {
   return await request(url, { ...options, method: "DELETE" })
 }
 
-// Generic HTTP request function
+/**
+ * @param {string} url
+ * @param {any} options
+ * @returns {HttpResponse}
+ */
 expose async fn request(url, options) {
   guard url != null else { throw "request() requires a url" }
 
@@ -52,12 +82,19 @@ expose async fn request(url, options) {
   return result
 }
 
-// Helper to build query strings
+/**
+ * @param {any} params
+ * @returns {string}
+ */
 expose fn queryString(params) {
   return Object.entries(params).map((pair) => encodeURIComponent(pair[0]) + "=" + encodeURIComponent(pair[1])).join("&")
 }
 
-// Helper to build URL with query params
+/**
+ * @param {string} baseUrl
+ * @param {any} params
+ * @returns {string}
+ */
 expose fn buildUrl(baseUrl, params) {
   dec qs = queryString(params)
   return "${baseUrl}?${qs}".if(qs != "").else(baseUrl)

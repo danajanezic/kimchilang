@@ -6,9 +6,9 @@ expose fn _describe() {
 
 /**
  * Splits an array into chunks of the given size.
- * @param {any[]} arr - Array to chunk
+ * @param {T[]} arr - Array to chunk
  * @param {number} size - Chunk size
- * @returns {any[]} Array of chunks
+ * @returns {T[][]} Array of chunks
  */
 expose fn chunk(arr, size) {
   guard arr != null else { return [] }
@@ -24,8 +24,8 @@ expose fn chunk(arr, size) {
 
 /**
  * Zips two arrays into an array of pairs.
- * @param {any[]} a - First array
- * @param {any[]} b - Second array
+ * @param {A[]} a - First array
+ * @param {B[]} b - Second array
  * @returns {any[]} Array of [a[i], b[i]] pairs
  */
 expose fn zip(a, b) {
@@ -43,9 +43,9 @@ expose fn zip(a, b) {
 
 /**
  * Groups array elements by a key function.
- * @param {any[]} arr - Array to group
- * @param {any} keyFn - Function that returns the group key for each element
- * @returns {any} Object mapping keys to arrays of elements
+ * @param {T[]} arr - Array to group
+ * @param {(T) => string} keyFn - Function that returns the group key for each element
+ * @returns {{[key: string]: T[]}} Object mapping keys to arrays of elements
  */
 expose fn groupBy(arr, keyFn) {
   guard arr != null else { return {} }
@@ -58,9 +58,9 @@ expose fn groupBy(arr, keyFn) {
 
 /**
  * Returns a sorted copy of the array using a key function.
- * @param {any[]} arr - Array to sort
- * @param {any} keyFn - Function that returns the sort key for each element
- * @returns {any[]} Sorted copy
+ * @param {T[]} arr - Array to sort
+ * @param {(T) => number} keyFn - Function that returns the sort key for each element
+ * @returns {T[]} Sorted copy
  */
 expose fn sortBy(arr, keyFn) {
   guard arr != null else { return [] }
@@ -89,8 +89,8 @@ expose fn range(start, end) {
 
 /**
  * Removes null and undefined values from an array.
- * @param {any[]} arr - Array to compact
- * @returns {any[]} Array without null/undefined
+ * @param {T | null[]} arr - Array to compact
+ * @returns {T[]} Array without null/undefined
  */
 expose fn compact(arr) {
   guard arr != null else { return [] }
@@ -99,9 +99,9 @@ expose fn compact(arr) {
 
 /**
  * Splits an array into two based on a predicate: [matches, rest].
- * @param {any[]} arr - Array to partition
- * @param {any} keyFn - Predicate function
- * @returns {any[]} Array of [matches, rest]
+ * @param {T[]} arr - Array to partition
+ * @param {(T) => boolean} keyFn - Predicate function
+ * @returns {T[][]} Array of [matches, rest]
  */
 expose fn partition(arr, keyFn) {
   guard arr != null else { return [[], []] }
@@ -112,9 +112,9 @@ expose fn partition(arr, keyFn) {
 
 /**
  * Returns elements present in both arrays.
- * @param {any[]} a - First array
- * @param {any[]} b - Second array
- * @returns {any[]} Intersection
+ * @param {T[]} a - First array
+ * @param {T[]} b - Second array
+ * @returns {T[]} Intersection
  */
 expose fn intersect(a, b) {
   guard a != null else { return [] }
@@ -124,9 +124,9 @@ expose fn intersect(a, b) {
 
 /**
  * Returns elements in the first array but not in the second.
- * @param {any[]} a - First array
- * @param {any[]} b - Second array
- * @returns {any[]} Difference
+ * @param {T[]} a - First array
+ * @param {T[]} b - Second array
+ * @returns {T[]} Difference
  */
 expose fn difference(a, b) {
   guard a != null else { return [] }
