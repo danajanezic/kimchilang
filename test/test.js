@@ -2594,6 +2594,130 @@ test('Parse extern fn without type params still works', () => {
   assertEqual(fn.typeParams.length, 0);
 });
 
+// --- Generics: Type Aliases & Substitution (Task 3) ---
+console.log('\n--- Generics: Type Aliases & Substitution ---\n');
+
+test('Type checker: register and instantiate type alias', () => {
+  const source = 'type Optional<T> = T | null';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  assertEqual(tc.typeAliases.has('Optional'), true);
+});
+
+test('Type checker: parseTypeString resolves type alias', () => {
+  const source = 'type Optional<T> = T | null';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const type = tc.parseTypeString('Optional<string>');
+  assertEqual(type.kind, 'union');
+  assertEqual(type.members.length, 2);
+  assertEqual(type.members[0].kind, 'string');
+  assertEqual(type.members[1].kind, 'null');
+});
+
+test('Type checker: parseTypeString resolves nested generic', () => {
+  const source = 'type Result<T> = {ok: boolean, value: T}';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const type = tc.parseTypeString('Result<number>');
+  assertEqual(type.kind, 'object');
+  assertEqual(type.properties.ok.kind, 'boolean');
+  assertEqual(type.properties.value.kind, 'number');
+});
+
+test('Type checker: parseTypeString with multiple type args', () => {
+  const source = 'type Pair<A, B> = {first: A, second: B}';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const type = tc.parseTypeString('Pair<string, number>');
+  assertEqual(type.kind, 'object');
+  assertEqual(type.properties.first.kind, 'string');
+  assertEqual(type.properties.second.kind, 'number');
+});
+
+test('Type checker: type alias without params', () => {
+  const source = 'type UserId = number';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const type = tc.parseTypeString('UserId');
+  assertEqual(type.kind, 'number');
+});
+
+// --- Generics: Generic Extern Functions (Task 4) ---
+console.log('\n--- Generics: Generic Extern Functions ---\n');
+
+test('Type checker: generic extern fn registers with type params', () => {
+  const source = 'extern "mod" {\n  fn identity<T>(value: T): T\n}\ndec x = identity("hello")';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+  const fnInfo = tc.functions.get('identity');
+  assertEqual(fnInfo.typeParams.length, 1);
+  assertEqual(fnInfo.typeParams[0], 'T');
+});
+
+// --- Generics: Type Parameter Inference (Task 5) ---
+console.log('\n--- Generics: Type Parameter Inference ---\n');
+
+test('Type checker: infer generic return type from args', () => {
+  const source = `
+extern "mod" {
+  fn identity<T>(value: T): T
+}
+dec x = identity("hello")`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const xType = tc.lookupVariable('x');
+  assertEqual(xType.kind, 'string');
+});
+
+test('Type checker: infer array element type', () => {
+  const source = `
+extern "mod" {
+  fn first<T>(arr: T[]): T | null
+}
+dec nums = [1, 2, 3]
+dec x = first(nums)`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const xType = tc.lookupVariable('x');
+  assertEqual(xType.kind, 'union');
+});
+
+test('Type checker: generic fn with no inference defaults to any', () => {
+  const source = `
+extern "mod" {
+  fn create<T>(): T
+}
+dec x = create()`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  tc.check(ast);
+  const xType = tc.lookupVariable('x');
+  assertEqual(xType.kind, 'any');
+});
+
+test('Type checker: generic fn validates non-generic params', () => {
+  const source = `
+extern "mod" {
+  fn find<T>(arr: T[], pred: string): T | null
+}
+dec x = find([1, 2], 123)`;
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('Expected'));
+  assertEqual(typeErrors.length, 1);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

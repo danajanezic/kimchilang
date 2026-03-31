@@ -15,6 +15,7 @@ export const Type = {
   Enum: 'enum',
   Module: 'module',
   Union: 'union',
+  TypeParam: 'typeParam',
 };
 
 // Global module type registry - stores the exported interface of each module
@@ -38,6 +39,8 @@ export class TypeChecker {
     this.errors = [];
     this.functions = new Map(); // Function signatures
     this.enums = new Map(); // Enum definitions
+    this.typeAliases = new Map();
+    this._typeParamContext = [];
     this.modulePath = options.modulePath || null;
     this.moduleExports = {}; // Track exposed declarations for this module
     this.argTypes = new Map(); // Track arg declaration types
@@ -189,6 +192,45 @@ export class TypeChecker {
       }
     }
 
+    // Generic instantiation: Name<arg1, arg2>
+    const genericMatch = str.match(/^([A-Za-z_]\w*)<(.+)>$/);
+    if (genericMatch) {
+      const name = genericMatch[1];
+      const argsStr = genericMatch[2];
+
+      const args = [];
+      let depth2 = 0;
+      let current2 = '';
+      for (const char of argsStr) {
+        if (char === '<' || char === '(' || char === '{') depth2++;
+        else if (char === '>' || char === ')' || char === '}') depth2--;
+        else if (char === ',' && depth2 === 0) {
+          args.push(current2.trim());
+          current2 = '';
+          continue;
+        }
+        current2 += char;
+      }
+      args.push(current2.trim());
+
+      const alias = this.typeAliases.get(name);
+      if (alias) {
+        const bindings = new Map();
+        for (let i = 0; i < alias.params.length; i++) {
+          bindings.set(alias.params[i], args[i] ? this.parseTypeString(args[i]) : this.createType(Type.Any));
+        }
+        return this.substituteTypeParams(alias.body, bindings);
+      }
+    }
+
+    // Type parameter reference
+    if (this._typeParamContext.length > 0) {
+      const currentParams = this._typeParamContext[this._typeParamContext.length - 1];
+      if (currentParams.has(str)) {
+        return { kind: Type.TypeParam, name: str };
+      }
+    }
+
     // Primitives
     const primitives = { 'number': Type.Number, 'string': Type.String, 'boolean': Type.Boolean, 'null': Type.Null, 'void': Type.Void, 'any': Type.Any };
     if (primitives[str]) {
@@ -243,6 +285,12 @@ export class TypeChecker {
       return this.createFunctionType(params, returnType);
     }
 
+    // Non-generic type alias lookup
+    const alias = this.typeAliases.get(str);
+    if (alias && alias.params.length === 0) {
+      return alias.body;
+    }
+
     // Custom type — look up in scope, or return unknown with name
     const existing = this.lookupVariable(str);
     if (existing) return existing;
@@ -264,10 +312,96 @@ export class TypeChecker {
     if (type.kind === Type.Function) {
       return `(${type.params.map(p => this.typeToString(p)).join(', ')}) => ${this.typeToString(type.returnType)}`;
     }
+    if (type.kind === Type.TypeParam) {
+      return type.name;
+    }
     if (type.kind === Type.Union) {
       return type.members.map(m => this.typeToString(m)).join(' | ');
     }
     return type.kind || 'unknown';
+  }
+
+  substituteTypeParams(type, bindings) {
+    if (!type) return type;
+
+    if (type.kind === Type.TypeParam) {
+      return bindings.get(type.name) || this.createType(Type.Any);
+    }
+
+    if (type.kind === Type.Array) {
+      return this.createArrayType(this.substituteTypeParams(type.elementType, bindings));
+    }
+
+    if (type.kind === Type.Object && type.properties) {
+      const newProps = {};
+      for (const [key, val] of Object.entries(type.properties)) {
+        newProps[key] = this.substituteTypeParams(val, bindings);
+      }
+      return this.createObjectType(newProps);
+    }
+
+    if (type.kind === Type.Function) {
+      const newParams = type.params.map(p => this.substituteTypeParams(p, bindings));
+      const newReturn = this.substituteTypeParams(type.returnType, bindings);
+      return this.createFunctionType(newParams, newReturn);
+    }
+
+    if (type.kind === Type.Union) {
+      const newMembers = type.members.map(m => this.substituteTypeParams(m, bindings));
+      return this.createUnionType(newMembers);
+    }
+
+    return type;
+  }
+
+  inferTypeParams(declaredType, actualType, bindings) {
+    if (!declaredType || !actualType) return;
+
+    if (declaredType.kind === Type.TypeParam) {
+      if (!bindings.has(declaredType.name)) {
+        bindings.set(declaredType.name, actualType);
+      }
+      return;
+    }
+
+    if (declaredType.kind === Type.Array && actualType.kind === Type.Array) {
+      this.inferTypeParams(declaredType.elementType, actualType.elementType, bindings);
+      return;
+    }
+
+    if (declaredType.kind === Type.Function && actualType.kind === Type.Function) {
+      if (declaredType.params) {
+        for (let i = 0; i < declaredType.params.length; i++) {
+          if (actualType.params && actualType.params[i]) {
+            this.inferTypeParams(declaredType.params[i], actualType.params[i], bindings);
+          }
+        }
+      }
+      if (declaredType.returnType && actualType.returnType) {
+        this.inferTypeParams(declaredType.returnType, actualType.returnType, bindings);
+      }
+      return;
+    }
+
+    if (declaredType.kind === Type.Object && actualType.kind === Type.Object) {
+      if (declaredType.properties && actualType.properties) {
+        for (const [key, declType] of Object.entries(declaredType.properties)) {
+          if (actualType.properties[key]) {
+            this.inferTypeParams(declType, actualType.properties[key], bindings);
+          }
+        }
+      }
+      return;
+    }
+
+    if (declaredType.kind === Type.Union) {
+      for (const member of declaredType.members) {
+        if (member.kind === Type.TypeParam && !bindings.has(member.name)) {
+          bindings.set(member.name, actualType);
+        }
+      }
+      return;
+    }
   }
 
   // Check if types are compatible
@@ -275,6 +409,7 @@ export class TypeChecker {
     if (!expected || !actual) return true;
     if (expected.kind === Type.Any || actual.kind === Type.Any) return true;
     if (expected.kind === Type.Unknown || actual.kind === Type.Unknown) return true;
+    if (expected.kind === Type.TypeParam || actual.kind === Type.TypeParam) return true;
 
     // When expected is a union: actual must match at least one member
     if (expected.kind === Type.Union) {
@@ -443,16 +578,28 @@ export class TypeChecker {
       case NodeType.ExternDeclaration: {
         for (const decl of node.declarations) {
           if (decl.kind === 'function') {
+            const typeParams = decl.typeParams || [];
+
+            if (typeParams.length > 0) {
+              this._typeParamContext.push(new Set(typeParams));
+            }
+
             const paramTypes = decl.params.map(p => ({
               name: p.name,
               type: this.parseTypeString(p.typeAnnotation),
             }));
             const returnType = this.parseTypeString(decl.returnType);
+
+            if (typeParams.length > 0) {
+              this._typeParamContext.pop();
+            }
+
             this.defineVariable(decl.name, this.createFunctionType(
               paramTypes.map(p => p.type),
               returnType
             ));
             this.functions.set(decl.name, {
+              typeParams,
               params: paramTypes,
               returnType,
               kmdocParams: new Map(paramTypes.map(p => [p.name, p.type])),
@@ -465,6 +612,17 @@ export class TypeChecker {
       }
       case NodeType.ExternDefaultDeclaration: {
         this.defineVariable(node.alias, this.parseTypeString(node.aliasType));
+        break;
+      }
+      case NodeType.TypeDeclaration: {
+        this._typeParamContext.push(new Set(node.typeParams));
+        const body = this.parseTypeString(node.body);
+        this._typeParamContext.pop();
+
+        this.typeAliases.set(node.name, {
+          params: node.typeParams,
+          body,
+        });
         break;
       }
     }
@@ -1092,6 +1250,7 @@ export class TypeChecker {
             const expectedType = fnInfo.kmdocParams.get(paramInfo.name);
             if (argType.kind !== Type.Unknown && argType.kind !== Type.Any &&
                 expectedType.kind !== Type.Any && expectedType.kind !== Type.Unknown &&
+                expectedType.kind !== Type.TypeParam &&
                 !this.isCompatible(expectedType, argType)) {
               this.addError(
                 `Argument ${i + 1} of '${node.callee.name}': Expected ${this.typeToString(expectedType)}, got ${this.typeToString(argType)}`,
@@ -1103,17 +1262,26 @@ export class TypeChecker {
       }
     }
 
-    // Return the function's return type if known
-    if (calleeType && calleeType.kind === Type.Function && calleeType.returnType) {
-      return calleeType.returnType;
-    }
-    
-    // Check for known function calls
+    // Check for known function calls (with generic inference)
     if (node.callee.type === NodeType.Identifier) {
       const fnInfo = this.functions.get(node.callee.name);
       if (fnInfo) {
+        if (fnInfo.typeParams && fnInfo.typeParams.length > 0) {
+          const bindings = new Map();
+          for (let i = 0; i < fnInfo.params.length; i++) {
+            if (argTypes[i]) {
+              this.inferTypeParams(fnInfo.params[i].type, argTypes[i], bindings);
+            }
+          }
+          return this.substituteTypeParams(fnInfo.returnType, bindings);
+        }
         return fnInfo.returnType;
       }
+    }
+
+    // Return the function's return type if known
+    if (calleeType && calleeType.kind === Type.Function && calleeType.returnType) {
+      return calleeType.returnType;
     }
     
     // Handle method calls on known types

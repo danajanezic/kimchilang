@@ -442,7 +442,8 @@ export class CodeGenerator {
       stmt.type !== NodeType.ArgDeclaration &&
       stmt.type !== NodeType.EnvDeclaration &&
       stmt.type !== NodeType.ExternDeclaration &&
-      stmt.type !== NodeType.ExternDefaultDeclaration
+      stmt.type !== NodeType.ExternDefaultDeclaration &&
+      stmt.type !== NodeType.TypeDeclaration
     );
     
     // Build list of dep paths for distinguishing deps from args in _opts
@@ -739,6 +740,9 @@ export class CodeGenerator {
       case NodeType.ExternDeclaration:
       case NodeType.ExternDefaultDeclaration:
         // Extern declarations produce no runtime code — imports handled in visitProgram
+        break;
+      case NodeType.TypeDeclaration:
+        // Type declarations are compile-time only — no runtime code
         break;
       case NodeType.ExpressionStatement:
         if (node.expression.type === NodeType.MatchBlock) {
