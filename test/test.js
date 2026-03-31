@@ -2004,6 +2004,42 @@ test('Parse extern default with complex type', () => {
   assertEqual(ext.aliasType, '{Pool: any, Client: any}');
 });
 
+test('Type checker: extern fn registers in scope', () => {
+  const source = 'extern "mod" {\n  fn greet(name: string): string\n}\ndec x = greet("hi")';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const greetErrors = errors.filter(e => e.message.includes('greet'));
+  assertEqual(greetErrors.length, 0);
+});
+
+test('Type checker: extern dec registers in scope', () => {
+  const source = 'extern "mod" {\n  dec config: any\n}\ndec x = config';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const configErrors = errors.filter(e => e.message.includes('config'));
+  assertEqual(configErrors.length, 0);
+});
+
+test('Type checker: extern default registers in scope', () => {
+  const source = 'extern default "express" as express: any\ndec app = express()';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const expressErrors = errors.filter(e => e.message.includes('express'));
+  assertEqual(expressErrors.length, 0);
+});
+
+test('Type checker: extern fn validates param types', () => {
+  const source = 'extern "mod" {\n  fn readFile(path: string): string\n}\ndec x = readFile(123)';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const typeErrors = errors.filter(e => e.message.includes('Expected string'));
+  assertEqual(typeErrors.length, 1);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

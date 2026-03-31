@@ -364,6 +364,33 @@ export class TypeChecker {
       case NodeType.GuardStatement:
         this.visitGuardStatement(node);
         break;
+      case NodeType.ExternDeclaration: {
+        for (const decl of node.declarations) {
+          if (decl.kind === 'function') {
+            const paramTypes = decl.params.map(p => ({
+              name: p.name,
+              type: this.parseTypeString(p.typeAnnotation),
+            }));
+            const returnType = this.parseTypeString(decl.returnType);
+            this.defineVariable(decl.name, this.createFunctionType(
+              paramTypes.map(p => p.type),
+              returnType
+            ));
+            this.functions.set(decl.name, {
+              params: paramTypes,
+              returnType,
+              kmdocParams: new Map(paramTypes.map(p => [p.name, p.type])),
+            });
+          } else if (decl.kind === 'value') {
+            this.defineVariable(decl.name, this.parseTypeString(decl.valueType));
+          }
+        }
+        break;
+      }
+      case NodeType.ExternDefaultDeclaration: {
+        this.defineVariable(node.alias, this.parseTypeString(node.aliasType));
+        break;
+      }
     }
   }
 
@@ -964,7 +991,7 @@ export class TypeChecker {
                 expectedType.kind !== Type.Any && expectedType.kind !== Type.Unknown &&
                 argType.kind !== expectedType.kind) {
               this.addError(
-                `Argument ${i + 1} of '${node.callee.name}' expects ${expectedType.kind} but got ${argType.kind}`,
+                `Argument ${i + 1} of '${node.callee.name}': Expected ${expectedType.kind}, got ${argType.kind}`,
                 node
               );
             }
