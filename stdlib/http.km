@@ -5,7 +5,7 @@ type HttpResponse = {status: number, statusText: string, headers: any, body: any
 type HttpOptions = {method: string, headers: any, body: any, timeout: number}
 
 extern "./_http_helpers.js" {
-  fn httpRequest(url: string, method: string, headers: any, body: any, timeout: number): HttpResponse
+  async fn httpRequest(url: string, method: string, headers: any, body: any, timeout: number): HttpResponse
 }
 
 expose fn _describe() {
