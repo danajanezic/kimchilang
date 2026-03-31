@@ -3,6 +3,10 @@
 // Then: log.info("message"), log.debug("message"), etc.
 // Set LOG_LEVEL environment variable to control output (debug, info, warn, error)
 
+extern "./_logger_helpers.js" {
+  fn getCallerInfo(): any
+}
+
 env LOG_LEVEL = "info"
 
 dec LOG_LEVELS = {
@@ -21,26 +25,7 @@ fn shouldLog(level) {
   return LOG_LEVELS[level] >= getLogLevel()
 }
 
-fn getCallerInfo() {
-  return js {
-    const err = new Error();
-    const stack = err.stack.split('\n');
-    for (let i = 3; i < stack.length; i++) {
-      const line = stack[i];
-      if (!line.includes('logger') && !line.includes('node:internal')) {
-        const match = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?/);
-        if (match) {
-          return {
-            name: match[1] || '<anonymous>',
-            module: match[2].replace(/^file:\/\//, '').replace(/.*\//, '').replace(/\.(js|km)$/, ''),
-            line: parseInt(match[3], 10),
-          };
-        }
-      }
-    }
-    return { name: '<unknown>', module: '<unknown>', line: 0 };
-  }
-}
+// getCallerInfo is extern'd from _logger_helpers.js
 
 fn formatLog(level, message, data) {
   dec caller = getCallerInfo()
