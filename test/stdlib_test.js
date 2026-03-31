@@ -664,32 +664,32 @@ console.log('\n--- bitwise.km ---\n');
     output = compileModule(source);
   });
 
-  test('bitwise.km has AND operator (&)', () => {
-    assertContains(output, 'a & b');
+  test('bitwise.km has band function', () => {
+    assertContains(output, '_band');
   });
 
-  test('bitwise.km has OR operator (|)', () => {
-    assertContains(output, 'a | b');
+  test('bitwise.km has bor function', () => {
+    assertContains(output, '_bor');
   });
 
-  test('bitwise.km has XOR operator (^)', () => {
-    assertContains(output, 'a ^ b');
+  test('bitwise.km has bxor function', () => {
+    assertContains(output, '_bxor');
   });
 
-  test('bitwise.km has NOT operator (~)', () => {
-    assertContains(output, '~a');
+  test('bitwise.km has bnot function', () => {
+    assertContains(output, '_bnot');
   });
 
-  test('bitwise.km has left shift (<<)', () => {
-    assertContains(output, 'a << b');
+  test('bitwise.km has lshift function', () => {
+    assertContains(output, '_lshift');
   });
 
-  test('bitwise.km has right shift (>>)', () => {
-    assertContains(output, 'a >> b');
+  test('bitwise.km has rshift function', () => {
+    assertContains(output, '_rshift');
   });
 
-  test('bitwise.km has unsigned right shift (>>>)', () => {
-    assertContains(output, 'a >>> b');
+  test('bitwise.km has urshift function', () => {
+    assertContains(output, '_urshift');
   });
 
   test('bitwise.km exports all 7 exposed functions', () => {

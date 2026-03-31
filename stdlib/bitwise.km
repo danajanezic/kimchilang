@@ -1,38 +1,23 @@
-// KimchiLang Bitwise Operations
-// Usage: as bit dep stdlib.bitwise
-// Provides wrapper functions for JavaScript bitwise operators
+// KimchiLang Standard Library - Bitwise Operations
 
-// Bitwise AND: a & b
-expose fn band(a, b) {
-  return js(a, b) { return a & b; }
+extern "./_bitwise_helpers.js" {
+  fn _band(a: number, b: number): number
+  fn _bor(a: number, b: number): number
+  fn _bxor(a: number, b: number): number
+  fn _bnot(a: number): number
+  fn _lshift(a: number, b: number): number
+  fn _rshift(a: number, b: number): number
+  fn _urshift(a: number, b: number): number
 }
 
-// Bitwise OR: a | b
-expose fn bor(a, b) {
-  return js(a, b) { return a | b; }
+expose fn _describe() {
+  return "Bitwise operations: band, bor, bxor, bnot, lshift, rshift, urshift"
 }
 
-// Bitwise XOR: a ^ b
-expose fn bxor(a, b) {
-  return js(a, b) { return a ^ b; }
-}
-
-// Bitwise NOT: ~a
-expose fn bnot(a) {
-  return js(a) { return ~a; }
-}
-
-// Left shift: a << b
-expose fn lshift(a, b) {
-  return js(a, b) { return a << b; }
-}
-
-// Right shift (sign-propagating): a >> b
-expose fn rshift(a, b) {
-  return js(a, b) { return a >> b; }
-}
-
-// Unsigned right shift: a >>> b
-expose fn urshift(a, b) {
-  return js(a, b) { return a >>> b; }
-}
+expose fn band(a, b) { return _band(a, b) }
+expose fn bor(a, b) { return _bor(a, b) }
+expose fn bxor(a, b) { return _bxor(a, b) }
+expose fn bnot(a) { return _bnot(a) }
+expose fn lshift(a, b) { return _lshift(a, b) }
+expose fn rshift(a, b) { return _rshift(a, b) }
+expose fn urshift(a, b) { return _urshift(a, b) }
