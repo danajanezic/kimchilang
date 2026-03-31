@@ -11,7 +11,7 @@
 - [ ] Algebraic data types / tagged unions for richer domain modeling
 - [x] ~~Exhaustiveness checking on match patterns~~ — implemented for enum variant matching
 - [x] ~~Union types (`string | null`)~~ — supported in extern and KMDocs, one-way compatibility, guard-based narrowing
-- [ ] Generic/parameterized types
+- [x] ~~Generic/parameterized types~~ — type aliases (`type Result<T> = ...`), generic functions in extern/KMDocs, inference at call sites
 - [x] ~~Compound assignment operators for mut (`+=`, `-=`, `*=`, `/=`)~~ — already supported
 - [x] ~~`Foo.new(args)` constructor syntax — `new` as a static method on the base object/function, compiles to `new Foo(args)`. Enables chaining without variable assignment: `Date.new().toISOString()`. Replaces broken `new Foo()` keyword form.~~
 - [x] ~~`extern` declarations — typed contracts for JS modules (`extern "node:fs" { fn readFileSync(path: string): string }`). Compiles to tree-shaken `import` statements. Supports named and default exports.~~
