@@ -1,0 +1,65 @@
+// KimchiLang Web Server
+// Usage: as server dep stdlib.web.server({config: config})
+
+module singleton
+
+arg config
+
+extern "./_server_helpers.js" {
+  async fn startServer(port: number, host: string, cors: any, callback: any): void
+  async fn stopServer(): void
+}
+
+dec port = config.Port ?? 3000
+dec host = config.Host ?? "0.0.0.0"
+dec cors = config.Cors ?? null
+
+expose fn listen(callback) {
+  return startServer(port, host, cors, callback)
+}
+
+expose fn close() {
+  return stopServer()
+}
+
+// Response helpers
+
+expose fn ok(body) {
+  return {status: 200, body: body, headers: {}}
+}
+
+expose fn created(body) {
+  return {status: 201, body: body, headers: {}}
+}
+
+expose fn noContent() {
+  return {status: 204, body: null, headers: {}}
+}
+
+expose fn badRequest(msg) {
+  return {status: 400, body: {message: msg}, headers: {}}
+}
+
+expose fn unauthorized(msg) {
+  return {status: 401, body: {message: msg}, headers: {}}
+}
+
+expose fn forbidden(msg) {
+  return {status: 403, body: {message: msg}, headers: {}}
+}
+
+expose fn notFound(msg) {
+  return {status: 404, body: {message: msg}, headers: {}}
+}
+
+expose fn serverError(msg) {
+  return {status: 500, body: {message: msg}, headers: {}}
+}
+
+expose fn redirect(url) {
+  return {status: 302, body: null, headers: {Location: url}}
+}
+
+expose fn response(status, body, headers) {
+  return {status: status, body: body, headers: headers ?? {}}
+}
