@@ -1198,6 +1198,58 @@ test('Parser: kmdoc before expose fn', () => {
   assertEqual(ast.body[0].kmdoc.params[0].type, 'number');
 });
 
+test('Parse collect expression', () => {
+  const ast = parse(tokenize('dec result = collect [a, b]'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'ConcurrentExpression');
+  assertEqual(init.mode, 'collect');
+  assertEqual(init.elements.length, 2);
+  assertEqual(init.elements[0].name, 'a');
+  assertEqual(init.elements[1].name, 'b');
+});
+
+test('Parse hoard expression', () => {
+  const ast = parse(tokenize('dec result = hoard [a, b, c]'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'ConcurrentExpression');
+  assertEqual(init.mode, 'hoard');
+  assertEqual(init.elements.length, 3);
+});
+
+test('Parse race expression', () => {
+  const ast = parse(tokenize('dec winner = race [a, b]'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'ConcurrentExpression');
+  assertEqual(init.mode, 'race');
+  assertEqual(init.elements.length, 2);
+});
+
+test('Parse bind expression', () => {
+  const ast = parse(tokenize('dec x = collect [fetchUser.(1)]'));
+  const init = ast.body[0].init;
+  assertEqual(init.type, 'ConcurrentExpression');
+  const elem = init.elements[0];
+  assertEqual(elem.type, 'BindExpression');
+  assertEqual(elem.callee.name, 'fetchUser');
+  assertEqual(elem.arguments.length, 1);
+  assertEqual(elem.arguments[0].value, 1);
+});
+
+test('Parse bind expression with multiple args', () => {
+  const ast = parse(tokenize('dec x = collect [fetch.("url", opts)]'));
+  const elem = ast.body[0].init.elements[0];
+  assertEqual(elem.type, 'BindExpression');
+  assertEqual(elem.callee.name, 'fetch');
+  assertEqual(elem.arguments.length, 2);
+});
+
+test('Parse mixed identifiers and bind expressions', () => {
+  const ast = parse(tokenize('dec x = collect [fetchAll, fetchOne.(1)]'));
+  const init = ast.body[0].init;
+  assertEqual(init.elements[0].type, 'Identifier');
+  assertEqual(init.elements[1].type, 'BindExpression');
+});
+
 test('Type checker: parseTypeString number', () => {
   const checker = new TypeChecker();
   const t = checker.parseTypeString('number');

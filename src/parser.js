@@ -48,6 +48,8 @@ export const NodeType = {
   PipeExpression: 'PipeExpression',
   TemplateLiteral: 'TemplateLiteral',
   ConditionalMethodExpression: 'ConditionalMethodExpression',
+  ConcurrentExpression: 'ConcurrentExpression',
+  BindExpression: 'BindExpression',
 
   // Patterns
   Property: 'Property',
@@ -1919,8 +1921,25 @@ export class Parser {
           arguments: args,
         };
       } else if (this.match(TokenType.DOT)) {
-        // Check for .if() conditional method
-        if (this.check(TokenType.IF)) {
+        // Check for .() bind expression
+        if (this.check(TokenType.LPAREN)) {
+          this.advance(); // consume '('
+          const args = [];
+          if (!this.check(TokenType.RPAREN)) {
+            do {
+              if (this.check(TokenType.RPAREN)) break;
+              args.push(this.parseExpression());
+            } while (this.match(TokenType.COMMA));
+          }
+          this.expect(TokenType.RPAREN, 'Expected ) after bind arguments');
+          expr = {
+            type: NodeType.BindExpression,
+            callee: expr,
+            arguments: args,
+            line: this.tokens[this.pos - 1].line,
+            column: this.tokens[this.pos - 1].column,
+          };
+        } else if (this.check(TokenType.IF)) {
           this.advance(); // consume 'if'
           this.expect(TokenType.LPAREN, 'Expected ( after .if');
           const condition = this.parseExpression();
@@ -1990,7 +2009,36 @@ export class Parser {
     return args;
   }
 
+  parseConcurrentExpression() {
+    const token = this.advance(); // consume collect/hoard/race
+    const mode = token.value; // 'collect', 'hoard', or 'race'
+
+    this.expect(TokenType.LBRACKET, `Expected [ after ${mode}`);
+
+    const elements = [];
+    if (!this.check(TokenType.RBRACKET)) {
+      do {
+        if (this.check(TokenType.RBRACKET)) break;
+        elements.push(this.parseCall());
+      } while (this.match(TokenType.COMMA));
+    }
+
+    this.expect(TokenType.RBRACKET, `Expected ] after ${mode} elements`);
+
+    return {
+      type: NodeType.ConcurrentExpression,
+      mode,
+      elements,
+      line: token.line,
+      column: token.column,
+    };
+  }
+
   parsePrimary() {
+    if (this.check(TokenType.COLLECT) || this.check(TokenType.HOARD) || this.check(TokenType.RACE)) {
+      return this.parseConcurrentExpression();
+    }
+
     if (this.check(TokenType.MATCH_KEYWORD)) {
       return this.parseMatchBlock();
     }
