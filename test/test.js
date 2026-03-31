@@ -2278,6 +2278,107 @@ app.listen(3000, () => {
   assertContains(km, 'print');
 });
 
+// --- Type.Union tests ---
+
+test('Type checker: parseTypeString parses union type', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string | null');
+  assertEqual(type.kind, 'union');
+  assertEqual(type.members.length, 2);
+  assertEqual(type.members[0].kind, 'string');
+  assertEqual(type.members[1].kind, 'null');
+});
+
+test('Type checker: parseTypeString parses union without spaces', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string|null');
+  assertEqual(type.kind, 'union');
+  assertEqual(type.members.length, 2);
+});
+
+test('Type checker: parseTypeString parses triple union', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string | number | boolean');
+  assertEqual(type.kind, 'union');
+  assertEqual(type.members.length, 3);
+});
+
+test('Type checker: parseTypeString deduplicates union members', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string | string');
+  assertEqual(type.kind, 'string');
+});
+
+test('Type checker: parseTypeString absorbs any in union', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string | any');
+  assertEqual(type.kind, 'any');
+});
+
+test('Type checker: parseTypeString handles array union', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string[] | null');
+  assertEqual(type.kind, 'union');
+  assertEqual(type.members[0].kind, 'array');
+  assertEqual(type.members[1].kind, 'null');
+});
+
+test('Type checker: typeToString formats union', () => {
+  const tc = new TypeChecker();
+  const type = tc.parseTypeString('string | null');
+  const str = tc.typeToString(type);
+  assertEqual(str, 'string | null');
+});
+
+test('Type checker: string is compatible with string | null', () => {
+  const tc = new TypeChecker();
+  const union = tc.parseTypeString('string | null');
+  const str = tc.parseTypeString('string');
+  assertEqual(tc.isCompatible(union, str), true);
+});
+
+test('Type checker: null is compatible with string | null', () => {
+  const tc = new TypeChecker();
+  const union = tc.parseTypeString('string | null');
+  const nul = tc.parseTypeString('null');
+  assertEqual(tc.isCompatible(union, nul), true);
+});
+
+test('Type checker: number is NOT compatible with string | null', () => {
+  const tc = new TypeChecker();
+  const union = tc.parseTypeString('string | null');
+  const num = tc.parseTypeString('number');
+  assertEqual(tc.isCompatible(union, num), false);
+});
+
+test('Type checker: string | null is NOT compatible with string', () => {
+  const tc = new TypeChecker();
+  const str = tc.parseTypeString('string');
+  const union = tc.parseTypeString('string | null');
+  assertEqual(tc.isCompatible(str, union), false);
+});
+
+test('Type checker: string | null is compatible with string | null', () => {
+  const tc = new TypeChecker();
+  const union1 = tc.parseTypeString('string | null');
+  const union2 = tc.parseTypeString('string | null');
+  assertEqual(tc.isCompatible(union1, union2), true);
+});
+
+test('Type checker: string is compatible with string | number', () => {
+  const tc = new TypeChecker();
+  const union = tc.parseTypeString('string | number');
+  const str = tc.parseTypeString('string');
+  assertEqual(tc.isCompatible(union, str), true);
+});
+
+test('Type checker: string | null NOT compatible with string | number', () => {
+  const tc = new TypeChecker();
+  const expected = tc.parseTypeString('string | number');
+  const actual = tc.parseTypeString('string | null');
+  assertEqual(tc.isCompatible(expected, actual), false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

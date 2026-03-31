@@ -14,6 +14,7 @@ export const Type = {
   Void: 'void',
   Enum: 'enum',
   Module: 'module',
+  Union: 'union',
 };
 
 // Global module type registry - stores the exported interface of each module
@@ -129,8 +130,64 @@ export class TypeChecker {
     return { kind: Type.Function, params, returnType };
   }
 
+  createUnionType(members) {
+    // Flatten nested unions
+    const flat = [];
+    for (const m of members) {
+      if (m.kind === Type.Union) {
+        flat.push(...m.members);
+      } else {
+        flat.push(m);
+      }
+    }
+
+    // Absorb any
+    if (flat.some(m => m.kind === Type.Any)) {
+      return this.createType(Type.Any);
+    }
+
+    // Deduplicate by kind
+    const seen = new Set();
+    const unique = [];
+    for (const m of flat) {
+      const key = this.typeToString(m);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(m);
+      }
+    }
+
+    // Single member — unwrap
+    if (unique.length === 1) return unique[0];
+
+    return { kind: Type.Union, members: unique };
+  }
+
   parseTypeString(str) {
     str = str.trim();
+
+    // Union type: split on | at top level
+    if (str.includes('|')) {
+      let depth = 0;
+      const parts = [];
+      let current = '';
+      for (const char of str) {
+        if (char === '(' || char === '{') depth++;
+        else if (char === ')' || char === '}') depth--;
+        else if (char === '|' && depth === 0) {
+          parts.push(current.trim());
+          current = '';
+          continue;
+        }
+        current += char;
+      }
+      parts.push(current.trim());
+
+      if (parts.length > 1) {
+        const members = parts.filter(p => p).map(p => this.parseTypeString(p));
+        return this.createUnionType(members);
+      }
+    }
 
     // Primitives
     const primitives = { 'number': Type.Number, 'string': Type.String, 'boolean': Type.Boolean, 'null': Type.Null, 'void': Type.Void, 'any': Type.Any };
@@ -207,6 +264,9 @@ export class TypeChecker {
     if (type.kind === Type.Function) {
       return `(${type.params.map(p => this.typeToString(p)).join(', ')}) => ${this.typeToString(type.returnType)}`;
     }
+    if (type.kind === Type.Union) {
+      return type.members.map(m => this.typeToString(m)).join(' | ');
+    }
     return type.kind || 'unknown';
   }
 
@@ -215,9 +275,25 @@ export class TypeChecker {
     if (!expected || !actual) return true;
     if (expected.kind === Type.Any || actual.kind === Type.Any) return true;
     if (expected.kind === Type.Unknown || actual.kind === Type.Unknown) return true;
+
+    // When expected is a union: actual must match at least one member
+    if (expected.kind === Type.Union) {
+      if (actual.kind === Type.Union) {
+        return actual.members.every(am =>
+          expected.members.some(em => this.isCompatible(em, am))
+        );
+      }
+      return expected.members.some(em => this.isCompatible(em, actual));
+    }
+
+    // When actual is a union but expected is not: every member must fit expected
+    if (actual.kind === Type.Union) {
+      return actual.members.every(am => this.isCompatible(expected, am));
+    }
+
+    // Both non-union: exact kind match
     if (expected.kind === actual.kind) {
       if (expected.kind === Type.Object) {
-        // Check that actual has all properties of expected
         if (expected.properties && actual.properties) {
           for (const [key, expectedType] of Object.entries(expected.properties)) {
             if (!(key in actual.properties)) {
