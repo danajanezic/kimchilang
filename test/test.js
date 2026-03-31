@@ -102,6 +102,12 @@ test('Tokenize race keyword', () => {
   assertEqual(tokens[0].value, 'race');
 });
 
+test('Tokenize extern keyword', () => {
+  const tokens = tokenize('extern "node:fs" { }');
+  assertEqual(tokens[0].type, 'EXTERN');
+  assertEqual(tokens[0].value, 'extern');
+});
+
 test('Tokenize worker keyword', () => {
   const tokens = tokenize('worker() { return 1 }');
   assertEqual(tokens[0].type, 'WORKER');
