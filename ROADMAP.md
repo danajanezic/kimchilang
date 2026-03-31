@@ -15,7 +15,7 @@
 - [x] ~~Compound assignment operators for mut (`+=`, `-=`, `*=`, `/=`)~~ — already supported
 - [x] ~~`Foo.new(args)` constructor syntax — `new` as a static method on the base object/function, compiles to `new Foo(args)`. Enables chaining without variable assignment: `Date.new().toISOString()`. Replaces broken `new Foo()` keyword form.~~
 - [x] ~~`extern` declarations — typed contracts for JS modules (`extern "node:fs" { fn readFileSync(path: string): string }`). Compiles to tree-shaken `import` statements. Supports named and default exports.~~
-- [ ] Remove `js { }` interop — blocked by extern declarations and `Foo.new()` covering all current `js { }` use cases
+- [x] ~~Remove `js { }` interop~~ — replaced by extern declarations and `Foo.new()` constructor syntax
 - [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
 - [ ] Drop `async`/`await` — compiler auto-detects async-ness from call graph. Blocked by removing `js { }` (can't detect async across JS boundary). Concurrency primitives (`collect`, `hoard`, `race`, `worker`, `spawn`) already implicit-await.
 - [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords.

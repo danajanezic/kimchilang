@@ -54,7 +54,7 @@ obj.foo = {}          // Compile error: Cannot reassign 'obj.foo'
 obj.foo.bar = "new"   // Compile error: Cannot reassign 'obj.foo.bar'
 ```
 
-Immutability is enforced at compile time. When `dec` values are passed to `js { }` blocks, they are `Object.freeze`d at the boundary to prevent mutation in JavaScript code.
+Immutability is enforced at compile time.
 
 **Mutable variables:**
 
@@ -135,34 +135,7 @@ secret dec apiKey = "sk-1234567890"
 print "Key: ${apiKey}"  // Output: "Key: ********"
 ```
 
-2. **Compile-time protection in JS interop** - Secrets cannot be passed to `console.log` or other console methods inside `js { }` blocks:
-
-```kimchi
-secret dec apiKey = "sk-1234567890"
-
-// This will FAIL at compile time:
-js(apiKey) {
-  console.log(apiKey);  // Error: Cannot pass secret 'apiKey' to console.log
-}
-
-// This is allowed (using secret for its intended purpose):
-js(apiKey) {
-  return fetch(url, { headers: { Authorization: apiKey } });
-}
-```
-
-3. **Value access** - To get the actual value of a secret (e.g., for API calls), use the `.value` property:
-
-```kimchi
-secret dec apiKey = "sk-1234567890"
-
-// In JS interop, the value is accessible normally
-dec response = js(apiKey) {
-  return fetch("https://api.example.com", {
-    headers: { "Authorization": "Bearer " + apiKey }
-  });
-}
-```
+2. **Value access** - To get the actual value of a secret (e.g., for API calls), use the `.value` property.
 
 ### Functions
 
@@ -451,17 +424,11 @@ try {
 }
 ```
 
-### JavaScript & Shell Interop
+### JavaScript Interop
 
-**JavaScript blocks:**
+Use [extern declarations](#extern-declarations) to import JavaScript modules with typed contracts. Use [`Foo.new(args)`](#constructor-syntax) for constructor calls.
 
-```kimchi
-dec result = js(x, y) {
-  return x + y;
-}
-```
-
-**Shell blocks (blocking):**
+### Shell Interop
 
 ```kimchi
 dec result = shell { ls -la }

@@ -59,7 +59,7 @@ Entry points: `src/index.js` (KimchiCompiler class API), `src/cli.js` (CLI).
 
 ## Key Runtime Patterns
 
-- `dec x = value` compiles to `const x = value` — immutability enforced at compile time, not runtime. `dec` vars are `Object.freeze`d only when passed to `js()` blocks.
+- `dec x = value` compiles to `const x = value` — immutability enforced at compile time, not runtime.
 - `obj.a.b.c` compiles to `obj.a.b.c` when shape is known from literal declaration, `obj?.a?.b?.c` otherwise
 - `==` compiles to `===` — strict equality only
 - `~>` is the pipe operator (eager); `>>` is the flow operator (lazy composition)
@@ -111,7 +111,7 @@ KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
 
 ## Code Generation Optimizations
 
-- **No `_deepFreeze` at runtime** — immutability is compile-time only. `dec` vars are `Object.freeze`d only at the `js()` block boundary.
+- **No `_deepFreeze` at runtime** — immutability is compile-time only.
 - **Smart optional chaining** — generator tracks known object shapes from literals and `guard` statements. Uses `.` when safe, `?.` otherwise.
 - **Match ternary compilation** — simple literal/wildcard match expressions compile to ternary chains instead of IIFEs. Binding+guard patterns avoid nested IIFEs.
 - **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_spawn`, `_worker`, `_Secret`, `STATUS` enum, and the testing framework are only emitted when the AST uses them.
