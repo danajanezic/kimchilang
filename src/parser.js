@@ -71,7 +71,6 @@ export const NodeType = {
   WildcardPattern: 'WildcardPattern',
 
   // Interop
-  JSBlock: 'JSBlock',
   ShellBlock: 'ShellBlock',
   
   // Testing
@@ -394,11 +393,6 @@ export class Parser {
     // Dependency declaration: as <alias> dep <path>
     if (this.check(TokenType.AS)) {
       return this.parseDepStatement();
-    }
-    
-    // JS interop block: js { ... } or js(args) { ... }
-    if (this.check(TokenType.JS)) {
-      return this.parseJSBlock();
     }
     
     // Shell interop block: shell { ... } or shell(args) { ... }
@@ -1290,55 +1284,6 @@ export class Parser {
     };
   }
 
-  parseJSBlock() {
-    // Syntax: js { ... }           - raw JS block
-    //         js(a, b) { ... }     - JS block with inputs from kimchi scope
-    this.expect(TokenType.JS, 'Expected js');
-    
-    const inputs = [];
-    
-    // Check for optional input parameters
-    if (this.match(TokenType.LPAREN)) {
-      if (!this.check(TokenType.RPAREN)) {
-        do {
-          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
-          inputs.push(name);
-        } while (this.match(TokenType.COMMA));
-      }
-      this.expect(TokenType.RPAREN, 'Expected )');
-    }
-    
-    this.skipNewlines();
-    this.expect(TokenType.LBRACE, 'Expected { after js');
-    
-    // Get the raw JS content from the JS_CONTENT token
-    let jsCode = '';
-    if (this.check(TokenType.JS_CONTENT)) {
-      jsCode = this.advance().value;
-    }
-    
-    this.expect(TokenType.RBRACE, 'Expected } to close js block');
-    
-    // Check for secrets being passed to console.log
-    const secretInputs = inputs.filter(input => this.secretVariables.has(input));
-    if (secretInputs.length > 0) {
-      for (const secretInput of secretInputs) {
-        const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
-        if (consolePattern.test(jsCode)) {
-          // Use the first console token for error location, or fall back to current position
-          const errorToken = consoleTokens.length > 0 ? consoleTokens[0] : this.peek();
-          this.errorAt(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`, errorToken);
-        }
-      }
-    }
-    
-    return {
-      type: NodeType.JSBlock,
-      inputs,
-      code: jsCode.trim(),
-    };
-  }
-
   parseShellBlock() {
     // Syntax: shell { ... }           - raw shell block
     //         shell(a, b) { ... }     - shell block with inputs from kimchi scope
@@ -1736,57 +1681,6 @@ export class Parser {
       default:
         return token.value !== undefined ? String(token.value) : '';
     }
-  }
-
-  parseJSBlockExpression() {
-    // Same as parseJSBlock but returns as an expression node
-    // Used for: dec result = js(a, b) { return a + b; }
-    this.expect(TokenType.JS, 'Expected js');
-    
-    const inputs = [];
-    
-    if (this.match(TokenType.LPAREN)) {
-      if (!this.check(TokenType.RPAREN)) {
-        do {
-          const name = this.expect(TokenType.IDENTIFIER, 'Expected identifier').value;
-          inputs.push(name);
-        } while (this.match(TokenType.COMMA));
-      }
-      this.expect(TokenType.RPAREN, 'Expected )');
-    }
-    
-    this.skipNewlines();
-    this.expect(TokenType.LBRACE, 'Expected { after js');
-    
-    // Get the raw JS content from the JS_CONTENT token
-    let jsCode = '';
-    if (this.check(TokenType.JS_CONTENT)) {
-      jsCode = this.advance().value;
-    }
-    
-    this.expect(TokenType.RBRACE, 'Expected } to close js block');
-    
-    // Check for secrets being passed to console.log
-    const secretInputs = inputs.filter(input => this.secretVariables.has(input));
-    if (secretInputs.length > 0) {
-      // Check if the JS code contains console.log with any of the secret inputs
-      for (const secretInput of secretInputs) {
-        // Match console.log, console.error, console.warn, console.info with the secret variable
-        const consolePattern = new RegExp(`console\\s*\\.\\s*(log|error|warn|info|debug|trace)\\s*\\([^)]*\\b${secretInput}\\b`, 'g');
-        if (consolePattern.test(jsCode)) {
-          // Use the first console token for error location, or fall back to current position
-          const errorToken = consoleTokens.length > 0 ? consoleTokens[0] : this.peek();
-          this.errorAt(`Cannot pass secret '${secretInput}' to console.log in JS block - secrets must not be logged`, errorToken);
-        }
-      }
-    }
-    
-    return {
-      type: NodeType.JSBlock,
-      inputs,
-      code: jsCode.trim(),
-      isExpression: true,
-    };
   }
 
   parseExpressionStatement() {
@@ -2407,11 +2301,6 @@ export class Parser {
         pattern: token.value.pattern,
         flags: token.value.flags,
       };
-    }
-    
-    // JS block as expression: dec result = js(a, b) { return a + b; }
-    if (this.check(TokenType.JS)) {
-      return this.parseJSBlockExpression();
     }
     
     // Shell block as expression: dec result = shell { ls -la }

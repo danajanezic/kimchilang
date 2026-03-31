@@ -546,9 +546,8 @@ export class TypeChecker {
       case NodeType.EnvDeclaration:
         this.visitEnvDeclaration(node);
         break;
-      case NodeType.JSBlock:
       case NodeType.ShellBlock:
-        // JS/Shell blocks are opaque - no type checking inside
+        // Shell blocks are opaque - no type checking inside
         break;
       case NodeType.SpawnBlock:
         if (!this._insideAsync) {

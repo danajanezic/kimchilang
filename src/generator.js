@@ -701,9 +701,6 @@ export class CodeGenerator {
       case NodeType.EnvDeclaration:
         // Env vars are handled in visitProgram, not individually
         break;
-      case NodeType.JSBlock:
-        this.visitJSBlock(node);
-        break;
       case NodeType.ShellBlock:
         this.visitShellBlock(node);
         break;
@@ -897,62 +894,6 @@ export class CodeGenerator {
     this.popIndent();
     this.emitLine('});');
     this.emitLine();
-  }
-
-  visitJSBlock(node) {
-    // JS interop block - wraps raw JavaScript in an IIFE with optional inputs
-    // Syntax: js { code }         -> (() => { code })();
-    //         js(a, b) { code }   -> ((a, b) => { code })(a, b);
-    
-    if (node.inputs.length === 0) {
-      // No inputs - simple IIFE
-      this.emitLine('(() => {');
-      this.pushIndent();
-      // Emit the raw JS code, preserving formatting
-      const lines = node.code.split('\n');
-      for (const line of lines) {
-        if (line.trim()) {
-          this.emitLine(line.trim());
-        }
-      }
-      this.popIndent();
-      this.emitLine('})();');
-    } else {
-      // With inputs - IIFE that receives kimchi variables
-      const params = node.inputs.join(', ');
-      this.emitLine(`((${params}) => {`);
-      this.pushIndent();
-      const lines = node.code.split('\n');
-      for (const line of lines) {
-        if (line.trim()) {
-          this.emitLine(line.trim());
-        }
-      }
-      this.popIndent();
-      const args = node.inputs.map(name =>
-        this.decVariables.has(name) ? `Object.freeze(${name})` : name
-      ).join(', ');
-      this.emitLine(`})(${args});`);
-    }
-    this.emitLine();
-  }
-
-  visitJSBlockExpression(node) {
-    // JS block as expression - returns an IIFE that can be assigned
-    // Syntax: dec result = js(a, b) { return a + b; }
-    // Generates: ((a, b) => { return a + b; })(a, b)
-    
-    const lines = node.code.split('\n').filter(l => l.trim()).map(l => l.trim()).join(' ');
-    
-    if (node.inputs.length === 0) {
-      return `(() => { ${lines} })()`;
-    } else {
-      const params = node.inputs.join(', ');
-      const args = node.inputs.map(name =>
-        this.decVariables.has(name) ? `Object.freeze(${name})` : name
-      ).join(', ');
-      return `((${params}) => { ${lines} })(${args})`;
-    }
   }
 
   visitShellBlock(node) {
@@ -1306,8 +1247,6 @@ export class CodeGenerator {
         return this.visitPipeExpression(node);
       case NodeType.TemplateLiteral:
         return this.visitTemplateLiteral(node);
-      case NodeType.JSBlock:
-        return this.visitJSBlockExpression(node);
       case NodeType.ShellBlock:
         return this.visitShellBlockExpression(node);
       case NodeType.SpawnBlock:
