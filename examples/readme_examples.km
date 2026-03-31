@@ -293,28 +293,4 @@ fn divide(a, b) {
 }
 print "10 / 3 = ${divide(10, 3)}"
 
-// === JavaScript Interop ===
-js {
-  console.log("Hello from raw JavaScript!");
-}
-
-dec jsName = "Alice"
-dec jsCount = 5
-
-js(jsName, jsCount) {
-  const greeting = `Hello, ${jsName}! Count: ${jsCount}`;
-  console.log(greeting);
-}
-
-dec jsNumbers = [1, 2, 3, 4, 5]
-dec jsSum = js(jsNumbers) {
-  return jsNumbers.reduce((a, b) => a + b, 0);
-}
-print "JS Sum: ${jsSum}"
-
-dec timestamp = js {
-  return Date.now();
-}
-print "Timestamp: ${timestamp}"
-
 print "All README examples validated successfully!"
