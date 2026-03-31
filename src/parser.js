@@ -52,6 +52,8 @@ export const NodeType = {
   BindExpression: 'BindExpression',
   WorkerExpression: 'WorkerExpression',
   SpawnBlock: 'SpawnBlock',
+  ExternDeclaration: 'ExternDeclaration',
+  ExternDefaultDeclaration: 'ExternDefaultDeclaration',
 
   // Patterns
   Property: 'Property',
@@ -259,6 +261,10 @@ export class Parser {
       const decl = this.parseMutDeclaration();
       if (kmdoc) decl.kmdoc = kmdoc;
       return decl;
+    }
+
+    if (this.check(TokenType.EXTERN)) {
+      return this.parseExternDeclaration();
     }
 
     if (this.check(TokenType.ASYNC)) {
@@ -1476,6 +1482,128 @@ export class Parser {
       command,
       isExpression: true,
     };
+  }
+
+  parseExternDeclaration() {
+    this.expect(TokenType.EXTERN, 'Expected extern');
+
+    // Check for default: extern default "module" as name: type
+    if (this.check(TokenType.IDENTIFIER) && this.peek().value === 'default') {
+      return this.parseExternDefaultDeclaration();
+    }
+
+    // Named: extern "module" { fn/dec declarations }
+    const sourceToken = this.expect(TokenType.STRING, 'Expected module path string after extern');
+    const source = sourceToken.value;
+
+    this.skipNewlines();
+    this.expect(TokenType.LBRACE, 'Expected { after extern module path');
+
+    const declarations = [];
+
+    this.skipNewlines();
+    while (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+      if (this.check(TokenType.FN)) {
+        this.advance(); // consume fn
+        const name = this.expect(TokenType.IDENTIFIER, 'Expected function name').value;
+        this.expect(TokenType.LPAREN, 'Expected ( after function name');
+
+        const params = [];
+        if (!this.check(TokenType.RPAREN)) {
+          do {
+            const paramName = this.expect(TokenType.IDENTIFIER, 'Expected parameter name').value;
+            this.expect(TokenType.COLON, 'Expected : after parameter name');
+            const typeAnnotation = this.parseExternType();
+            params.push({ name: paramName, typeAnnotation });
+          } while (this.match(TokenType.COMMA));
+        }
+        this.expect(TokenType.RPAREN, 'Expected )');
+
+        this.expect(TokenType.COLON, 'Expected : before return type');
+        const returnType = this.parseExternType();
+
+        declarations.push({ kind: 'function', name, params, returnType });
+      } else if (this.check(TokenType.DEC)) {
+        this.advance(); // consume dec
+        // Value name might be a keyword token (e.g. 'env'), so accept any non-delimiter token
+        const nameToken = this.advance();
+        const name = nameToken.value;
+        this.expect(TokenType.COLON, 'Expected : after value name');
+        const valueType = this.parseExternType();
+
+        declarations.push({ kind: 'value', name, valueType });
+      } else {
+        this.error('Expected fn or dec in extern block');
+      }
+      this.skipNewlines();
+    }
+
+    this.expect(TokenType.RBRACE, 'Expected } to close extern block');
+
+    return {
+      type: NodeType.ExternDeclaration,
+      source,
+      declarations,
+    };
+  }
+
+  parseExternDefaultDeclaration() {
+    // Already consumed 'extern', now at 'default'
+    this.advance(); // consume 'default'
+
+    const sourceToken = this.expect(TokenType.STRING, 'Expected module path string after extern default');
+    const source = sourceToken.value;
+
+    // Expect 'as' keyword
+    if (!this.check(TokenType.AS)) {
+      this.error('Expected as after extern default module path');
+    }
+    this.advance(); // consume 'as'
+
+    const alias = this.expect(TokenType.IDENTIFIER, 'Expected alias name after as').value;
+    this.expect(TokenType.COLON, 'Expected : after alias name');
+    const aliasType = this.parseExternType();
+
+    return {
+      type: NodeType.ExternDefaultDeclaration,
+      source,
+      alias,
+      aliasType,
+    };
+  }
+
+  parseExternType() {
+    // Collect type tokens until we hit a delimiter (comma, rparen, rbrace, fn, dec, or EOF)
+    // Types can be: string, number, boolean, null, void, any, type[], {key: type}, (type) => type
+    let type = '';
+    let depth = 0;
+
+    while (!this.check(TokenType.EOF)) {
+      if (depth === 0) {
+        if (this.check(TokenType.COMMA) || this.check(TokenType.RPAREN) || this.check(TokenType.RBRACE) || this.check(TokenType.NEWLINE)) {
+          break;
+        }
+        // Stop at keywords that start a new declaration inside extern block
+        if (this.check(TokenType.FN) || this.check(TokenType.DEC)) {
+          break;
+        }
+      }
+
+      const token = this.peek();
+      if (token.type === TokenType.LPAREN) depth++;
+      else if (token.type === TokenType.RPAREN) depth--;
+      else if (token.type === TokenType.LBRACE) depth++;
+      else if (token.type === TokenType.RBRACE) depth--;
+
+      type += token.value;
+      // Add space after colon and comma for readable type strings
+      if (token.type === TokenType.COLON || token.type === TokenType.COMMA) {
+        type += ' ';
+      }
+      this.advance();
+    }
+
+    return type.trim();
   }
 
   tokenToSource(token) {

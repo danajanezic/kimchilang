@@ -1925,6 +1925,85 @@ main()`;
   assertContains(js, 'await _spawn("ls $dir", { dir })');
 });
 
+// Extern Declaration Tests
+console.log('\n--- Extern Declaration Tests ---\n');
+
+test('Parse named extern with functions', () => {
+  const source = 'extern "node:fs" {\n  fn readFileSync(path: string): string\n  fn existsSync(path: string): boolean\n}';
+  const ast = parse(tokenize(source));
+  const ext = ast.body[0];
+  assertEqual(ext.type, 'ExternDeclaration');
+  assertEqual(ext.source, 'node:fs');
+  assertEqual(ext.declarations.length, 2);
+  assertEqual(ext.declarations[0].kind, 'function');
+  assertEqual(ext.declarations[0].name, 'readFileSync');
+  assertEqual(ext.declarations[0].params.length, 1);
+  assertEqual(ext.declarations[0].params[0].name, 'path');
+  assertEqual(ext.declarations[0].params[0].typeAnnotation, 'string');
+  assertEqual(ext.declarations[0].returnType, 'string');
+  assertEqual(ext.declarations[1].name, 'existsSync');
+});
+
+test('Parse named extern with values', () => {
+  const source = 'extern "node:process" {\n  dec env: any\n  dec pid: number\n}';
+  const ast = parse(tokenize(source));
+  const ext = ast.body[0];
+  assertEqual(ext.type, 'ExternDeclaration');
+  assertEqual(ext.source, 'node:process');
+  assertEqual(ext.declarations.length, 2);
+  assertEqual(ext.declarations[0].kind, 'value');
+  assertEqual(ext.declarations[0].name, 'env');
+  assertEqual(ext.declarations[0].valueType, 'any');
+  assertEqual(ext.declarations[1].name, 'pid');
+  assertEqual(ext.declarations[1].valueType, 'number');
+});
+
+test('Parse named extern with mixed fn and dec', () => {
+  const source = 'extern "pg" {\n  fn query(sql: string): any\n  dec Pool: any\n}';
+  const ast = parse(tokenize(source));
+  const ext = ast.body[0];
+  assertEqual(ext.declarations.length, 2);
+  assertEqual(ext.declarations[0].kind, 'function');
+  assertEqual(ext.declarations[1].kind, 'value');
+});
+
+test('Parse extern fn with no params', () => {
+  const source = 'extern "mod" {\n  fn now(): number\n}';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].declarations[0].params.length, 0);
+  assertEqual(ast.body[0].declarations[0].returnType, 'number');
+});
+
+test('Parse extern fn with multiple params', () => {
+  const source = 'extern "mod" {\n  fn write(path: string, data: string, enc: string): void\n}';
+  const ast = parse(tokenize(source));
+  const fn = ast.body[0].declarations[0];
+  assertEqual(fn.params.length, 3);
+  assertEqual(fn.params[2].name, 'enc');
+  assertEqual(fn.params[2].typeAnnotation, 'string');
+  assertEqual(fn.returnType, 'void');
+});
+
+test('Parse extern default declaration', () => {
+  const source = 'extern default "express" as express: any';
+  const ast = parse(tokenize(source));
+  const ext = ast.body[0];
+  assertEqual(ext.type, 'ExternDefaultDeclaration');
+  assertEqual(ext.source, 'express');
+  assertEqual(ext.alias, 'express');
+  assertEqual(ext.aliasType, 'any');
+});
+
+test('Parse extern default with complex type', () => {
+  const source = 'extern default "pg" as pg: {Pool: any, Client: any}';
+  const ast = parse(tokenize(source));
+  const ext = ast.body[0];
+  assertEqual(ext.type, 'ExternDefaultDeclaration');
+  assertEqual(ext.source, 'pg');
+  assertEqual(ext.alias, 'pg');
+  assertEqual(ext.aliasType, '{Pool: any, Client: any}');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
