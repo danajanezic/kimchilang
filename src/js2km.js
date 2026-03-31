@@ -490,10 +490,9 @@ export class JS2KM {
         return `${callee}(${args})`;
       
       case 'NewExpression': {
-        // Emit as js { new X(...) } until Foo.new() is implemented
         const ctorName = this.visitExpression(node.callee);
         const newArgs = node.arguments.map(a => this.visitExpression(a)).join(', ');
-        return `js { return new ${ctorName}(${newArgs}); }`;
+        return `${ctorName}.new(${newArgs})`;
       }
       
       case 'ArrayExpression':

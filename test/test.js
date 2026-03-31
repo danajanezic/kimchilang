@@ -2224,9 +2224,9 @@ test('js2km: require becomes extern default', () => {
   assertContains(km, 'extern default "pg" as pg: any');
 });
 
-test('js2km: new expression emits js block', () => {
+test('js2km: new expression emits Foo.new()', () => {
   const km = convertJS('const d = new Date();');
-  assertContains(km, 'js { return new Date(); }');
+  assertContains(km, 'Date.new()');
 });
 
 test('js2km: async function preserved', () => {
@@ -2268,8 +2268,8 @@ app.listen(3000, () => {
   // App setup
   assertContains(km, 'dec app = express()');
   assertContains(km, 'app.use(json())');
-  // new Pool uses js {} block
-  assertContains(km, 'js { return new Pool(');
+  // new Pool emits Foo.new()
+  assertContains(km, 'Pool.new(');
   // Route handler is async
   assertContains(km, 'async fn(req, res)');
   // Await preserved
