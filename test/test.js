@@ -3036,6 +3036,45 @@ test('Generate lazy dep at end of module', () => {
   assertEqual(dbResolveIdx > fnIdx, true);
 });
 
+// Browser target tests
+test('Browser target: no export default wrapper', () => {
+  const js = compile('dec x = 1\nprint x', { skipTypeCheck: true, target: 'browser' });
+  const hasExport = js.includes('export default');
+  assertEqual(hasExport, false);
+});
+
+test('Browser target: no import statements', () => {
+  const js = compile('dec x = 1', { skipTypeCheck: true, target: 'browser' });
+  const hasImport = js.includes('import ');
+  assertEqual(hasImport, false);
+});
+
+test('Browser target: functions compile normally', () => {
+  const js = compile('fn add(a, b) { return a + b }\nprint add(1, 2)', { skipTypeCheck: true, target: 'browser' });
+  assertContains(js, 'function add(a, b)');
+  assertContains(js, 'console.log(add(1, 2))');
+});
+
+test('Browser target: errors on arg declaration', () => {
+  let threw = false;
+  try { compile('!arg apiKey', { skipTypeCheck: true, target: 'browser' }); }
+  catch(e) { threw = true; }
+  assertEqual(threw, true);
+});
+
+test('Browser target: errors on extern node', () => {
+  let threw = false;
+  try { compile('extern node "node:fs" {\n  fn readFileSync(path: string): string\n}', { skipTypeCheck: true, target: 'browser' }); }
+  catch(e) { threw = true; }
+  assertEqual(threw, true);
+});
+
+test('Browser target: dep becomes module variable reference', () => {
+  const js = compile('as utils dep lib.utils\nprint utils.add(1, 2)', { skipTypeCheck: true, target: 'browser' });
+  assertContains(js, '_mod_lib_utils');
+  assertEqual(js.includes('import '), false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

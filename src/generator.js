@@ -568,11 +568,44 @@ export class CodeGenerator {
     // Detect module directives
     const moduleDirectives = node.body.filter(stmt => stmt.type === NodeType.ModuleDirective);
     const isSingleton = moduleDirectives.some(d => d.directive === 'singleton');
-    
+
+    // Browser target validation and early return
+    const isBrowser = this.options.target === 'browser';
+
+    if (isBrowser) {
+      for (const stmt of node.body) {
+        if (stmt.type === NodeType.ArgDeclaration) throw new Error('arg declarations are not available in browser builds');
+        if (stmt.type === NodeType.EnvDeclaration) throw new Error('env declarations are not available in browser builds');
+        if ((stmt.type === NodeType.ExternDeclaration || stmt.type === NodeType.ExternDefaultDeclaration) && stmt.platform === 'node')
+          throw new Error(`extern node "${stmt.source}" is not available in browser builds`);
+        if ((stmt.type === NodeType.ExternDeclaration || stmt.type === NodeType.ExternDefaultDeclaration) && stmt.source && stmt.source.startsWith('node:'))
+          throw new Error(`extern "${stmt.source}" is not available in browser builds`);
+      }
+
+      this.usedFeatures = this.scanUsedFeatures(node);
+      this.asyncFunctions = this.buildAsyncMap(node);
+
+      // Dep references become module variables (bundler provides these)
+      for (const dep of depStatements) {
+        const modVar = '_mod_' + dep.pathParts.join('_');
+        this.emitLine(`var ${dep.alias} = ${modVar};`);
+      }
+      if (depStatements.length > 0) this.emitLine();
+
+      // Emit runtime extensions (helpers like _pipe, _flow, etc.)
+      this.emitRuntimeExtensions();
+
+      // Emit all statements directly — no factory wrapper
+      for (const stmt of otherStatements) {
+        this.visitStatement(stmt, true);
+      }
+      return;
+    }
+
     // Build list of dep paths for distinguishing deps from args in _opts
     const depPaths = depStatements.map(dep => dep.path);
     const argNames = argDeclarations.map(arg => arg.name);
-    
+
     // Collect extern declarations and emit tree-shaken imports
     const externDeclarations = node.body.filter(stmt => stmt.type === NodeType.ExternDeclaration);
     const externDefaults = node.body.filter(stmt => stmt.type === NodeType.ExternDefaultDeclaration);
@@ -713,7 +746,11 @@ export class CodeGenerator {
     }
     
     // Resolve each dependency, checking _opts first (for injection)
-    for (const dep of depStatements) {
+    // Non-lazy deps are resolved immediately, lazy deps are deferred to end of module init
+    const eagerDeps = depStatements.filter(dep => !dep.lazy);
+    const lazyDeps = depStatements.filter(dep => dep.lazy);
+
+    for (const dep of eagerDeps) {
       const moduleVar = `_dep_${dep.alias}`;
       if (dep.isStatic) {
         // Static files are imported directly, no factory function, no overrides
@@ -725,15 +762,31 @@ export class CodeGenerator {
         this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || await ${moduleVar}();`);
       }
     }
-    if (depStatements.length > 0) {
+    if (eagerDeps.length > 0) {
       this.emitLine();
     }
-    
+
     // Emit the rest of the module body (top-level statements)
     for (const stmt of otherStatements) {
       this.visitStatement(stmt, true);
     }
-    
+
+    // Resolve lazy deps after all other module code
+    for (const dep of lazyDeps) {
+      const moduleVar = `_dep_${dep.alias}`;
+      if (dep.isStatic) {
+        this.emitLine(`const ${dep.alias} = ${moduleVar};`);
+      } else if (dep.overrides) {
+        const overridesCode = this.visitExpression(dep.overrides);
+        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || await ${moduleVar}(${overridesCode});`);
+      } else {
+        this.emitLine(`const ${dep.alias} = _opts["${dep.path}"] || await ${moduleVar}();`);
+      }
+    }
+    if (lazyDeps.length > 0) {
+      this.emitLine();
+    }
+
     // Return an object with all exported values (collect exports)
     const exports = this.collectExports(otherStatements);
     if (exports.length > 0) {
