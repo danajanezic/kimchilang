@@ -36,7 +36,7 @@ Planned improvements:
 - [x] ~~Remove `js { }` interop~~ — replaced by extern declarations and `Foo.new()` constructor syntax
 - [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
 - [x] ~~Drop `async`/`await`~~ — compiler auto-detects async-ness from call graph. `sleep ms` replaces manual Promise construction.
-- [ ] Frontend build system — `kimchi build entry.km -o dist/bundle.js`. Compiles with `--target browser`, bundles deps into IIFE, inlines runtime. No factory wrappers. Prerequisite for `.kmx`.
+- [x] ~~Frontend build system — `kimchi build entry.km -o dist/bundle.js`. Compiles with `--target browser`, bundles deps into IIFE, inlines runtime. No factory wrappers. Prerequisite for `.kmx`.~~
 - [ ] `extern node`/`extern browser` platform annotations — compile error when platform mismatches build target
 - [ ] Build config file (`build.static`) — entry, output, target, options
 - [ ] Dev server with hot reload — `kimchi dev frontend/`, on-demand transpilation, browser auto-refresh

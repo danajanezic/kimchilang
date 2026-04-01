@@ -72,6 +72,24 @@ The reverse transpiler handles:
 - `console.log` -> `print`
 - `async`/`await` stripped (compiler auto-detects)
 
+## Build (Frontend Bundle)
+
+```bash
+kimchi build src/app.km -o dist/bundle.js
+```
+
+Compiles KimchiLang files for the browser. Follows all `dep` imports, bundles everything into a single IIFE JavaScript file. No `import`/`export` in output — works with `<script src="bundle.js">`.
+
+### Platform annotations
+
+```kimchi
+extern node "node:fs" { fn readFileSync(path: string): string }    // Node only — error in build
+extern browser "react" { dec createElement: any }                    // Browser only
+extern "lodash" { fn map(arr: any, callback: any): any }            // Universal
+```
+
+Node.js externs (`extern node` and `node:` prefix) produce compile errors in browser builds. Browser externs are assumed to be globals loaded via `<script>` tags.
+
 ## NPM Integration
 
 ```bash
