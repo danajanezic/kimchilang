@@ -16,8 +16,8 @@ Current limitations of the async factory pattern (`export default async function
 Planned improvements:
 
 - [x] ~~`module singleton` — module directive that caches the factory result. First call creates the instance, subsequent imports return cached. Overrides bypass cache for testing. Producer declares, consumer unaware.~~
-- [ ] `lazy dep` — consumer-side modifier on dep imports. Defers factory call until first access. Orthogonal to singleton (lazy controls when, singleton controls how many times).
-- [ ] `module pure` — compile-time check that module is side-effect-free (no env, shell, spawn, sleep, print, module-level mut). Enables tree-shaking in frontend builds. Mutually exclusive with singleton.
+- [x] ~~`lazy dep` — consumer-side modifier on dep imports. Defers factory call until after module init. Orthogonal to singleton.~~
+- [x] ~~`module pure` — compile-time check that module is side-effect-free (no env, shell, spawn, sleep, print, module-level mut). Mutually exclusive with singleton.~~
 - [ ] `@annotations` — reserved syntax for function-level annotations (future feature, not module directives)
 - [ ] Typed module interfaces — use generics/type system to type-check module exports and required args at compile time
 - [x] ~~Graceful shutdown — `expose fn _shutdown()` convention that `kimchi run` calls on SIGTERM/SIGINT~~
