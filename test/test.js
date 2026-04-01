@@ -4,6 +4,7 @@ import { compile, tokenize, parse, generate, KimchiCompiler } from '../src/index
 import { TypeChecker } from '../src/typechecker.js';
 import { Linter } from '../src/linter.js';
 import { convertJS } from '../src/js2km.js';
+import { format } from '../src/formatter.js';
 
 let passed = 0;
 let failed = 0;
@@ -1933,6 +1934,33 @@ test('Parse extern default with complex type', () => {
   assertEqual(ext.aliasType, '{Pool: any, Client: any}');
 });
 
+test('Parse extern with node platform', () => {
+  const source = 'extern node "node:fs" {\n  fn readFileSync(path: string): string\n}';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].platform, 'node');
+  assertEqual(ast.body[0].source, 'node:fs');
+});
+
+test('Parse extern with browser platform', () => {
+  const source = 'extern browser "react" {\n  dec createElement: any\n}';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].platform, 'browser');
+  assertEqual(ast.body[0].source, 'react');
+});
+
+test('Parse extern without platform (universal)', () => {
+  const source = 'extern "lodash" {\n  fn map(arr: any, callback: any): any\n}';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].platform, null);
+});
+
+test('Parse extern default with browser platform', () => {
+  const source = 'extern browser default "react-dom" as ReactDOM: any';
+  const ast = parse(tokenize(source));
+  assertEqual(ast.body[0].platform, 'browser');
+  assertEqual(ast.body[0].alias, 'ReactDOM');
+});
+
 test('Type checker: extern fn registers in scope', () => {
   const source = 'extern "mod" {\n  fn greet(name: string): string\n}\ndec x = greet("hi")';
   const ast = parse(tokenize(source));
@@ -2886,6 +2914,126 @@ expose fn query(sql) {
   const js = compile(source);
   assertContains(js, '_singletonCache');
   assertContains(js, "import { Pool } from 'pg'");
+});
+
+// Formatter Tests
+console.log('\n--- Formatter Tests ---\n');
+
+test('Formatter: converts tabs to spaces', () => {
+  const result = format('\tfn main() {\n\t\treturn 1\n\t}');
+  assertEqual(result.includes('\t'), false);
+});
+
+test('Formatter: strips trailing whitespace', () => {
+  const result = format('fn main() {   \n  return 1   \n}');
+  assertEqual(result.includes('   '), false);
+});
+
+test('Formatter: fixes indentation', () => {
+  const result = format('fn main() {\n      return 1\n}');
+  assertContains(result, '  return 1');
+});
+
+test('Formatter: adds blank line after shebang', () => {
+  const result = format('#!/usr/bin/env kimchi\nfn main() {}');
+  assertContains(result, '#!/usr/bin/env kimchi\n\nfn main()');
+});
+
+test('Formatter: collapses multiple empty lines', () => {
+  const result = format('dec a = 1\n\n\n\ndec b = 2');
+  const emptyCount = result.split('\n').filter(l => l === '').length;
+  assertEqual(emptyCount <= 2, true);
+});
+
+test('Formatter: blank line after top-level closing brace', () => {
+  const result = format('fn a() {\n  return 1\n}\nfn b() {\n  return 2\n}');
+  assertContains(result, '}\n\nfn b()');
+});
+
+// === module pure tests ===
+
+test('module pure: compiles without errors', () => {
+  const source = 'module pure\nexpose fn add(a, b) { return a + b }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  assertEqual(errors.length, 0);
+});
+
+test('module pure: rejects env declaration', () => {
+  const source = 'module pure\nenv FOO';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const pureErrors = errors.filter(e => e.message.includes('pure'));
+  assertEqual(pureErrors.length >= 1, true);
+});
+
+test('module pure: rejects print', () => {
+  const source = 'module pure\nprint "hello"';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const pureErrors = errors.filter(e => e.message.includes('pure'));
+  assertEqual(pureErrors.length >= 1, true);
+});
+
+test('module pure: rejects sleep', () => {
+  const source = 'module pure\nfn main() { sleep 1000 }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const pureErrors = errors.filter(e => e.message.includes('pure'));
+  assertEqual(pureErrors.length >= 1, true);
+});
+
+test('module pure: rejects module-level mut', () => {
+  const source = 'module pure\nmut x = 0';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const pureErrors = errors.filter(e => e.message.includes('pure'));
+  assertEqual(pureErrors.length >= 1, true);
+});
+
+test('module pure: allows mut inside functions', () => {
+  const source = 'module pure\nexpose fn counter() { mut i = 0\ni += 1\nreturn i }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const pureErrors = errors.filter(e => e.message.includes('pure'));
+  assertEqual(pureErrors.length, 0);
+});
+
+test('module pure + singleton: errors', () => {
+  const source = 'module pure\nmodule singleton\nexpose fn add(a, b) { return a + b }';
+  const ast = parse(tokenize(source));
+  const tc = new TypeChecker();
+  const errors = tc.check(ast);
+  const conflictErrors = errors.filter(e => e.message.includes('both'));
+  assertEqual(conflictErrors.length >= 1, true);
+});
+
+// === lazy dep tests ===
+
+test('Parse lazy dep', () => {
+  const ast = parse(tokenize('lazy as db dep myapp.db'));
+  const dep = ast.body[0];
+  assertEqual(dep.type, 'DepStatement');
+  assertEqual(dep.lazy, true);
+  assertEqual(dep.alias, 'db');
+});
+
+test('Generate lazy dep at end of module', () => {
+  const source = 'as http dep myapp.http\nlazy as db dep myapp.db\nexpose fn test() { return 1 }';
+  const js = compile(source, { skipTypeCheck: true });
+  // The await resolution of http should be before function declarations
+  // The await resolution of db should be after function declarations
+  const httpResolveIdx = js.indexOf('const http = _opts["myapp.http"] || await _dep_http()');
+  const dbResolveIdx = js.indexOf('const db = _opts["myapp.db"] || await _dep_db()');
+  const fnIdx = js.indexOf('function test');
+  assertEqual(httpResolveIdx < fnIdx, true);
+  assertEqual(dbResolveIdx > fnIdx, true);
 });
 
 // Summary

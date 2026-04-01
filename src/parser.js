@@ -390,6 +390,17 @@ export class Parser {
       return this.parsePrintStatement();
     }
     
+    // Lazy dependency declaration: lazy as <alias> dep <path>
+    if (this.check(TokenType.LAZY)) {
+      this.advance(); // consume lazy
+      if (!this.check(TokenType.AS)) {
+        this.error('Expected as after lazy');
+      }
+      const dep = this.parseDepStatement();
+      dep.lazy = true;
+      return dep;
+    }
+
     // Dependency declaration: as <alias> dep <path>
     if (this.check(TokenType.AS)) {
       return this.parseDepStatement();
@@ -1461,7 +1472,7 @@ export class Parser {
     const directiveToken = this.expect(TokenType.IDENTIFIER, 'Expected directive name after module');
     const directive = directiveToken.value;
 
-    const validDirectives = ['singleton'];
+    const validDirectives = ['singleton', 'pure'];
     if (!validDirectives.includes(directive)) {
       this.error(`Unknown module directive '${directive}'. Valid directives: ${validDirectives.join(', ')}`);
     }
@@ -1501,9 +1512,18 @@ export class Parser {
   parseExternDeclaration() {
     this.expect(TokenType.EXTERN, 'Expected extern');
 
+    // Check for platform annotation: extern node/browser
+    let platform = null;
+    if (this.check(TokenType.IDENTIFIER) && (this.peek().value === 'node' || this.peek().value === 'browser')) {
+      const nextNext = this.tokens[this.pos + 1];
+      if (nextNext && (nextNext.type === TokenType.STRING || (nextNext.type === TokenType.IDENTIFIER && nextNext.value === 'default'))) {
+        platform = this.advance().value;
+      }
+    }
+
     // Check for default: extern default "module" as name: type
     if (this.check(TokenType.IDENTIFIER) && this.peek().value === 'default') {
-      return this.parseExternDefaultDeclaration();
+      return this.parseExternDefaultDeclaration(platform);
     }
 
     // Named: extern "module" { fn/dec declarations }
@@ -1576,11 +1596,12 @@ export class Parser {
     return {
       type: NodeType.ExternDeclaration,
       source,
+      platform,
       declarations,
     };
   }
 
-  parseExternDefaultDeclaration() {
+  parseExternDefaultDeclaration(platform = null) {
     // Already consumed 'extern', now at 'default'
     this.advance(); // consume 'default'
 
@@ -1600,6 +1621,7 @@ export class Parser {
     return {
       type: NodeType.ExternDefaultDeclaration,
       source,
+      platform,
       alias,
       aliasType,
     };
@@ -1625,7 +1647,7 @@ export class Parser {
             this.check(TokenType.RETURN) || this.check(TokenType.MUT) ||
             this.check(TokenType.ENUM) || this.check(TokenType.GUARD) ||
             this.check(TokenType.TEST) || this.check(TokenType.DESCRIBE) ||
-            this.check(TokenType.PRINT)) {
+            this.check(TokenType.PRINT) || this.check(TokenType.LAZY)) {
           break;
         }
       }
