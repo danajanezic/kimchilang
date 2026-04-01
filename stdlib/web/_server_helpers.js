@@ -14,9 +14,9 @@ export function startServer(port, host, corsConfig, callback) {
         const req = {
           method: nodeReq.method,
           path: parsed.pathname,
-          headers: nodeReq.headers,
+          headers: new Proxy(nodeReq.headers, { get: (obj, prop) => prop in obj ? obj[prop] : null }),
           body: body,
-          query: parsed.query || {},
+          query: new Proxy(parsed.query || {}, { get: (obj, prop) => prop in obj ? obj[prop] : null }),
           segments() {
             return this.path.split('/').filter(s => s !== '');
           },
