@@ -5,6 +5,9 @@ import { TypeChecker } from '../src/typechecker.js';
 import { Linter } from '../src/linter.js';
 import { convertJS } from '../src/js2km.js';
 import { format } from '../src/formatter.js';
+import { bundle } from '../src/bundler.js';
+import kmxReactPlugin from '../src/extensions/kmx-react.js';
+import { writeFileSync, unlinkSync, mkdirSync, rmdirSync } from 'fs';
 
 let passed = 0;
 let failed = 0;
@@ -3073,6 +3076,138 @@ test('Browser target: dep becomes module variable reference', () => {
   const js = compile('as utils dep lib.utils\nprint utils.add(1, 2)', { skipTypeCheck: true, target: 'browser' });
   assertContains(js, '_mod_lib_utils');
   assertEqual(js.includes('import '), false);
+});
+
+// Bundler Tests
+console.log('\n--- Bundler Tests ---\n');
+
+test('Bundler: single file produces IIFE', () => {
+  writeFileSync('/tmp/test_bundle.km', 'dec x = 1\nprint x');
+  const result = bundle('/tmp/test_bundle.km');
+  assertContains(result, '(function() {');
+  assertContains(result, '})();');
+  assertContains(result, 'console.log');
+  assertEqual(result.includes('import '), false);
+  assertEqual(result.includes('export '), false);
+  unlinkSync('/tmp/test_bundle.km');
+});
+
+test('Bundler: multi-file bundle', () => {
+  mkdirSync('/tmp/tb_proj/lib', { recursive: true });
+  writeFileSync('/tmp/tb_proj/lib/math.km', 'expose fn add(a, b) { return a + b }');
+  writeFileSync('/tmp/tb_proj/app.km', 'as math dep lib.math\nprint math.add(1, 2)');
+  const result = bundle('/tmp/tb_proj/app.km');
+  assertContains(result, '_mod_lib_math');
+  assertContains(result, 'function add');
+  assertContains(result, '(function() {');
+  unlinkSync('/tmp/tb_proj/app.km');
+  unlinkSync('/tmp/tb_proj/lib/math.km');
+  rmdirSync('/tmp/tb_proj/lib');
+  rmdirSync('/tmp/tb_proj');
+});
+
+test('Bundler: circular dependency detected', () => {
+  mkdirSync('/tmp/tb_circ', { recursive: true });
+  writeFileSync('/tmp/tb_circ/a.km', 'as b dep b\nprint 1');
+  writeFileSync('/tmp/tb_circ/b.km', 'as a dep a\nexpose dec x = 1');
+  let threw = false;
+  try { bundle('/tmp/tb_circ/a.km'); } catch(e) {
+    threw = true;
+    assertContains(e.message, 'Circular');
+  }
+  assertEqual(threw, true);
+  unlinkSync('/tmp/tb_circ/a.km');
+  unlinkSync('/tmp/tb_circ/b.km');
+  rmdirSync('/tmp/tb_circ');
+});
+
+// ===== Plugin System Tests =====
+
+test('Plugin system: compile accepts plugins option', () => {
+  const noopPlugin = { name: 'test-noop' };
+  const js = compile('dec x = 1', { skipTypeCheck: true, plugins: [noopPlugin] });
+  assertContains(js, 'const x = 1');
+});
+
+test('Plugin system: parser calls plugin parserRules', () => {
+  let called = false;
+  const testPlugin = {
+    name: 'test-parser',
+    parserRules(parser) { called = true; return null; }
+  };
+  compile('dec x = 1', { skipTypeCheck: true, plugins: [testPlugin] });
+  assertEqual(called, true);
+});
+
+// ==================== KMX-React Plugin Tests ====================
+
+test('KMX: simple element compiles to jsx()', () => {
+  const js = compile('<div>hello</div>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx("div"');
+  assertContains(js, '"hello"');
+});
+
+test('KMX: element with string attribute', () => {
+  const js = compile('<div className="foo">bar</div>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx("div"');
+  assertContains(js, 'className: "foo"');
+});
+
+test('KMX: self-closing element', () => {
+  const js = compile('<br />', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx("br"');
+});
+
+test('KMX: component (uppercase) uses identifier', () => {
+  const js = compile('<Header title="hi" />', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx(Header');
+  assertContains(js, 'title: "hi"');
+});
+
+test('KMX: multiple children uses jsxs()', () => {
+  const js = compile('<div><span>a</span><span>b</span></div>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsxs("div"');
+  assertContains(js, 'children: [');
+});
+
+test('KMX: expression in children', () => {
+  const js = compile('<div>{x + 1}</div>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx("div"');
+  assertContains(js, 'x + 1');
+});
+
+test('KMX: expression attribute', () => {
+  const js = compile('<button onClick={handler}>click</button>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'onClick: handler');
+});
+
+test('KMX: key extracted to third argument', () => {
+  const js = compile('<li key="k1">item</li>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, '"k1"');
+});
+
+test('KMX: nested elements', () => {
+  const js = compile('<div><p><span>deep</span></p></div>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsx("div"');
+  assertContains(js, 'jsx("p"');
+  assertContains(js, 'jsx("span"');
+});
+
+test('KMX: JSX inside function', () => {
+  const js = compile('fn App() {\n  return <div>hello</div>\n}', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'function App()');
+  assertContains(js, 'jsx("div"');
+});
+
+test('KMX: boolean attribute', () => {
+  const js = compile('<input disabled />', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'disabled: true');
+});
+
+test('KMX: fragment', () => {
+  const js = compile('<><span>a</span><span>b</span></>', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, 'jsxs(Fragment');
+  assertContains(js, 'children: [');
 });
 
 // Summary
