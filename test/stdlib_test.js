@@ -228,35 +228,35 @@ console.log('\n--- object.km ---\n');
   });
 
   test('object.km has Object.keys (via optional chaining)', () => {
-    assertContains(output, 'Object?.keys(');
+    assertContains(output, 'Object.keys(');
   });
 
   test('object.km has Object.values (via optional chaining)', () => {
-    assertContains(output, 'Object?.values(');
+    assertContains(output, 'Object.values(');
   });
 
   test('object.km has Object.entries (via optional chaining)', () => {
-    assertContains(output, 'Object?.entries(');
+    assertContains(output, 'Object.entries(');
   });
 
   test('object.km has Object.fromEntries (via optional chaining)', () => {
-    assertContains(output, 'Object?.fromEntries(');
+    assertContains(output, 'Object.fromEntries(');
   });
 
   test('object.km has Object.hasOwn (via optional chaining)', () => {
-    assertContains(output, 'Object?.hasOwn(');
+    assertContains(output, 'Object.hasOwn(');
   });
 
   test('object.km has Object.freeze (via optional chaining)', () => {
-    assertContains(output, 'Object?.freeze(');
+    assertContains(output, 'Object.freeze(');
   });
 
   test('object.km has Object.assign (via optional chaining)', () => {
-    assertContains(output, 'Object?.assign(');
+    assertContains(output, 'Object.assign(');
   });
 
   test('object.km has isEmpty using Object.keys length check', () => {
-    assertContains(output, 'Object?.keys(obj)?.length');
+    assertContains(output, 'Object.keys(obj)?.length');
   });
 
   test('object.km exports all 10 exposed functions', () => {
@@ -282,64 +282,64 @@ console.log('\n--- math.km ---\n');
   });
 
   test('math.km has Math.PI constant (via optional chaining)', () => {
-    assertContains(output, 'Math?.PI');
+    assertContains(output, 'Math.PI');
   });
 
   test('math.km has Math.E constant (via optional chaining)', () => {
-    assertContains(output, 'Math?.E');
+    assertContains(output, 'Math.E');
   });
 
   test('math.km has Math.abs (via optional chaining)', () => {
-    assertContains(output, 'Math?.abs(');
+    assertContains(output, 'Math.abs(');
   });
 
   test('math.km has Math.floor (via optional chaining)', () => {
-    assertContains(output, 'Math?.floor(');
+    assertContains(output, 'Math.floor(');
   });
 
   test('math.km has Math.ceil (via optional chaining)', () => {
-    assertContains(output, 'Math?.ceil(');
+    assertContains(output, 'Math.ceil(');
   });
 
   test('math.km has Math.round (via optional chaining)', () => {
-    assertContains(output, 'Math?.round(');
+    assertContains(output, 'Math.round(');
   });
 
   test('math.km has Math.random (via optional chaining)', () => {
-    assertContains(output, 'Math?.random()');
+    assertContains(output, 'Math.random()');
   });
 
   test('math.km has Math.sqrt (via optional chaining)', () => {
-    assertContains(output, 'Math?.sqrt(');
+    assertContains(output, 'Math.sqrt(');
   });
 
   test('math.km has Math.pow (via optional chaining)', () => {
-    assertContains(output, 'Math?.pow(');
+    assertContains(output, 'Math.pow(');
   });
 
   test('math.km has trig functions (via optional chaining)', () => {
-    assertContains(output, 'Math?.sin(');
-    assertContains(output, 'Math?.cos(');
-    assertContains(output, 'Math?.tan(');
-    assertContains(output, 'Math?.asin(');
-    assertContains(output, 'Math?.acos(');
-    assertContains(output, 'Math?.atan(');
-    assertContains(output, 'Math?.atan2(');
+    assertContains(output, 'Math.sin(');
+    assertContains(output, 'Math.cos(');
+    assertContains(output, 'Math.tan(');
+    assertContains(output, 'Math.asin(');
+    assertContains(output, 'Math.acos(');
+    assertContains(output, 'Math.atan(');
+    assertContains(output, 'Math.atan2(');
   });
 
   test('math.km has Math.log functions (via optional chaining)', () => {
-    assertContains(output, 'Math?.log(');
-    assertContains(output, 'Math?.log10(');
-    assertContains(output, 'Math?.log2(');
+    assertContains(output, 'Math.log(');
+    assertContains(output, 'Math.log10(');
+    assertContains(output, 'Math.log2(');
   });
 
   test('math.km clamp uses Math.min and Math.max (via optional chaining)', () => {
-    assertContains(output, 'Math?.min(');
-    assertContains(output, 'Math?.max(');
+    assertContains(output, 'Math.min(');
+    assertContains(output, 'Math.max(');
   });
 
   test('math.km randomInt uses Math.floor and Math.random', () => {
-    assertContains(output, 'Math?.floor((Math?.random()');
+    assertContains(output, 'Math.floor((Math.random()');
   });
 
   test('math.km lerp has arithmetic pattern', () => {
@@ -353,7 +353,7 @@ console.log('\n--- math.km ---\n');
 
   test('math.km degrees conversion uses 180 / Math.PI', () => {
     assertContains(output, '180');
-    assertContains(output, 'Math?.PI');
+    assertContains(output, 'Math.PI');
   });
 
   test('math.km exports all expected functions', () => {
@@ -382,7 +382,7 @@ console.log('\n--- date.km ---\n');
   });
 
   test('date.km has Date.now() (via optional chaining)', () => {
-    assertContains(output, 'Date?.now()');
+    assertContains(output, 'Date.now()');
   });
 
   test('date.km has new keyword for Date construction', () => {
@@ -456,15 +456,15 @@ console.log('\n--- json.km ---\n');
   });
 
   test('json.km has JSON.parse (via optional chaining)', () => {
-    assertContains(output, 'JSON?.parse(');
+    assertContains(output, 'JSON.parse(');
   });
 
   test('json.km has JSON.stringify (via optional chaining)', () => {
-    assertContains(output, 'JSON?.stringify(');
+    assertContains(output, 'JSON.stringify(');
   });
 
   test('json.km pretty uses null and indent parameter', () => {
-    assertContains(output, 'JSON?.stringify(obj, null,');
+    assertContains(output, 'JSON.stringify(obj, null,');
   });
 
   test('json.km exports all 4 exposed functions', () => {
@@ -549,44 +549,44 @@ console.log('\n--- console.km ---\n');
   });
 
   test('console.km has console.log (via optional chaining)', () => {
-    assertContains(output, 'console?.log(');
+    assertContains(output, 'console.log(');
   });
 
   test('console.km has console.error (via optional chaining)', () => {
-    assertContains(output, 'console?.error(');
+    assertContains(output, 'console.error(');
   });
 
   test('console.km has console.warn (via optional chaining)', () => {
-    assertContains(output, 'console?.warn(');
+    assertContains(output, 'console.warn(');
   });
 
   test('console.km has console.info (via optional chaining)', () => {
-    assertContains(output, 'console?.info(');
+    assertContains(output, 'console.info(');
   });
 
   test('console.km has console.debug (via optional chaining)', () => {
-    assertContains(output, 'console?.debug(');
+    assertContains(output, 'console.debug(');
   });
 
   test('console.km has console.table (via optional chaining)', () => {
-    assertContains(output, 'console?.table(');
+    assertContains(output, 'console.table(');
   });
 
   test('console.km has console.clear (via optional chaining)', () => {
-    assertContains(output, 'console?.clear()');
+    assertContains(output, 'console.clear()');
   });
 
   test('console.km has console.time and console.timeEnd (via optional chaining)', () => {
-    assertContains(output, 'console?.time(');
-    assertContains(output, 'console?.timeEnd(');
+    assertContains(output, 'console.time(');
+    assertContains(output, 'console.timeEnd(');
   });
 
   test('console.km has console.trace (via optional chaining)', () => {
-    assertContains(output, 'console?.trace(');
+    assertContains(output, 'console.trace(');
   });
 
   test('console.km has console.dir (via optional chaining)', () => {
-    assertContains(output, 'console?.dir(');
+    assertContains(output, 'console.dir(');
   });
 
   test('console.km exports all 12 exposed functions', () => {
@@ -740,11 +740,11 @@ console.log('\n--- logger.km ---\n');
   });
 
   test('logger.km has console.warn for warn output', () => {
-    assertContains(output, 'console?.warn(');
+    assertContains(output, 'console.warn(');
   });
 
   test('logger.km has console.error for error output', () => {
-    assertContains(output, 'console?.error(');
+    assertContains(output, 'console.error(');
   });
 
   test('logger.km child function uses ?? for merging data', () => {
@@ -758,7 +758,7 @@ console.log('\n--- logger.km ---\n');
   });
 
   test('logger.km has JSON.stringify for log output', () => {
-    assertContains(output, 'JSON?.stringify');
+    assertContains(output, 'JSON.stringify');
   });
 
   test('logger.km exports exposed functions', () => {
