@@ -41,7 +41,7 @@ Planned improvements:
 - [ ] Build config file (`build.static`) — entry, output, target, options
 - [ ] Dev server with hot reload — `kimchi dev frontend/`, on-demand transpilation, browser auto-refresh
 - [ ] Production build optimizations — minification, tree-shaking (leverages `module pure`), code splitting
-- [ ] JSX support in `.kmx` files — `<div>{expr}</div>` compiles to `React.createElement`. Components are functions, props are parameters, state via `dec [x, setX] = useState(0)`. No new keywords. Requires frontend build system.
+- [x] ~~JSX support in `.kmx` files~~ — via compiler plugin system. `<div>{expr}</div>` compiles to React 19 `jsx()`/`jsxs()` from `react/jsx-runtime`. Auto-import, components as functions, `stdlib/kmx/react.km` for full API.
 
 ## Tooling
 
