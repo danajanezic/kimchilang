@@ -784,7 +784,8 @@ async function runTests(filePath, options = {}) {
 
   const { KimchiInterpreter } = await import('./interpreter.js');
   const source = readFileSync(resolve(filePath), 'utf-8');
-  const interp = new KimchiInterpreter(); // no persistent cache for tests
+  const cacheDir = join(process.cwd(), '.kimchi-cache');
+  const interp = new KimchiInterpreter({ cacheDir, projectRoot: process.cwd() });
 
   try {
     const code = interp.prepare(source, {
@@ -803,15 +804,17 @@ async function runTests(filePath, options = {}) {
       process.exit(1);
     }
 
-    const os = await import('os');
+    // Write test file to cache dir (not /tmp) so dep imports resolve correctly
     const crypto = await import('crypto');
-    const tempFile = join(os.default.tmpdir(), `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`);
+    const testFileName = `kimchi_test_${crypto.default.randomBytes(8).toString('hex')}.mjs`;
+    if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+    const tempFile = join(cacheDir, testFileName);
     writeFileSync(tempFile, testCode);
 
     try {
       execSync(`node "${tempFile}"`, {
         stdio: 'inherit',
-        cwd: dirname(resolve(filePath))
+        cwd: process.cwd()
       });
     } finally {
       try { const fs = await import('fs'); fs.default.unlinkSync(tempFile); } catch {}
