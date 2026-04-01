@@ -1964,6 +1964,39 @@ test('Parse extern default with browser platform', () => {
   assertEqual(ast.body[0].alias, 'ReactDOM');
 });
 
+test('Parse extern dec with alias', () => {
+  const source = 'extern "react" {\n  dec memo as memoize: any\n}';
+  const ast = parse(tokenize(source));
+  const decl = ast.body[0].declarations[0];
+  assertEqual(decl.name, 'memo');
+  assertEqual(decl.alias, 'memoize');
+});
+
+test('Parse extern fn with alias', () => {
+  const source = 'extern "mod" {\n  fn original as renamed(x: any): any\n}';
+  const ast = parse(tokenize(source));
+  const decl = ast.body[0].declarations[0];
+  assertEqual(decl.name, 'original');
+  assertEqual(decl.alias, 'renamed');
+});
+
+test('Generate extern alias import', () => {
+  const source = 'extern "react" {\n  dec memo as memoize: any\n}\ndec x = memoize({})';
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'import { memo as memoize }');
+});
+
+test('Extern alias keyword rejected', () => {
+  let threw = false;
+  try {
+    parse(tokenize('extern "mod" {\n  dec foo as match: any\n}'));
+  } catch(e) {
+    threw = true;
+    assertContains(e.message, 'keyword');
+  }
+  assertEqual(threw, true);
+});
+
 test('Type checker: extern fn registers in scope', () => {
   const source = 'extern "mod" {\n  fn greet(name: string): string\n}\ndec x = greet("hi")';
   const ast = parse(tokenize(source));

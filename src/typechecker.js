@@ -47,6 +47,8 @@ export class TypeChecker {
     
     this.mutVariables = new Set();
     this._insideClosure = false;
+    this._isPureModule = false;
+    this._isSingletonModule = false;
 
     // Register built-in globals
     this.defineVariable('error', this.createType(Type.Function));
@@ -494,6 +496,9 @@ export class TypeChecker {
         this.visitDecDeclaration(node);
         break;
       case NodeType.MutDeclaration:
+        if (this._isPureModule && this.scopes.length === 1) {
+          this.addError('pure modules cannot use mut at module level', node);
+        }
         this.visitMutDeclaration(node);
         break;
       case NodeType.FunctionDeclaration:
@@ -524,6 +529,9 @@ export class TypeChecker {
         this.visitPatternMatch(node);
         break;
       case NodeType.PrintStatement:
+        if (this._isPureModule) {
+          this.addError('pure modules cannot use print', node);
+        }
         this.visitExpression(node.argument || node.expression);
         break;
       case NodeType.ExpressionStatement:
@@ -543,14 +551,26 @@ export class TypeChecker {
         this.visitArgDeclaration(node);
         break;
       case NodeType.EnvDeclaration:
+        if (this._isPureModule) {
+          this.addError('pure modules cannot use env declarations', node);
+        }
         this.visitEnvDeclaration(node);
         break;
       case NodeType.ShellBlock:
+        if (this._isPureModule) {
+          this.addError('pure modules cannot use shell blocks', node);
+        }
         // Shell blocks are opaque - no type checking inside
         break;
       case NodeType.SpawnBlock:
+        if (this._isPureModule) {
+          this.addError('pure modules cannot use spawn', node);
+        }
         break;
       case NodeType.SleepStatement:
+        if (this._isPureModule) {
+          this.addError('pure modules cannot use sleep', node);
+        }
         this.visitExpression(node.duration);
         break;
       case NodeType.AfterExpression:
@@ -600,11 +620,12 @@ export class TypeChecker {
               this._typeParamContext.pop();
             }
 
-            this.defineVariable(decl.name, this.createFunctionType(
+            const localName = decl.alias || decl.name;
+            this.defineVariable(localName, this.createFunctionType(
               paramTypes.map(p => p.type),
               returnType
             ));
-            this.functions.set(decl.name, {
+            this.functions.set(localName, {
               typeParams,
               params: paramTypes,
               returnType,
@@ -612,7 +633,8 @@ export class TypeChecker {
               kmdocParams: new Map(paramTypes.map(p => [p.name, p.type])),
             });
           } else if (decl.kind === 'value') {
-            this.defineVariable(decl.name, this.parseTypeString(decl.valueType));
+            const localName = decl.alias || decl.name;
+            this.defineVariable(localName, this.parseTypeString(decl.valueType));
           }
         }
         break;
@@ -630,6 +652,21 @@ export class TypeChecker {
           params: node.typeParams,
           body,
         });
+        break;
+      }
+      case NodeType.ModuleDirective: {
+        if (node.directive === 'pure') {
+          if (this._isSingletonModule) {
+            this.addError('module cannot be both pure and singleton', node);
+          }
+          this._isPureModule = true;
+        }
+        if (node.directive === 'singleton') {
+          if (this._isPureModule) {
+            this.addError('module cannot be both pure and singleton', node);
+          }
+          this._isSingletonModule = true;
+        }
         break;
       }
     }

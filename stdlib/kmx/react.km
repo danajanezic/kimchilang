@@ -1,9 +1,5 @@
 // KimchiLang React 19 Bindings
 // Usage: as react dep stdlib.kmx.react
-//
-// Note: React's `memo` and `lazy` APIs are not exposed here because `memo`
-// and `lazy` are reserved keywords in KimchiLang. Use React's `memo` and
-// `lazy` directly via your own extern declaration if needed.
 
 // React core
 extern browser "react" {
@@ -12,6 +8,8 @@ extern browser "react" {
   dec Children: any
   dec cloneElement: any
   dec isValidElement: any
+  dec memo as memoize: any
+  dec lazy as lazyLoad: any
   dec forwardRef: any
   dec Suspense: any
   dec StrictMode: any
@@ -59,6 +57,8 @@ expose dec Fragment = Fragment
 expose dec Children = Children
 expose dec cloneElement = cloneElement
 expose dec isValidElement = isValidElement
+expose dec memoize = memoize
+expose dec lazyLoad = lazyLoad
 expose dec forwardRef = forwardRef
 expose dec Suspense = Suspense
 expose dec StrictMode = StrictMode

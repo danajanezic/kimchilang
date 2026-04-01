@@ -1562,6 +1562,16 @@ export class Parser {
         this.advance(); // consume fn
         const name = this.expect(TokenType.IDENTIFIER, 'Expected function name').value;
 
+        // Optional alias: fn originalName as aliasName
+        let alias = null;
+        if (this.check(TokenType.AS)) {
+          this.advance(); // consume as
+          if (!this.check(TokenType.IDENTIFIER)) {
+            this.error(`Cannot use keyword '${this.peek().value}' as extern alias`);
+          }
+          alias = this.expect(TokenType.IDENTIFIER, 'Expected alias name after as').value;
+        }
+
         // Optional type parameters: fn name<T, U>(...)
         const typeParams = [];
         if (this.match(TokenType.LT)) {
@@ -1588,16 +1598,27 @@ export class Parser {
         this.expect(TokenType.COLON, 'Expected : before return type');
         const returnType = this.parseExternType();
 
-        declarations.push({ kind: 'function', name, typeParams, params, returnType, async: isAsync });
+        declarations.push({ kind: 'function', name, alias, typeParams, params, returnType, async: isAsync });
       } else if (this.check(TokenType.DEC)) {
         this.advance(); // consume dec
-        // Value name might be a keyword token (e.g. 'env'), so accept any non-delimiter token
+        // Value name might be a keyword token (e.g. 'memo', 'lazy'), so accept any non-delimiter token
         const nameToken = this.advance();
         const name = nameToken.value;
+
+        // Optional alias: dec originalName as aliasName
+        let alias = null;
+        if (this.check(TokenType.AS)) {
+          this.advance(); // consume as
+          if (!this.check(TokenType.IDENTIFIER)) {
+            this.error(`Cannot use keyword '${this.peek().value}' as extern alias`);
+          }
+          alias = this.expect(TokenType.IDENTIFIER, 'Expected alias name after as').value;
+        }
+
         this.expect(TokenType.COLON, 'Expected : after value name');
         const valueType = this.parseExternType();
 
-        declarations.push({ kind: 'value', name, valueType });
+        declarations.push({ kind: 'value', name, alias, valueType });
       } else {
         this.error('Expected fn or dec in extern block');
       }

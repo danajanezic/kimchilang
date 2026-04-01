@@ -619,21 +619,25 @@ export class CodeGenerator {
     // Group named externs by source module
     const namedByModule = new Map();
     for (const ext of externDeclarations) {
-      const usedNames = ext.declarations
-        .map(d => d.name)
-        .filter(name => usedIdentifiers.has(name));
-      if (usedNames.length > 0) {
-        if (!namedByModule.has(ext.source)) {
-          namedByModule.set(ext.source, []);
+      for (const d of ext.declarations) {
+        const localName = d.alias || d.name;
+        if (usedIdentifiers.has(localName)) {
+          if (!namedByModule.has(ext.source)) {
+            namedByModule.set(ext.source, []);
+          }
+          if (d.alias) {
+            namedByModule.get(ext.source).push(`${d.name} as ${d.alias}`);
+          } else {
+            namedByModule.get(ext.source).push(d.name);
+          }
         }
-        namedByModule.get(ext.source).push(...usedNames);
       }
     }
 
     // Emit named extern imports
-    for (const [source, names] of namedByModule) {
-      const uniqueNames = [...new Set(names)];
-      this.emitLine(`import { ${uniqueNames.join(', ')} } from '${source}';`);
+    for (const [source, specs] of namedByModule) {
+      const uniqueSpecs = [...new Set(specs)];
+      this.emitLine(`import { ${uniqueSpecs.join(', ')} } from '${source}';`);
     }
 
     // Emit default extern imports (only if alias is used)
