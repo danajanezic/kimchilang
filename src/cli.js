@@ -36,12 +36,13 @@ Commands:
   compile <file>    Compile a .kimchi file to JavaScript
   run <file>        Compile and run a .kimchi file (use -w for watch mode)
   test <file|dir>   Run tests in a file or all test files in a directory
+  fmt <file|dir>    Auto-format a file or all .km files in a directory
   lint <file>       Run linter on a .kimchi file
   check <file>      Check a file for errors (for editor integration)
   lsp               Start Language Server Protocol server (stdio)
   convert <file>    Convert a JavaScript file to KimchiLang
   npm <args>        Run npm and convert installed packages to pantry/
-  build <dir>       Compile all .kimchi files in a directory
+  build <entry.km> [-o out.js]  Bundle for browser (IIFE)
   install           Install dependencies from project.static
   clean             Remove installed dependencies
   cache clear       Clear transpilation cache
@@ -969,6 +970,20 @@ async function startRepl() {
   });
 }
 
+function findKmFiles(dir) {
+  const results = [];
+  const entries = readdirSync(resolve(dir), { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+      results.push(...findKmFiles(fullPath));
+    } else if (entry.isFile() && /\.(km|kimchi|kc)$/.test(entry.name)) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
 function getAllJsFiles(dir, files = []) {
   const entries = readdirSync(dir);
   
@@ -1177,7 +1192,7 @@ async function main() {
         if (options.output) {
           outputPath = resolve(options.output);
         } else {
-          outputPath = filePath.replace(/\.(kimchi|kc)$/, '.js');
+          outputPath = filePath.replace(/\.(km|kimchi|kc|kmx)$/, '.js');
         }
 
         // Find project root and compute runtime import path
@@ -1326,6 +1341,68 @@ async function main() {
       // Remove installed dependencies
       console.log('Cleaning dependencies...\n');
       cleanDependencies('.');
+      break;
+    }
+
+    case 'build': {
+      const entry = options.file || options._?.[0];
+      if (!entry) {
+        console.error('Usage: kimchi build <entry.km> [-o output.js]');
+        process.exit(1);
+      }
+      const output = options.output || 'dist/bundle.js';
+
+      const { bundle } = await import('./bundler.js');
+
+      try {
+        const result = bundle(resolve(entry));
+        const outDir = dirname(resolve(output));
+        if (!existsSync(outDir)) {
+          mkdirSync(outDir, { recursive: true });
+        }
+        writeFileSync(resolve(output), result);
+        const sizeKb = (result.length / 1024).toFixed(1);
+        console.log(`Bundle: ${output} (${sizeKb} KB)`);
+      } catch (e) {
+        console.error('Build error:', e.message);
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'fmt':
+    case 'format': {
+      const target = options.file || options._?.[0];
+      if (!target) {
+        console.error('Usage: kimchi fmt <file-or-directory>');
+        process.exit(1);
+      }
+      const { format } = await import('./formatter.js');
+      const targetPath = resolve(target);
+
+      if (existsSync(targetPath) && statSync(targetPath).isDirectory()) {
+        const files = findKmFiles(targetPath);
+        let count = 0;
+        for (const file of files) {
+          const source = readFileSync(file, 'utf-8');
+          const formatted = format(source);
+          if (source !== formatted) {
+            writeFileSync(file, formatted);
+            console.log(`  formatted: ${relative(process.cwd(), file)}`);
+            count++;
+          }
+        }
+        console.log(`\n${count} file(s) formatted`);
+      } else {
+        const source = readFileSync(targetPath, 'utf-8');
+        const formatted = format(source);
+        if (source !== formatted) {
+          writeFileSync(targetPath, formatted);
+          console.log(`Formatted: ${target}`);
+        } else {
+          console.log(`Already formatted: ${target}`);
+        }
+      }
       break;
     }
 
