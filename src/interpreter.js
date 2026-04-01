@@ -137,6 +137,9 @@ export class KimchiInterpreter {
       if (!existsSync(cacheDepDir)) mkdirSync(cacheDepDir, { recursive: true });
       writeFileSync(cachePath, depWrapped);
 
+      // Copy extern JS helper files referenced by this dependency
+      this._copyExternHelpers(depJs, dirname(depAbsPath), cacheDepDir);
+
       // Recursively resolve this dependency's dependencies
       this._resolveDeps(depJs, { ...options, basePath: dirname(depAbsPath) });
     }
@@ -159,6 +162,23 @@ export class KimchiInterpreter {
       'const _module = async function'
     );
     return `// kimchi-cache: ${hash}\n${RUNTIME_INLINE}\n${code}\nawait _module({});\n`;
+  }
+
+  // Copy extern JS helper files (e.g., _server_helpers.js) to the cache directory
+  // so that compiled modules can import them at runtime
+  _copyExternHelpers(javascript, sourceDir, cacheDir) {
+    const jsImportRegex = /^import .+ from '(\.\/[^']+\.js)';$/gm;
+    let match;
+    while ((match = jsImportRegex.exec(javascript)) !== null) {
+      const relPath = match[1]; // e.g., './_server_helpers.js'
+      const srcFile = resolve(sourceDir, relPath);
+      const destFile = join(cacheDir, relPath.replace(/^\.\//, ''));
+      if (existsSync(srcFile) && !existsSync(destFile)) {
+        const destDir = dirname(destFile);
+        if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+        writeFileSync(destFile, readFileSync(srcFile, 'utf-8'));
+      }
+    }
   }
 
   // Wrap dependency module: inline runtime, rewrite imports, keep export default

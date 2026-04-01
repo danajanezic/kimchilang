@@ -1,6 +1,6 @@
 // Task Management API
-// Showcases: match routing, guard validation, pipes, collect, sleep,
-//            Foo.new(), response helpers, path params, query filtering
+// Showcases: pattern matching routing, guard validation, Date.new(),
+//            response helpers, path params, query filtering
 
 as server dep stdlib.web.server({config: {Port: 3000, Host: "0.0.0.0", Cors: {origin: "*", methods: "GET, POST, PUT, DELETE"}}})
 
@@ -34,167 +34,124 @@ fn generateId() {
   return "${nextId}"
 }
 
-// --- Middleware (pipe-compatible functions) ---
-
 fn authenticate(req) {
   dec token = req.headers.authorization
-  guard token != null else { return server.unauthorized("missing authorization header") }
-
-  dec user = findUser(token)
-  guard user != null else { return server.unauthorized("invalid token") }
-
-  return { ...req, user: user }
-}
-
-fn requireAdmin(req) {
-  guard req.user.role == "admin" else { return server.forbidden("admin access required") }
-  return req
-}
-
-// --- Route handlers ---
-
-fn handleHealth(req) {
-  return server.ok({
-    status: "healthy",
-    timestamp: Date.new().toISOString(),
-    taskCount: tasks.length,
-    userCount: users.length
-  })
-}
-
-fn handleListTasks(req) {
-  dec status = req.query.status
-  dec owner = req.query.owner
-  dec priority = req.query.priority
-
-  dec result = tasks
-    .filter(t => status == null or t.status == status)
-    .filter(t => owner == null or t.owner == owner)
-    .filter(t => priority == null or t.priority == priority)
-
-  return server.ok(result)
-}
-
-fn handleCreateTask(req) {
-  guard req.body != null else { return server.badRequest("request body required") }
-  guard req.body.title != null else { return server.badRequest("title is required") }
-
-  dec task = {
-    id: generateId(),
-    title: req.body.title,
-    status: req.body.status ?? "todo",
-    priority: req.body.priority ?? "medium",
-    owner: req.user.id
-  }
-
-  return server.created(task)
-}
-
-fn handleGetTask(req, taskId) {
-  dec task = findTask(taskId)
-  guard task != null else { return server.notFound("task not found") }
-  return server.ok(task)
-}
-
-fn handleUpdateTask(req, taskId) {
-  dec task = findTask(taskId)
-  guard task != null else { return server.notFound("task not found") }
-  guard req.body != null else { return server.badRequest("request body required") }
-
-  // Validate status if provided
-  if req.body.status != null {
-    dec validStatus = match req.body.status {
-      "todo" => true
-      "in-progress" => true
-      "done" => true
-      _ => false
-    }
-    guard validStatus else { return server.badRequest("status must be: todo, in-progress, or done") }
-  }
-
-  // Validate priority if provided
-  if req.body.priority != null {
-    dec validPriority = match req.body.priority {
-      "low" => true
-      "medium" => true
-      "high" => true
-      _ => false
-    }
-    guard validPriority else { return server.badRequest("priority must be: low, medium, or high") }
-  }
-
-  dec updated = {
-    ...task,
-    title: req.body.title ?? task.title,
-    status: req.body.status ?? task.status,
-    priority: req.body.priority ?? task.priority
-  }
-
-  return server.ok(updated)
-}
-
-fn handleDeleteTask(req, taskId) {
-  dec task = findTask(taskId)
-  guard task != null else { return server.notFound("task not found") }
-
-  // Only admin or task owner can delete
-  guard req.user.role == "admin" or req.user.id == task.owner else {
-    return server.forbidden("only admin or task owner can delete")
-  }
-
-  return server.noContent()
-}
-
-fn handleDashboard(req) {
-  // Aggregate stats
-  dec total = tasks.length
-  dec done = tasks.filter(t => t.status == "done").length
-  dec inProgress = tasks.filter(t => t.status == "in-progress").length
-  dec todo = tasks.filter(t => t.status == "todo").length
-
-  dec byPriority = {
-    high: tasks.filter(t => t.priority == "high").length,
-    medium: tasks.filter(t => t.priority == "medium").length,
-    low: tasks.filter(t => t.priority == "low").length
-  }
-
-  return server.ok({
-    total: total,
-    done: done,
-    inProgress: inProgress,
-    todo: todo,
-    byPriority: byPriority,
-    completionRate: "${Math.round(done / total * 100)}%"
-  })
+  guard token != null else { return null }
+  return findUser(token)
 }
 
 // --- Router ---
 
 server.listen((req) => {
-  match req.path {
-    // Public endpoints
-    "/health" => handleHealth(req)
-
-    // Task endpoints — require auth via pipe
-    "/tasks" => match req.method {
-      "GET" => req ~> authenticate ~> handleListTasks
-      "POST" => req ~> authenticate ~> handleCreateTask
-      _ => server.response(405, {message: "Method not allowed"})
-    }
-
-    "/dashboard" => req ~> authenticate ~> handleDashboard
-
-    // Catch parameterized routes
-    _ => {
-      dec params = req.match("/tasks/:id")
-      guard params != null else { return server.notFound("not found") }
-
-      match req.method {
-        "GET" => req ~> authenticate ~> (r) => handleGetTask(r, params.id)
-        "PUT" => req ~> authenticate ~> (r) => handleUpdateTask(r, params.id)
-        "DELETE" => req ~> authenticate ~> (r) => handleDeleteTask(r, params.id)
-        _ => server.response(405, {message: "Method not allowed"})
-      }
-    }
+  // Health check — no auth
+  |req.path == "/health"| => {
+    return server.ok({
+      status: "healthy",
+      timestamp: Date.new().toISOString(),
+      taskCount: tasks.length,
+      userCount: users.length
+    })
   }
+
+  // Task collection
+  |req.path == "/tasks" and req.method == "GET"| => {
+    dec user = authenticate(req)
+    guard user != null else { return server.unauthorized("missing or invalid token") }
+
+    dec status = req.query.status
+    dec owner = req.query.owner
+
+    dec result = tasks
+      .filter(t => status == null or t.status == status)
+      .filter(t => owner == null or t.owner == owner)
+
+    return server.ok(result)
+  }
+
+  |req.path == "/tasks" and req.method == "POST"| => {
+    dec user = authenticate(req)
+    guard user != null else { return server.unauthorized("missing or invalid token") }
+    guard req.body != null else { return server.badRequest("request body required") }
+    guard req.body.title != null else { return server.badRequest("title is required") }
+
+    dec task = {
+      id: generateId(),
+      title: req.body.title,
+      status: req.body.status ?? "todo",
+      priority: req.body.priority ?? "medium",
+      owner: user.id
+    }
+
+    return server.created(task)
+  }
+
+  |req.path == "/tasks"| => { return server.response(405, {message: "Method not allowed"}) }
+
+  // Dashboard
+  |req.path == "/dashboard"| => {
+    dec user = authenticate(req)
+    guard user != null else { return server.unauthorized("missing or invalid token") }
+
+    dec total = tasks.length
+    dec done = tasks.filter(t => t.status == "done").length
+    dec inProgress = tasks.filter(t => t.status == "in-progress").length
+    dec todo = tasks.filter(t => t.status == "todo").length
+
+    return server.ok({
+      total: total,
+      done: done,
+      inProgress: inProgress,
+      todo: todo,
+      completionRate: "${Math.round(done / total * 100)}%"
+    })
+  }
+
+  // Task by ID
+  dec params = req.match("/tasks/:id")
+  guard params != null else { return server.notFound("not found") }
+
+  dec user = authenticate(req)
+  guard user != null else { return server.unauthorized("missing or invalid token") }
+
+  |req.method == "GET"| => {
+    dec task = findTask(params.id)
+    guard task != null else { return server.notFound("task not found") }
+    return server.ok(task)
+  }
+
+  |req.method == "PUT"| => {
+    dec task = findTask(params.id)
+    guard task != null else { return server.notFound("task not found") }
+    guard req.body != null else { return server.badRequest("request body required") }
+
+    // Validate status if provided
+    if req.body.status != null {
+      dec valid = match req.body.status {
+        "todo" => true
+        "in-progress" => true
+        "done" => true
+        _ => false
+      }
+      guard valid else { return server.badRequest("status must be: todo, in-progress, or done") }
+    }
+
+    dec updated = {
+      ...task,
+      title: req.body.title ?? task.title,
+      status: req.body.status ?? task.status,
+      priority: req.body.priority ?? task.priority
+    }
+    return server.ok(updated)
+  }
+
+  |req.method == "DELETE"| => {
+    dec task = findTask(params.id)
+    guard task != null else { return server.notFound("task not found") }
+    guard user.role == "admin" or user.id == task.owner else {
+      return server.forbidden("only admin or task owner can delete")
+    }
+    return server.noContent()
+  }
+
+  return server.response(405, {message: "Method not allowed"})
 })
