@@ -896,7 +896,7 @@ test('Generate match with object destructuring', () => {
 test('Generate match with is pattern', () => {
   const source = 'dec r = match err {\nis NotFoundError => "not found"\n_ => "other"\n}';
   const js = generate(parse(tokenize(source)));
-  assertContains(js, '_id');
+  assertContains(js, '_subject instanceof NotFoundError');
 });
 
 test('Generate match with array destructuring', () => {
@@ -3093,6 +3093,28 @@ test('Generate is not with unknown name as negated instanceof', () => {
   const source = 'dec e = error("oops")\ndec r = e is not TypeError';
   const js = compile(source);
   assertContains(js, '!(e instanceof TypeError)');
+});
+
+// Match Is Pattern Generator Tests
+console.log('\n--- Match Is Pattern Generator Tests ---\n');
+
+test('Generate match is Type.String pattern', () => {
+  const source = 'dec val = "hello"\ndec r = match val {\nis Type.String => "string"\n_ => "other"\n}';
+  const js = compile(source);
+  assertContains(js, "typeof _subject === 'string'");
+});
+
+test('Generate match is type alias pattern', () => {
+  const source = 'type Point = {x: number, y: number}\ndec val = {x: 1, y: 2}\ndec r = match val {\nis Point => "point"\n_ => "other"\n}';
+  const js = compile(source);
+  assertContains(js, "'x' in _subject");
+  assertContains(js, "'y' in _subject");
+});
+
+test('Generate match is unknown name pattern as instanceof', () => {
+  const source = 'dec r = match err {\nis TypeError => "type error"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '_subject instanceof TypeError');
 });
 
 // Formatter Tests

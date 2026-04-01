@@ -1840,7 +1840,7 @@ export class CodeGenerator {
       }
 
       case 'IsPattern': {
-        condition = `_subject?._id === ${pattern.typeName}?._id`;
+        condition = this.emitIsPatternCondition(pattern);
         if (guard) {
           const guardExpr = this.visitExpression(guard);
           condition += ` && (${guardExpr})`;
@@ -1903,6 +1903,29 @@ export class CodeGenerator {
     }
 
     return { condition, bindings };
+  }
+
+  emitIsPatternCondition(pattern) {
+    const kind = pattern.isKind;
+
+    if (kind === 'primitive') {
+      const p = pattern.isPrimitive;
+      if (p === 'null') return '_subject === null';
+      if (p === 'array') return 'Array.isArray(_subject)';
+      if (p === 'object') return "typeof _subject === 'object' && _subject !== null && !Array.isArray(_subject)";
+      return `typeof _subject === '${p}'`;
+    }
+
+    if (kind === 'shape') {
+      const keys = pattern.isKeys;
+      const keyChecks = keys.map(k => `'${k}' in _subject`).join(' && ');
+      return keys.length > 0
+        ? `typeof _subject === 'object' && _subject !== null && ${keyChecks}`
+        : `typeof _subject === 'object' && _subject !== null`;
+    }
+
+    // instanceof fallback
+    return `_subject instanceof ${pattern.typeName}`;
   }
 
   emitIsCheck(subject, node) {
