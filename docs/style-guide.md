@@ -68,6 +68,22 @@ fn multiply(a, b) {
 }
 ```
 
+### Blank line after shebang
+
+- If a file starts with `#!/usr/bin/env kimchi`, a blank line must follow it.
+- Rule: `newline-after-shebang` (info)
+
+```kimchi
+// Good
+#!/usr/bin/env kimchi
+
+fn main() { ... }
+
+// Bad — no blank line
+#!/usr/bin/env kimchi
+fn main() { ... }
+```
+
 ### No multiple empty lines
 
 - Maximum 1 consecutive empty line.
@@ -211,6 +227,7 @@ new Linter({
 | `no-tabs` | on | warning | yes |
 | `no-trailing-spaces` | on | warning | yes |
 | `newline-after-function` | on | info | yes |
+| `newline-after-shebang` | on | info | yes |
 | `no-multiple-empty-lines` | on | info | yes |
 | `max-line-length` | off | warning | no |
 | `unused-variable` | on | warning | no |
