@@ -3035,6 +3035,66 @@ test('Type checker annotates IsPattern with unknown name as instanceof', () => {
   assertEqual(pattern.isKind, 'instanceof');
 });
 
+// Is Operator Generator Tests
+console.log('\n--- Is Operator Generator Tests ---\n');
+
+test('Generate is Type.String as typeof check', () => {
+  const source = 'type Dummy = {a: number}\ndec x = "hi"\ndec r = x is Type.String';
+  const js = compile(source);
+  assertContains(js, "typeof x === 'string'");
+});
+
+test('Generate is Type.Array as Array.isArray', () => {
+  const source = 'dec x = [1, 2]\ndec r = x is Type.Array';
+  const js = compile(source);
+  assertContains(js, 'Array.isArray(x)');
+});
+
+test('Generate is Type.Null as null check', () => {
+  const source = 'dec x = null\ndec r = x is Type.Null';
+  const js = compile(source);
+  assertContains(js, 'x === null');
+});
+
+test('Generate is Type.Object as typeof object check', () => {
+  const source = 'dec x = {a: 1}\ndec r = x is Type.Object';
+  const js = compile(source);
+  assertContains(js, "typeof x === 'object'");
+  assertContains(js, '!Array.isArray(x)');
+});
+
+test('Generate is with type alias as key-in checks', () => {
+  const source = 'type Point = {x: number, y: number}\ndec p = {x: 1, y: 2}\ndec r = p is Point';
+  const js = compile(source);
+  assertContains(js, "typeof p === 'object'");
+  assertContains(js, "'x' in p");
+  assertContains(js, "'y' in p");
+});
+
+test('Generate is with unknown name as instanceof', () => {
+  const source = 'dec e = error("oops")\ndec r = e is TypeError';
+  const js = compile(source);
+  assertContains(js, 'e instanceof TypeError');
+});
+
+test('Generate is not negates the check', () => {
+  const source = 'dec x = "hi"\ndec r = x is not Type.String';
+  const js = compile(source);
+  assertContains(js, "typeof x !== 'string'");
+});
+
+test('Generate is not with type alias negates shape check', () => {
+  const source = 'type Point = {x: number, y: number}\ndec p = {x: 1}\ndec r = p is not Point';
+  const js = compile(source);
+  assertContains(js, '!(');
+});
+
+test('Generate is not with unknown name as negated instanceof', () => {
+  const source = 'dec e = error("oops")\ndec r = e is not TypeError';
+  const js = compile(source);
+  assertContains(js, '!(e instanceof TypeError)');
+});
+
 // Formatter Tests
 console.log('\n--- Formatter Tests ---\n');
 

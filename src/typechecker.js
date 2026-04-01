@@ -1233,11 +1233,11 @@ export class TypeChecker {
   }
 
   visitBinaryExpression(node) {
-    const leftType = this.visitExpression(node.left);
-    const rightType = this.visitExpression(node.right);
-    
     const op = node.operator;
-    
+    const leftType = this.visitExpression(node.left);
+    // For 'is' / 'is not', the right-hand side is a type name, not a runtime expression
+    const rightType = (op === 'is' || op === 'is not') ? this.createType(Type.Any) : this.visitExpression(node.right);
+
     // Arithmetic operators
     if (['+', '-', '*', '/', '%', '**'].includes(op)) {
       // String concatenation

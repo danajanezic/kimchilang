@@ -1905,20 +1905,49 @@ export class CodeGenerator {
     return { condition, bindings };
   }
 
+  emitIsCheck(subject, node) {
+    const kind = node.isKind;
+    const negated = node.operator === 'is not';
+
+    if (kind === 'primitive') {
+      const p = node.isPrimitive;
+      if (p === 'null') {
+        return negated ? `(${subject} !== null)` : `(${subject} === null)`;
+      }
+      if (p === 'array') {
+        return negated ? `(!Array.isArray(${subject}))` : `(Array.isArray(${subject}))`;
+      }
+      if (p === 'object') {
+        const check = `typeof ${subject} === 'object' && ${subject} !== null && !Array.isArray(${subject})`;
+        return negated ? `(!(${check}))` : `(${check})`;
+      }
+      // string, number, boolean, function
+      return negated ? `(typeof ${subject} !== '${p}')` : `(typeof ${subject} === '${p}')`;
+    }
+
+    if (kind === 'shape') {
+      const keys = node.isKeys;
+      const keyChecks = keys.map(k => `'${k}' in ${subject}`).join(' && ');
+      const check = keys.length > 0
+        ? `typeof ${subject} === 'object' && ${subject} !== null && ${keyChecks}`
+        : `typeof ${subject} === 'object' && ${subject} !== null`;
+      return negated ? `(!(${check}))` : `(${check})`;
+    }
+
+    // instanceof fallback
+    const right = this.visitExpression(node.right);
+    return negated ? `(!(${subject} instanceof ${right}))` : `(${subject} instanceof ${right})`;
+  }
+
   visitBinaryExpression(node) {
     const left = this.visitExpression(node.left);
     const right = this.visitExpression(node.right);
-    
-    // Handle 'is' operator - compares ._id properties
-    if (node.operator === 'is') {
-      return `(${left}?._id === ${right}?._id)`;
+
+    // Handle 'is' operator - duck typing checks
+    if (node.operator === 'is' || node.operator === 'is not') {
+      return this.emitIsCheck(left, node);
     }
-    
-    // Handle 'is not' operator - negated ._id comparison
-    if (node.operator === 'is not') {
-      return `(${left}?._id !== ${right}?._id)`;
-    }
-    
+
     return `(${left} ${node.operator} ${right})`;
   }
 
