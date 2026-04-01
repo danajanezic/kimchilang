@@ -3122,14 +3122,11 @@ test('Browser target: dep becomes module variable reference', () => {
 // Bundler Tests
 console.log('\n--- Bundler Tests ---\n');
 
-test('Bundler: single file produces IIFE', () => {
+test('Bundler: single file produces ES module', () => {
   writeFileSync('/tmp/test_bundle.km', 'dec x = 1\nprint x');
   const result = bundle('/tmp/test_bundle.km');
-  assertContains(result, '(function() {');
-  assertContains(result, '})();');
   assertContains(result, 'console.log');
-  assertEqual(result.includes('import '), false);
-  assertEqual(result.includes('export '), false);
+  assertEqual(result.includes('export default'), false);
   unlinkSync('/tmp/test_bundle.km');
 });
 
@@ -3140,7 +3137,6 @@ test('Bundler: multi-file bundle', () => {
   const result = bundle('/tmp/tb_proj/app.km');
   assertContains(result, '_mod_lib_math');
   assertContains(result, 'function add');
-  assertContains(result, '(function() {');
   unlinkSync('/tmp/tb_proj/app.km');
   unlinkSync('/tmp/tb_proj/lib/math.km');
   rmdirSync('/tmp/tb_proj/lib');
@@ -3166,7 +3162,7 @@ test('Bundler: handles .kmx files', () => {
   writeFileSync('/tmp/tb_kmx.kmx', 'fn App() { return <div>hello</div> }');
   const result = bundle('/tmp/tb_kmx.kmx');
   assertContains(result, 'jsx("div"');
-  assertContains(result, '(function() {');
+  assertContains(result, "import { jsx, jsxs, Fragment } from 'react/jsx-runtime'");
   unlinkSync('/tmp/tb_kmx.kmx');
 });
 

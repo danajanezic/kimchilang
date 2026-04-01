@@ -1,4 +1,4 @@
-// KimchiLang Bundler — compiles .km files to a browser-ready IIFE bundle
+// KimchiLang Bundler — compiles .km/.kmx files to a browser-ready ES module bundle
 
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -19,19 +19,47 @@ export function bundle(entryPath) {
 
   const sorted = topologicalSort(modules, absEntry);
 
-  const parts = [];
-  parts.push(RUNTIME_INLINE);
-  parts.push('');
+  // Collect all import statements from compiled modules (extern browser imports, jsx-runtime)
+  const imports = new Set();
+  const moduleCode = new Map();
 
   for (const modPath of sorted) {
     const mod = modules.get(modPath);
+    const lines = mod.compiled.split('\n');
+    const codeLines = [];
+    for (const line of lines) {
+      if (line.startsWith('import ')) {
+        imports.add(line);
+      } else {
+        codeLines.push(line);
+      }
+    }
+    moduleCode.set(modPath, codeLines.join('\n'));
+  }
+
+  const parts = [];
+
+  // ES module imports at the top
+  for (const imp of imports) {
+    parts.push(imp);
+  }
+  if (imports.size > 0) parts.push('');
+
+  // Runtime (inlined, no import)
+  parts.push(RUNTIME_INLINE);
+  parts.push('');
+
+  // Dep modules (wrapped in closures for scoping)
+  for (const modPath of sorted) {
     if (modPath === absEntry) continue;
+    const mod = modules.get(modPath);
+    const code = moduleCode.get(modPath);
 
     const varName = '_mod_' + mod.depPath.replace(/[\/\.]/g, '_');
     const exports = collectExports(mod.source);
 
-    parts.push(`var ${varName} = (function() {`);
-    parts.push(mod.compiled);
+    parts.push(`const ${varName} = (() => {`);
+    parts.push(code);
     if (exports.length > 0) {
       parts.push(`  return { ${exports.join(', ')} };`);
     }
@@ -39,11 +67,10 @@ export function bundle(entryPath) {
     parts.push('');
   }
 
-  const entry = modules.get(absEntry);
-  parts.push(entry.compiled);
+  // Entry point (runs directly)
+  parts.push(moduleCode.get(absEntry));
 
-  const body = parts.join('\n');
-  return `(function() {\n${body}\n})();\n`;
+  return parts.join('\n') + '\n';
 }
 
 function collectModules(filePath, projectRoot, modules, visiting = new Set()) {

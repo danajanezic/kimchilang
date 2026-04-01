@@ -590,6 +590,17 @@ export class CodeGenerator {
       this.usedFeatures = this.scanUsedFeatures(node);
       this.asyncFunctions = this.buildAsyncMap(node);
 
+      // Plugin auto-imports (e.g., jsx-runtime)
+      for (const plugin of this.plugins) {
+        if (plugin.autoImports) {
+          const imports = plugin.autoImports(this.usedFeatures);
+          for (const imp of imports) {
+            this.emitLine(imp);
+          }
+          if (imports.length > 0) this.emitLine();
+        }
+      }
+
       // Dep references become module variables (bundler provides these)
       for (const dep of depStatements) {
         const modVar = '_mod_' + dep.pathParts.join('_');
