@@ -87,6 +87,7 @@ JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and 
 - `extern "module" { fn name(p: type): type; dec name: type }` — typed contracts for JS modules. Compiles to tree-shaken static `import` statements. Only used symbols are imported. Supports named and default exports (`extern default "mod" as name: type`).
 - `type Name<T> = body` — generic type aliases. `type Result<T> = {ok: boolean, value: T}`, `type Optional<T> = T | null`. Type parameters substituted on instantiation.
 - `string | null` — union types in extern declarations and KMDocs. One-way compatibility: `string` fits `string | null`, but not reverse. `guard x != null else { ... }` narrows the type.
+- `x is Type.String` — three-tier type checking: primitive check (`Type.String`, `Type.Number`, etc.), duck typing via type alias shapes (`x is Point` checks for keys), instanceof fallback. Works in expressions and `match` patterns. Negated with `is not`.
 
 ## Test Structure
 

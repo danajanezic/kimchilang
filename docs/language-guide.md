@@ -408,6 +408,65 @@ dec isoString = Date.new().toISOString()
 dec pool = Pool.new({host: "localhost", port: 5432})
 ```
 
+### Type Checking with `is`
+
+The `is` operator checks a value's type at runtime. It has three tiers depending on what you check against:
+
+**Tier 1: Primitive type check** — using the built-in `Type` enum:
+
+```kimchi
+dec x = "hello"
+x is Type.String     // true — checks typeof x === "string"
+x is Type.Number     // false
+
+// Available: Type.String, Type.Number, Type.Boolean, Type.Null,
+//            Type.Array, Type.Object, Type.Function
+```
+
+**Tier 2: Duck typing (shape check)** — using a `type` alias with an object shape:
+
+```kimchi
+type Point = {x: number, y: number}
+type User = {name: string, email: string}
+
+dec p = {x: 1, y: 2, z: 3}
+p is Point           // true — p has keys x and y
+
+dec u = {name: "Alice"}
+u is User            // false — missing email key
+```
+
+Duck typing checks that the value has all the keys defined in the type alias. Extra keys are allowed.
+
+**Tier 3: instanceof** — for error types and constructors:
+
+```kimchi
+dec e = error("oops")
+e is TypeError       // instanceof check
+```
+
+**Negation** with `is not`:
+
+```kimchi
+dec x = 42
+x is not Type.String   // true
+x is not Type.Number   // false
+```
+
+**In match expressions:**
+
+```kimchi
+fn describe(value) {
+  return match value {
+    is Type.String => "a string: " + value
+    is Type.Number => "a number: " + value
+    is Type.Array => "an array with " + value.length + " items"
+    is Point => "a point at " + value.x + "," + value.y
+    _ => "something else"
+  }
+}
+```
+
 ### Error Handling
 
 **Basic try/catch/finally:**
