@@ -3423,6 +3423,63 @@ test('KMX: no jsx-runtime import without JSX', () => {
   assertEqual(hasJsxImport, false);
 });
 
+// ==================== Is Operator End-to-End Tests ====================
+
+console.log('\n--- Is Operator End-to-End Tests ---\n');
+
+test('is Type.String returns true for strings', () => {
+  const source = 'dec x = "hello"\ndec r = x is Type.String\nprint r';
+  const js = compile(source);
+  assertContains(js, "typeof x === 'string'");
+});
+
+test('is with type alias duck types correctly', () => {
+  const source = 'type Dog = {name: string, bark: string}\ndec d = {name: "Rex", bark: "woof"}\ndec r = d is Dog';
+  const js = compile(source);
+  assertContains(js, "'name' in d");
+  assertContains(js, "'bark' in d");
+});
+
+test('is with empty object type checks typeof only', () => {
+  const source = 'type Empty = {}\ndec x = {}\ndec r = x is Empty';
+  const js = compile(source);
+  assertContains(js, "typeof x === 'object'");
+  assertContains(js, 'x !== null');
+});
+
+test('is with generic type alias checks keys only', () => {
+  const source = 'type Result<T> = {ok: boolean, value: T}\ndec val = {ok: true, value: 1}\ndec r = match val {\nis Result => "result"\n_ => "other"\n}';
+  const js = compile(source);
+  assertContains(js, "'ok' in _subject");
+  assertContains(js, "'value' in _subject");
+});
+
+test('is in catch pattern works with instanceof', () => {
+  const source = `fn doSomething() {
+  try {
+    throw "oops"
+  } catch(e) {
+    |e is TypeError| => { return "type error" }
+    |true| => { return "other" }
+  }
+}`;
+  const js = compile(source);
+  assertContains(js, 'instanceof TypeError');
+});
+
+test('is not Type.Number negates typeof check', () => {
+  const source = 'dec x = "hi"\ndec r = x is not Type.Number';
+  const js = compile(source);
+  assertContains(js, "typeof x !== 'number'");
+});
+
+test('is not with type alias negates shape check', () => {
+  const source = 'type Point = {x: number, y: number}\ndec p = 42\ndec r = p is not Point';
+  const js = compile(source);
+  assertContains(js, '!(');
+  assertContains(js, "'x' in p");
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
