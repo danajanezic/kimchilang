@@ -1,0 +1,92 @@
+// KimchiLang React 19 Bindings
+// Usage: as react dep stdlib.kmx.react
+//
+// Note: React's `memo` and `lazy` APIs are not exposed here because `memo`
+// and `lazy` are reserved keywords in KimchiLang. Use React's `memo` and
+// `lazy` directly via your own extern declaration if needed.
+
+// React core
+extern browser "react" {
+  dec createElement: any
+  dec Fragment: any
+  dec Children: any
+  dec cloneElement: any
+  dec isValidElement: any
+  dec forwardRef: any
+  dec Suspense: any
+  dec StrictMode: any
+  dec createContext: any
+  dec createRef: any
+}
+
+// Hooks
+extern browser "react" {
+  dec useState: any
+  dec useEffect: any
+  dec useRef: any
+  dec useMemo: any
+  dec useCallback: any
+  dec useContext: any
+  dec useReducer: any
+  dec useLayoutEffect: any
+  dec useImperativeHandle: any
+  dec useDebugValue: any
+  dec useId: any
+  dec useDeferredValue: any
+  dec useTransition: any
+  dec useSyncExternalStore: any
+  dec useInsertionEffect: any
+  dec useOptimistic: any
+  dec useActionState: any
+  dec use: any
+  dec startTransition: any
+  dec cache: any
+}
+
+// React DOM client
+extern browser "react-dom/client" {
+  dec createRoot: any
+  dec hydrateRoot: any
+}
+
+expose fn _describe() {
+  return "React 19 bindings for KimchiLang KMX"
+}
+
+// Re-export core
+expose dec createElement = createElement
+expose dec Fragment = Fragment
+expose dec Children = Children
+expose dec cloneElement = cloneElement
+expose dec isValidElement = isValidElement
+expose dec forwardRef = forwardRef
+expose dec Suspense = Suspense
+expose dec StrictMode = StrictMode
+expose dec createContext = createContext
+expose dec createRef = createRef
+
+// Re-export hooks
+expose dec useState = useState
+expose dec useEffect = useEffect
+expose dec useRef = useRef
+expose dec useMemo = useMemo
+expose dec useCallback = useCallback
+expose dec useContext = useContext
+expose dec useReducer = useReducer
+expose dec useLayoutEffect = useLayoutEffect
+expose dec useImperativeHandle = useImperativeHandle
+expose dec useDebugValue = useDebugValue
+expose dec useId = useId
+expose dec useDeferredValue = useDeferredValue
+expose dec useTransition = useTransition
+expose dec useSyncExternalStore = useSyncExternalStore
+expose dec useInsertionEffect = useInsertionEffect
+expose dec useOptimistic = useOptimistic
+expose dec useActionState = useActionState
+expose dec use = use
+expose dec startTransition = startTransition
+expose dec cache = cache
+
+// Re-export DOM client
+expose dec createRoot = createRoot
+expose dec hydrateRoot = hydrateRoot
