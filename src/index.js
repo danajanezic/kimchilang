@@ -25,15 +25,17 @@ export class KimchiCompiler {
   }
 
   compile(source, modulePath = null) {
+    const plugins = this.options.plugins || [];
+
     // Step 1: Tokenize
-    const tokens = tokenize(source);
-    
+    const tokens = tokenize(source, plugins);
+
     if (this.options.debug) {
       console.log('Tokens:', tokens);
     }
-    
+
     // Step 2: Parse
-    const ast = parse(tokens);
+    const ast = parse(tokens, { plugins });
     
     if (this.options.debug) {
       console.log('AST:', JSON.stringify(ast, null, 2));
@@ -72,7 +74,7 @@ export class KimchiCompiler {
     
     // Step 2.7: Type checking
     if (!this.options.skipTypeCheck) {
-      const typeChecker = new TypeChecker({ modulePath });
+      const typeChecker = new TypeChecker({ modulePath, target: this.options.target });
       const typeErrors = typeChecker.check(ast);
       if (typeErrors.length > 0) {
         const errorMessages = typeErrors.map(e => `Type Error: ${e.message}`).join('\n');

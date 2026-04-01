@@ -64,6 +64,24 @@ export class TypeChecker {
     this.defineVariable('parseFloat', this.createType(Type.Function));
     this.defineVariable('isNaN', this.createType(Type.Function));
     this.defineVariable('isFinite', this.createType(Type.Function));
+
+    // Browser globals — only available in browser builds
+    if (options.target === 'browser') {
+      this.defineVariable('document', this.createType(Type.Any));
+      this.defineVariable('window', this.createType(Type.Any));
+      this.defineVariable('navigator', this.createType(Type.Any));
+      this.defineVariable('location', this.createType(Type.Any));
+      this.defineVariable('localStorage', this.createType(Type.Any));
+      this.defineVariable('sessionStorage', this.createType(Type.Any));
+      this.defineVariable('fetch', this.createType(Type.Function));
+      this.defineVariable('setTimeout', this.createType(Type.Function));
+      this.defineVariable('setInterval', this.createType(Type.Function));
+      this.defineVariable('clearTimeout', this.createType(Type.Function));
+      this.defineVariable('clearInterval', this.createType(Type.Function));
+      this.defineVariable('requestAnimationFrame', this.createType(Type.Function));
+      this.defineVariable('alert', this.createType(Type.Function));
+      this.defineVariable('confirm', this.createType(Type.Function));
+    }
   }
 
   // Static methods for module type registry

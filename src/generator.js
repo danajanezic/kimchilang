@@ -12,7 +12,7 @@ export class CodeGenerator {
     this.decVariables = new Set();
     this.knownShapes = new Map(); // Map<name, shapeTree> for ?. optimization
     // JS globals with known shapes — use . not ?.
-    for (const name of ['console', 'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Promise', 'RegExp', 'Error', 'Map', 'Set', 'Symbol', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI']) {
+    for (const name of ['console', 'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Promise', 'RegExp', 'Error', 'Map', 'Set', 'Symbol', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'document', 'window', 'navigator', 'location', 'localStorage', 'sessionStorage']) {
       this.knownShapes.set(name, true);
     }
   }
