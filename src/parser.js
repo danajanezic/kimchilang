@@ -52,6 +52,7 @@ export const NodeType = {
   WorkerExpression: 'WorkerExpression',
   SpawnBlock: 'SpawnBlock',
   SleepStatement: 'SleepStatement',
+  AfterExpression: 'AfterExpression',
   ExternDeclaration: 'ExternDeclaration',
   ExternDefaultDeclaration: 'ExternDefaultDeclaration',
   TypeDeclaration: 'TypeDeclaration',
@@ -233,6 +234,10 @@ export class Parser {
 
     if (this.check(TokenType.SLEEP)) {
       return this.parseSleepStatement();
+    }
+
+    if (this.check(TokenType.AFTER)) {
+      return this.parseAfterExpression();
     }
 
     // Check for expose modifier
@@ -1379,6 +1384,17 @@ export class Parser {
     };
   }
 
+  parseAfterExpression() {
+    this.expect(TokenType.AFTER, 'Expected after');
+    const duration = this.parseExpression();
+    const body = this.parseBlock();
+    return {
+      type: NodeType.AfterExpression,
+      duration,
+      body,
+    };
+  }
+
   parseSpawnBlock() {
     this.expect(TokenType.SPAWN, 'Expected spawn');
 
@@ -2226,6 +2242,10 @@ export class Parser {
 
     if (this.check(TokenType.WORKER)) {
       return this.parseWorkerExpression();
+    }
+
+    if (this.check(TokenType.AFTER)) {
+      return this.parseAfterExpression();
     }
 
     if (this.check(TokenType.MATCH_KEYWORD)) {

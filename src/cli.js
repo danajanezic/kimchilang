@@ -140,14 +140,6 @@ function modulePathToFilePath(modulePath) {
     }
   }
   
-  // Try as directory with index
-  for (const ext of extensions) {
-    const indexPath = resolve(filePath, 'index' + ext);
-    if (existsSync(indexPath)) {
-      return indexPath;
-    }
-  }
-  
   return null;
 }
 

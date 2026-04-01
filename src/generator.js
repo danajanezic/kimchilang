@@ -493,8 +493,13 @@ export class CodeGenerator {
     this.emitLine('if (item.fn) {');
     this.pushIndent();
     this.emitLine('if (skip) { console.log(indent + "○ " + item.name + " (skipped)"); skipped++; return; }');
-    this.emitLine('try { await item.fn(); console.log(indent + "✓ " + item.name); passed++; }');
-    this.emitLine('catch (e) { console.log(indent + "✗ " + item.name); console.log(indent + "  " + e.message); failed++; }');
+    this.emitLine('const _timeout = item.timeout || 5000;');
+    this.emitLine('try {');
+    this.pushIndent();
+    this.emitLine('await Promise.race([item.fn(), new Promise((_, rej) => setTimeout(() => rej(new Error(`Test timed out after ${_timeout}ms`)), _timeout))]);');
+    this.emitLine('console.log(indent + "✓ " + item.name); passed++;');
+    this.popIndent();
+    this.emitLine('} catch (e) { console.log(indent + "✗ " + item.name); console.log(indent + "  " + e.message); failed++; }');
     this.popIndent();
     this.emitLine('} else {');
     this.pushIndent();
@@ -847,6 +852,9 @@ export class CodeGenerator {
       case NodeType.SleepStatement:
         this.emitLine(`await new Promise(resolve => setTimeout(resolve, ${this.visitExpression(node.duration)}));`);
         break;
+      case NodeType.AfterExpression:
+        this.emitLine(this.visitAfterExpression(node) + ';');
+        break;
       case NodeType.TestBlock:
         this.visitTestBlock(node);
         break;
@@ -1113,6 +1121,23 @@ export class CodeGenerator {
     const argsList = node.inputs.length > 0 ? `[${node.inputs.join(', ')}]` : '[]';
 
     return `await _worker(${fnLiteral}, ${argsList})`;
+  }
+
+  visitAfterExpression(node) {
+    const duration = this.visitExpression(node.duration);
+    const savedOutput = this.output;
+    this.output = '';
+    const savedIndent = this.indent;
+    this.indent = 0;
+    if (node.body && node.body.body) {
+      for (const stmt of node.body.body) {
+        this.visitStatement(stmt);
+      }
+    }
+    const bodyCode = this.output;
+    this.output = savedOutput;
+    this.indent = savedIndent;
+    return `(() => { const _id = setTimeout(() => {\n${bodyCode}}, ${duration}); return { id: _id, cancel: () => clearTimeout(_id) }; })()`;
   }
 
   generateParams(params) {
@@ -1393,6 +1418,8 @@ export class CodeGenerator {
         return this.visitSpawnBlockExpression(node);
       case NodeType.WorkerExpression:
         return this.visitWorkerExpression(node);
+      case NodeType.AfterExpression:
+        return this.visitAfterExpression(node);
       case NodeType.RegexLiteral:
         return this.visitRegexLiteral(node);
       case NodeType.MatchExpression:

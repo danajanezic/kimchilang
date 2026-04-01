@@ -198,7 +198,15 @@ export class KimchiInterpreter {
       /^export default (?:async )?function/m,
       'const _module = async function'
     );
-    return `// kimchi-cache: ${hash}\n${RUNTIME_INLINE}\n${code}\nawait _module({});\n`;
+    const shutdownHandler = `
+const _exports = await _module({});
+if (_exports && typeof _exports._shutdown === 'function') {
+  const _onShutdown = async () => { await _exports._shutdown(); process.exit(0); };
+  process.on('SIGINT', _onShutdown);
+  process.on('SIGTERM', _onShutdown);
+}
+`;
+    return `// kimchi-cache: ${hash}\n${RUNTIME_INLINE}\n${code}\n${shutdownHandler}\n`;
   }
 
   // Copy extern JS helper files (e.g., _server_helpers.js) to the cache directory

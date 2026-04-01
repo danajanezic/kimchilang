@@ -553,6 +553,14 @@ export class TypeChecker {
       case NodeType.SleepStatement:
         this.visitExpression(node.duration);
         break;
+      case NodeType.AfterExpression:
+        this.visitExpression(node.duration);
+        if (node.body && node.body.body) {
+          for (const stmt of node.body.body) {
+            this.visitStatement(stmt);
+          }
+        }
+        break;
       case NodeType.TestBlock:
       case NodeType.DescribeBlock:
       case NodeType.ExpectStatement:
