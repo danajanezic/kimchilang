@@ -90,7 +90,24 @@ These must pass after ANY change to the compiler, stdlib, or interpreter:
 - [ ] `node test/stdlib_test.js` — 0 failures
 - [ ] `kimchi run examples/hello.kimchi` — prints "Hello, World!"
 - [ ] `kimchi run examples/fibonacci.kimchi` — prints fibonacci sequence
-- [ ] `kimchi run examples/web/app.km` — server starts, `curl localhost:3000/health` returns JSON
+- [ ] `kimchi run examples/web/app.km` — server starts, all routes work:
+  ```bash
+  curl -s localhost:3000/health                                          # 200 health check
+  curl -s localhost:3000/tasks                                           # 401 no auth
+  curl -s -H "Authorization: token-alice" localhost:3000/tasks           # 200 all tasks
+  curl -s -H "Authorization: token-alice" "localhost:3000/tasks?status=done"  # 200 filtered
+  curl -s -X POST -H "Authorization: token-alice" -H "Content-Type: application/json" \
+    -d '{"title":"Test"}' localhost:3000/tasks                           # 201 created
+  curl -s -H "Authorization: token-alice" localhost:3000/tasks/1         # 200 single task
+  curl -s -X PUT -H "Authorization: token-alice" -H "Content-Type: application/json" \
+    -d '{"status":"done"}' localhost:3000/tasks/1                        # 200 updated
+  curl -s -X PUT -H "Authorization: token-alice" -H "Content-Type: application/json" \
+    -d '{"status":"invalid"}' localhost:3000/tasks/1                     # 400 bad status
+  curl -s -H "Authorization: token-alice" localhost:3000/dashboard       # 200 stats
+  curl -s -X DELETE -H "Authorization: token-bob" localhost:3000/tasks/1 # 403 forbidden
+  curl -s -X DELETE -H "Authorization: token-alice" localhost:3000/tasks/1  # 204 deleted
+  curl -s localhost:3000/nope                                            # 404 not found
+  ```
 - [ ] `kimchi test examples/test_example.km` — 18 passed, 1 skipped
 - [ ] `create-kimchi-app` works:
   ```bash
