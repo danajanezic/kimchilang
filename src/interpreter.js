@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { compile } from './index.js';
+import { parseStaticFile, generateStaticCode } from './static-parser.js';
 
 // Read runtime source once at module load, strip ES module syntax for inlining
 const RUNTIME_SOURCE = readFileSync(new URL('./runtime.js', import.meta.url), 'utf-8');
@@ -75,7 +76,39 @@ export class KimchiInterpreter {
   // Recursively compile dependencies into the cache directory,
   // mirroring the project's directory structure so import paths resolve
   _resolveDeps(javascript, options) {
-    // Handle .km module imports (static file imports use absolute paths and resolve on disk)
+    // Handle .static.js imports — compile .static files into cache
+    // Matches both relative paths (./path.static.js) and file:// URLs
+    const staticImportRegex = /^import .+ from '(?:file:\/\/)?([^']+\.static\.js)';$/gm;
+    let staticMatch;
+    while ((staticMatch = staticImportRegex.exec(javascript)) !== null) {
+      const importPath = staticMatch[1]; // e.g., './app/server.static.js' or absolute path
+      const absStaticJs = resolve(this.projectRoot, importPath);
+      const relInCache = importPath.startsWith('./') ? importPath.replace(/^\.\//, '') : importPath.replace(/^\//, '');
+      const cachePath = join(this.cacheDir, relInCache);
+      if (existsSync(cachePath)) continue;
+
+      // Find the .static source file
+      const staticSourcePath = absStaticJs.replace(/\.js$/, '');
+      if (existsSync(staticSourcePath)) {
+        try {
+          const staticSource = readFileSync(staticSourcePath, 'utf-8');
+          const declarations = parseStaticFile(staticSource, staticSourcePath);
+          const staticJs = generateStaticCode(declarations, staticSourcePath);
+          const cacheDir = dirname(cachePath);
+          if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+          writeFileSync(cachePath, staticJs);
+        } catch (e) {
+          // Skip if compilation fails
+        }
+      } else if (existsSync(absStaticJs)) {
+        // Pre-compiled .static.js exists — copy it
+        const cacheDir = dirname(cachePath);
+        if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
+        writeFileSync(cachePath, readFileSync(absStaticJs, 'utf-8'));
+      }
+    }
+
+    // Handle .km module imports
     const importRegex = /^import .+ from '(\.\/[^']+\.km)';$/gm;
     let match;
 
@@ -100,15 +133,19 @@ export class KimchiInterpreter {
         }
       }
 
-      // Try .static files
+      // Try .static files — compile on the fly
       if (!depSource) {
         const staticPath = absPath.replace(/\.km$/, '.static');
         if (existsSync(staticPath)) {
-          const staticJsPath = staticPath + '.js';
-          if (existsSync(staticJsPath)) {
+          try {
+            const staticSource = readFileSync(staticPath, 'utf-8');
+            const declarations = parseStaticFile(staticSource, staticPath);
+            const staticJs = generateStaticCode(declarations, staticPath);
             const cacheDir = dirname(cachePath);
             if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
-            writeFileSync(cachePath, readFileSync(staticJsPath, 'utf-8'));
+            writeFileSync(cachePath, staticJs);
+          } catch (e) {
+            // If compilation fails, skip silently
           }
           continue;
         }
