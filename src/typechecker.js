@@ -65,6 +65,18 @@ export class TypeChecker {
     this.defineVariable('isNaN', this.createType(Type.Function));
     this.defineVariable('isFinite', this.createType(Type.Function));
 
+    // Built-in Type enum for is operator
+    this.builtinTypeEnum = new Map([
+      ['String', 'string'],
+      ['Number', 'number'],
+      ['Boolean', 'boolean'],
+      ['Null', 'null'],
+      ['Array', 'array'],
+      ['Object', 'object'],
+      ['Function', 'function'],
+    ]);
+    this.defineVariable('Type', this.createType(Type.Object));
+
     // Browser globals — only available in browser builds
     if (options.target === 'browser') {
       this.defineVariable('document', this.createType(Type.Any));
@@ -1236,7 +1248,13 @@ export class TypeChecker {
     }
     
     // Comparison operators
-    if (['===', '!==', '==', '!=', '<', '>', '<=', '>=', 'is', 'is not'].includes(op)) {
+    if (['===', '!==', '==', '!=', '<', '>', '<=', '>='].includes(op)) {
+      return this.createType(Type.Boolean);
+    }
+
+    // is / is not operator — resolve right-hand type and annotate AST
+    if (op === 'is' || op === 'is not') {
+      this.resolveIsOperator(node);
       return this.createType(Type.Boolean);
     }
     
@@ -1251,6 +1269,45 @@ export class TypeChecker {
     }
     
     return this.createType(Type.Unknown);
+  }
+
+  resolveIsOperator(node) {
+    const right = node.right;
+
+    // Tier 1: Type.Member — built-in primitive check
+    if (right.type === NodeType.MemberExpression && right.object?.name === 'Type') {
+      const member = right.property;
+      const primitive = this.builtinTypeEnum.get(member);
+      if (primitive) {
+        node.isKind = 'primitive';
+        node.isPrimitive = primitive;
+        return;
+      }
+      this.addError(`Unknown Type member '${member}'`, node);
+      node.isKind = 'instanceof';
+      return;
+    }
+
+    // Get the type name (identifier)
+    const typeName = right.type === 'Identifier' ? right.name : null;
+    if (!typeName) {
+      node.isKind = 'instanceof';
+      return;
+    }
+
+    // Tier 2: type alias with object shape — duck typing
+    const alias = this.typeAliases.get(typeName);
+    if (alias) {
+      const resolved = alias.params.length === 0 ? alias.body : this.substituteTypeParams(alias.body, new Map());
+      if (resolved.kind === Type.Object && resolved.properties) {
+        node.isKind = 'shape';
+        node.isKeys = Object.keys(resolved.properties);
+        return;
+      }
+    }
+
+    // Tier 3: unknown name — instanceof fallback
+    node.isKind = 'instanceof';
   }
 
   visitUnaryExpression(node) {

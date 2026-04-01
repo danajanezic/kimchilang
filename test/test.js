@@ -2960,6 +2960,49 @@ expose fn query(sql) {
   assertContains(js, "import { Pool } from 'pg'");
 });
 
+// Is Operator Type Resolution Tests
+console.log('\n--- Is Operator Type Resolution Tests ---\n');
+
+test('Type checker annotates is Type.String as primitive', () => {
+  const source = 'dec x = "hello"\ndec r = x is Type.String';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  // Find the binary expression node
+  const binExpr = ast.body[1].init;
+  assertEqual(binExpr.isKind, 'primitive');
+  assertEqual(binExpr.isPrimitive, 'string');
+});
+
+test('Type checker annotates is with type alias as shape', () => {
+  const source = 'type Point = {x: number, y: number}\ndec p = {x: 1, y: 2}\ndec r = p is Point';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const binExpr = ast.body[2].init;
+  assertEqual(binExpr.isKind, 'shape');
+  assertEqual(binExpr.isKeys.join(','), 'x,y');
+});
+
+test('Type checker annotates is with unknown name as instanceof', () => {
+  const source = 'dec e = error("oops")\ndec r = e is TypeError';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const binExpr = ast.body[1].init;
+  assertEqual(binExpr.isKind, 'instanceof');
+});
+
+test('Type checker annotates is not as negated', () => {
+  const source = 'dec x = 42\ndec r = x is not Type.Number';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const binExpr = ast.body[1].init;
+  assertEqual(binExpr.isKind, 'primitive');
+  assertEqual(binExpr.isPrimitive, 'number');
+});
+
 // Formatter Tests
 console.log('\n--- Formatter Tests ---\n');
 
