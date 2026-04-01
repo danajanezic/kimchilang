@@ -875,7 +875,12 @@ export class Parser {
     // is TypeCheck
     if (this.check(TokenType.IS)) {
       this.advance();
-      const typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name after is').value;
+      let typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name after is').value;
+      // Accept dotted names like Type.String
+      if (this.match(TokenType.DOT)) {
+        const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
+        typeName = `${typeName}.${member}`;
+      }
       return {
         type: 'IsPattern',
         typeName,

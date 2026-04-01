@@ -850,6 +850,14 @@ test('Parse match with is pattern', () => {
   assertEqual(matchExpr.arms[0].pattern.typeName, 'NotFoundError');
 });
 
+test('Parse match with is Type.String pattern', () => {
+  const source = 'dec r = match val {\nis Type.String => "string"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].init;
+  assertEqual(matchExpr.arms[0].pattern.type, 'IsPattern');
+  assertEqual(matchExpr.arms[0].pattern.typeName, 'Type.String');
+});
+
 test('Parse match with array destructuring', () => {
   const source = 'dec label = match point {\n[0, 0] => "origin"\n[x, y] => "point"\n}';
   const ast = parse(tokenize(source));
