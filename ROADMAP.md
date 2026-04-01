@@ -3,7 +3,7 @@
 ## Module System
 
 - [ ] Alias-free imports — `dep myapp.lib.http` without `as`, accessible via full path `myapp.lib.http.get()`. The `as` form remains for shorthand. No index files — files are modules, directories are just organization.
-- [ ] Remove index file fallback from CLI's `modulePathToFilePath` (currently tries `/index.km` — inconsistent with the explicit-path philosophy)
+- [x] ~~Remove index file fallback from CLI's `modulePathToFilePath`~~ — removed, files are modules, directories are just organization
 
 ### Default Module Function Exporting
 
@@ -21,7 +21,7 @@ Planned improvements:
 - [ ] `module pure` — compile-time check that module is side-effect-free (no env, shell, spawn, sleep, print, module-level mut). Enables tree-shaking in frontend builds. Mutually exclusive with singleton.
 - [ ] `@annotations` — reserved syntax for function-level annotations (future feature, not module directives)
 - [ ] Typed module interfaces — use generics/type system to type-check module exports and required args at compile time
-- [ ] Graceful shutdown — `expose fn _shutdown()` convention that `kimchi run` calls on SIGTERM/SIGINT
+- [x] ~~Graceful shutdown — `expose fn _shutdown()` convention that `kimchi run` calls on SIGTERM/SIGINT~~
 - [ ] Expose type declarations — let modules export type aliases so consumers can use them (currently types are file-scoped)
 
 ## Language Design
@@ -67,7 +67,7 @@ Planned improvements:
 - [x] ~~`worker { code }` — run CPU-bound code on a separate thread (`worker_threads`). Data serialized in/out, no shared memory. Returns Promise.~~
 - [x] ~~`spawn { command }` — async child process (non-blocking `shell`), returns handle with `stdout`, `stderr`, `pid`, `kill()`~~
 - [ ] Channel-based communication between workers
-- [ ] Cancellable timers — `dec timer = after ms { body }` with `timer.cancel()`. Scheduled async callbacks with cancellation support.
+- [x] ~~Cancellable timers — `dec timer = after ms { body }` with `timer.cancel()`. Scheduled async callbacks with cancellation support.~~
 
 ## Web Framework
 
@@ -84,5 +84,5 @@ Planned improvements:
 
 - [ ] Code coverage reporting
 - [ ] Snapshot testing
-- [ ] Test timeout per test
+- [x] ~~Test timeout per test~~ — 5-second default timeout per test via Promise.race
 - [x] ~~Multi-file test runner (`kimchi test dir/`)~~ — discovers test files, runs in sequence
