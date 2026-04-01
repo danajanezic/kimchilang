@@ -82,6 +82,36 @@ kimchi convert examples/shell-example.mjs
 
 Should produce KimchiLang output with extern declarations and Foo.new() syntax.
 
+## After every language/compiler change
+
+These must pass after ANY change to the compiler, stdlib, or interpreter:
+
+- [ ] `node test/test.js` — 0 failures
+- [ ] `node test/stdlib_test.js` — 0 failures
+- [ ] `kimchi run examples/hello.kimchi` — prints "Hello, World!"
+- [ ] `kimchi run examples/fibonacci.kimchi` — prints fibonacci sequence
+- [ ] `kimchi run examples/web/app.km` — server starts, `curl localhost:3000/health` returns JSON
+- [ ] `kimchi test examples/test_example.km` — 18 passed, 1 skipped
+- [ ] `create-kimchi-app` works:
+  ```bash
+  cd /tmp && rm -rf test-app
+  node <project>/create-kimchi-app/index.js test-app
+  cd test-app
+  kimchi run src/main.km                # prints greeting
+  kimchi test tests/utils.test.km       # 3 passed
+  rm -rf /tmp/test-app
+  ```
+- [ ] Documentation is up to date:
+  - [ ] CLAUDE.md — new language features section reflects current state
+  - [ ] README.md — features list, examples list
+  - [ ] docs/language-guide.md — syntax examples, no outdated keywords
+  - [ ] docs/concurrency.md — code examples match current syntax
+  - [ ] docs/cli.md — command descriptions accurate
+  - [ ] docs/modules.md — module system docs current
+  - [ ] docs/testing.md — testing framework docs current
+  - [ ] ROADMAP.md — completed items marked [x], new items added
+  - [ ] TESTING.md — this file updated if new test categories needed
+
 ## What to check after specific changes
 
 ### Lexer changes (new tokens/keywords)
