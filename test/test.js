@@ -3121,6 +3121,14 @@ test('Bundler: circular dependency detected', () => {
   rmdirSync('/tmp/tb_circ');
 });
 
+test('Bundler: handles .kmx files', () => {
+  writeFileSync('/tmp/tb_kmx.kmx', 'fn App() { return <div>hello</div> }');
+  const result = bundle('/tmp/tb_kmx.kmx');
+  assertContains(result, 'jsx("div"');
+  assertContains(result, '(function() {');
+  unlinkSync('/tmp/tb_kmx.kmx');
+});
+
 // ===== Plugin System Tests =====
 
 test('Plugin system: compile accepts plugins option', () => {
