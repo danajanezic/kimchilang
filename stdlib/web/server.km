@@ -60,6 +60,10 @@ expose fn redirect(url) {
   return {status: 302, body: null, headers: {Location: url}}
 }
 
+expose fn html(content) {
+  return {status: 200, body: content, headers: {"Content-Type": "text/html"}}
+}
+
 expose fn response(status, body, headers) {
   return {status: status, body: body, headers: headers ?? {}}
 }

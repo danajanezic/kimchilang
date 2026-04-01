@@ -1,6 +1,6 @@
-// Task Management API
+// Task Management App — API + HTML pages
 // Showcases: pattern matching routing, guard validation, Date.new(),
-//            response helpers, path params, query filtering
+//            response helpers, path params, query filtering, HTML rendering
 
 as server dep stdlib.web.server({config: {Port: 3000, Host: "0.0.0.0", Cors: {origin: "*", methods: "GET, POST, PUT, DELETE"}}})
 
@@ -40,9 +40,60 @@ fn authenticate(req) {
   return findUser(token)
 }
 
+// --- HTML helpers ---
+
+fn layout(title, body) {
+  return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>${title} - TaskManager</title><style>body{font-family:system-ui;max-width:800px;margin:0 auto;padding:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:left}.done{color:green}.in-progress{color:orange}.todo{color:gray}a{color:#0066cc}h1{border-bottom:2px solid #333;padding-bottom:10px}</style></head><body>${body}</body></html>"
+}
+
+fn taskRow(task) {
+  return "<tr><td>${task.id}</td><td><a href=\"/page/tasks/${task.id}\">${task.title}</a></td><td class=\"${task.status}\">${task.status}</td><td>${task.priority}</td><td>${task.owner}</td></tr>"
+}
+
+fn taskListPage() {
+  dec rows = tasks.map(t => taskRow(t)).join("")
+  dec body = "<h1>Tasks</h1><table><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Owner</th></tr>${rows}</table><p><a href=\"/page/dashboard\">Dashboard</a></p>"
+  return layout("Tasks", body)
+}
+
+fn taskDetailPage(task) {
+  dec body = "<h1>${task.title}</h1><dl><dt>ID</dt><dd>${task.id}</dd><dt>Status</dt><dd class=\"${task.status}\">${task.status}</dd><dt>Priority</dt><dd>${task.priority}</dd><dt>Owner</dt><dd>${task.owner}</dd></dl><p><a href=\"/page/tasks\">Back to list</a></p>"
+  return layout(task.title, body)
+}
+
+fn dashboardPage() {
+  dec total = tasks.length
+  dec done = tasks.filter(t => t.status == "done").length
+  dec inProgress = tasks.filter(t => t.status == "in-progress").length
+  dec todo = tasks.filter(t => t.status == "todo").length
+  dec pct = Math.round(done / total * 100)
+  dec body = "<h1>Dashboard</h1><ul><li>Total: ${total}</li><li>Done: ${done}</li><li>In Progress: ${inProgress}</li><li>Todo: ${todo}</li><li>Completion: ${pct}%</li></ul><p><a href=\"/page/tasks\">View all tasks</a></p>"
+  return layout("Dashboard", body)
+}
+
 // --- Router ---
 
 server.listen((req) => {
+  // --- HTML pages ---
+
+  |req.path == "/" or req.path == "/page/tasks"| => {
+    return server.html(taskListPage())
+  }
+
+  |req.path == "/page/dashboard"| => {
+    return server.html(dashboardPage())
+  }
+
+  // Task detail page
+  dec pageParams = req.match("/page/tasks/:id")
+  |pageParams != null| => {
+    dec task = findTask(pageParams.id)
+    guard task != null else { return server.html(layout("Not Found", "<h1>Task not found</h1><p><a href=\"/page/tasks\">Back to list</a></p>")) }
+    return server.html(taskDetailPage(task))
+  }
+
+  // --- JSON API ---
+
   // Health check — no auth
   |req.path == "/health"| => {
     return server.ok({
