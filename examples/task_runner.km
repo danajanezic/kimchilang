@@ -13,7 +13,9 @@ dec tasks = [
   { name: "deploy",  status: "skipped",  priority: 4, runner: "rsync",   timeout: 300 }
 ]
 
-// --- Custom error types ---
+// --- Types and errors ---
+
+type Task = {name: string, status: string, priority: number, runner: string, timeout: number}
 
 dec TaskError = error.create("TaskError")
 dec ValidationError = error.create("ValidationError")
@@ -27,8 +29,7 @@ dec ValidationError = error.create("ValidationError")
  */
 fn validateTask(task) {
   guard task != null else { throw ValidationError("Task is null") }
-  guard task.name != null else { throw ValidationError("Task missing name") }
-  guard task.status != null else { throw ValidationError("Task missing status") }
+  guard task is Task else { throw ValidationError("Not a valid task: missing required fields") }
   return task
 }
 
@@ -137,9 +138,21 @@ fn main() {
       results = [...results, result]
       passed = passed + 1
     } catch(e) {
-      print "  FAILED: ${e.message}"
-      failed = failed + 1
-      results = [...results, { name: task.name, status: "failed" }]
+      |e is ValidationError| => {
+        print "  VALIDATION FAILED: ${e.message}"
+        failed = failed + 1
+        results = [...results, { name: task.name, status: "failed" }]
+      }
+      |e is TaskError| => {
+        print "  TASK FAILED: ${e.message}"
+        failed = failed + 1
+        results = [...results, { name: task.name, status: "failed" }]
+      }
+      |true| => {
+        print "  FAILED: ${e.message}"
+        failed = failed + 1
+        results = [...results, { name: task.name, status: "failed" }]
+      }
     }
   }
 

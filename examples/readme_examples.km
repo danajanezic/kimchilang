@@ -293,4 +293,40 @@ fn divide(a, b) {
 }
 print "10 / 3 = ${divide(10, 3)}"
 
+// === Is Operator (Duck Typing) ===
+
+// Type enum for primitive checks
+dec val = "hello"
+dec isStr = val is Type.String
+dec isNum = val is Type.Number
+print "Is string: ${isStr}"
+print "Is number: ${isNum}"
+
+// Type alias for structural (duck) typing
+type User = {name: string, age: number}
+dec alice = { name: "Alice", age: 30, city: "NYC" }
+dec notUser = { title: "Mr" }
+print "alice is User: ${alice is User}"
+print "notUser is User: ${notUser is User}"
+
+// Match with is patterns
+fn describeType(val) {
+  return match val {
+    is Type.String => "a string"
+    is Type.Number => "a number"
+    is Type.Array => "an array"
+    is Type.Null => "null"
+    _ => "something else"
+  }
+}
+
+print "describeType(42): ${describeType(42)}"
+print "describeType('hi'): ${describeType("hi")}"
+print "describeType([1]): ${describeType([1])}"
+print "describeType(null): ${describeType(null)}"
+
+// is not
+dec x = "test"
+print "x is not Type.Number: ${x is not Type.Number}"
+
 print "All README examples validated successfully!"

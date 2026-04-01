@@ -1924,8 +1924,9 @@ export class CodeGenerator {
         : `typeof _subject === 'object' && _subject !== null`;
     }
 
-    // instanceof fallback
-    return `_subject instanceof ${pattern.typeName}`;
+    // instanceof fallback — _id check for error.create, instanceof for JS built-ins
+    const name = pattern.typeName;
+    return `(${name}?._id ? _subject?._id === ${name}._id : _subject instanceof ${name})`;
   }
 
   emitIsCheck(subject, node) {
@@ -1957,9 +1958,10 @@ export class CodeGenerator {
       return negated ? `(!(${check}))` : `(${check})`;
     }
 
-    // instanceof fallback
+    // instanceof fallback — _id check for error.create, instanceof for JS built-ins
     const right = this.visitExpression(node.right);
-    return negated ? `(!(${subject} instanceof ${right}))` : `(${subject} instanceof ${right})`;
+    const check = `${right}?._id ? ${subject}?._id === ${right}._id : ${subject} instanceof ${right}`;
+    return negated ? `(!(${check}))` : `(${check})`;
   }
 
   visitBinaryExpression(node) {

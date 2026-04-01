@@ -2016,8 +2016,11 @@ export class Parser {
 
   parseEquality() {
     let left = this.parseComparison();
-    
-    while (this.match(TokenType.EQ, TokenType.NEQ, TokenType.IS, TokenType.NOT)) {
+
+    // In match arm bodies, don't consume IS — it starts the next arm's pattern
+    while (this.inMatchArmBody
+      ? this.match(TokenType.EQ, TokenType.NEQ)
+      : this.match(TokenType.EQ, TokenType.NEQ, TokenType.IS, TokenType.NOT)) {
       const token = this.tokens[this.pos - 1];
       let operator;
       if (token.type === TokenType.IS) {

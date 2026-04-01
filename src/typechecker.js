@@ -1178,6 +1178,12 @@ export class TypeChecker {
       case NodeType.SpawnBlock: {
         return this.createType(Type.Object);
       }
+      case NodeType.TemplateLiteral: {
+        for (const expr of node.expressions) {
+          this.visitExpression(expr);
+        }
+        return this.createType(Type.String);
+      }
       default:
         return this.createType(Type.Unknown);
     }

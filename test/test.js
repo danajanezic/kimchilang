@@ -3092,7 +3092,8 @@ test('Generate is not with type alias negates shape check', () => {
 test('Generate is not with unknown name as negated instanceof', () => {
   const source = 'dec e = error("oops")\ndec r = e is not TypeError';
   const js = compile(source);
-  assertContains(js, '!(e instanceof TypeError)');
+  assertContains(js, 'e instanceof TypeError');
+  assertContains(js, '!(');
 });
 
 // Match Is Pattern Generator Tests

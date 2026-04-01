@@ -1,0 +1,135 @@
+#!/usr/bin/env kimchi
+// is operator — three-tier type checking with duck typing
+// Demonstrates: Type enum (primitives), type alias shapes, instanceof fallback
+
+// === Tier 1: Type Enum (Primitive Checks) ===
+
+print "=== Primitive Type Checks ==="
+
+fn checkPrimitive(val) {
+  |val is Type.String| => { print "  ${val} is Type.String: true" }
+  |val is Type.Number| => { print "  ${val} is Type.Number: true" }
+  |val is Type.Boolean| => { print "  ${val} is Type.Boolean: true" }
+  |val is Type.Array| => { print "  array is Type.Array: true" }
+  |val is Type.Null| => { print "  null is Type.Null: true" }
+  |true| => { print "  unknown type" }
+}
+
+checkPrimitive("hello")
+checkPrimitive(42)
+checkPrimitive(true)
+checkPrimitive([1, 2, 3])
+checkPrimitive(null)
+
+// Negation
+dec x = "test"
+print "  x is not Type.Number: ${x is not Type.Number}"
+
+// === Tier 2: Type Alias Shapes (Duck Typing) ===
+
+print ""
+print "=== Duck Typing with Type Aliases ==="
+
+type Point = {x: number, y: number}
+type Circle = {x: number, y: number, radius: number}
+
+dec p = { x: 10, y: 20 }
+dec c = { x: 0, y: 0, radius: 5 }
+dec s = { width: 100, height: 50 }
+
+// Duck typing: checks if object has the right keys
+print "  p is Point: ${p is Point}"
+print "  c is Point: ${c is Point}"
+print "  c is Circle: ${c is Circle}"
+print "  s is Point: ${s is Point}"
+
+// Generic types work too — only keys are checked
+type Result<T> = {ok: boolean, value: T}
+dec success = { ok: true, value: "data" }
+dec failure = { error: "oops" }
+print "  success is Result: ${success is Result}"
+print "  failure is Result: ${failure is Result}"
+
+// === Match Expressions with is ===
+
+print ""
+print "=== Match with is Patterns ==="
+
+fn classify(val) {
+  return match val {
+    is Type.String => "string: ${val}"
+    is Type.Number => "number: ${val}"
+    is Type.Boolean => "boolean: ${val}"
+    is Type.Array => "array with ${val.length} items"
+    is Type.Null => "null"
+    _ => "unknown"
+  }
+}
+
+print "  classify('hello'): ${classify("hello")}"
+print "  classify(42): ${classify(42)}"
+print "  classify(true): ${classify(true)}"
+print "  classify([1, 2, 3]): ${classify([1, 2, 3])}"
+print "  classify(null): ${classify(null)}"
+
+// Match with type alias shapes
+type Dog = {name: string, bark: string}
+type Cat = {name: string, meow: string}
+
+fn describeAnimal(animal) {
+  return match animal {
+    is Dog => "${animal.name} says ${animal.bark}"
+    is Cat => "${animal.name} says ${animal.meow}"
+    _ => "unknown animal"
+  }
+}
+
+print "  ${describeAnimal({ name: "Rex", bark: "woof" })}"
+print "  ${describeAnimal({ name: "Whiskers", meow: "mew" })}"
+print "  ${describeAnimal({ name: "Goldy" })}"
+
+// === Error Handling with is ===
+
+print ""
+print "=== Error Handling ==="
+
+dec NotFoundError = error.create("NotFoundError")
+dec AuthError = error.create("AuthError")
+
+fn fetchResource(id) {
+  guard id > 0 else { throw AuthError("unauthorized") }
+  guard id != 999 else { throw NotFoundError("resource ${id} not found") }
+  return { id: id, data: "resource data" }
+}
+
+fn safelyFetch(id) {
+  try {
+    dec result = fetchResource(id)
+    return "OK: ${result.data}"
+  } catch(e) {
+    |e is NotFoundError| => { return "Not found: ${e.message}" }
+    |e is AuthError| => { return "Auth error: ${e.message}" }
+    |true| => { return "Unknown error: ${e.message}" }
+  }
+}
+
+print "  fetch(1): ${safelyFetch(1)}"
+print "  fetch(999): ${safelyFetch(999)}"
+print "  fetch(0): ${safelyFetch(0)}"
+
+// === Guard with is ===
+
+print ""
+print "=== Guard with is ==="
+
+type Config = {host: string, port: number}
+
+fn startServer(config) {
+  guard config is Config else { throw "Invalid config: must have host and port" }
+  print "  Starting server on ${config.host}:${config.port}"
+}
+
+startServer({ host: "localhost", port: 3000 })
+
+print ""
+print "All is operator examples passed!"
