@@ -8,6 +8,7 @@ export class CodeGenerator {
     this.indentStr = options.indentStr || '  ';
     this.output = '';
     this.options = options;
+    this.plugins = options.plugins || [];
     this.decVariables = new Set();
     this.knownShapes = new Map(); // Map<name, shapeTree> for ?. optimization
   }
@@ -674,6 +675,17 @@ export class CodeGenerator {
 
     // Build async function map for auto-detection
     this.asyncFunctions = this.buildAsyncMap(node);
+
+    // Plugin auto-imports
+    for (const plugin of this.plugins) {
+      if (plugin.autoImports) {
+        const imports = plugin.autoImports(this.usedFeatures);
+        for (const imp of imports) {
+          this.emitLine(imp);
+        }
+        if (imports.length > 0) this.emitLine();
+      }
+    }
 
     // Import shared runtime (stdlib extensions, _obj, error)
     this.emitRuntimeImport();
@@ -1485,8 +1497,15 @@ export class CodeGenerator {
         return this.visitConcurrentExpression(node);
       case NodeType.BindExpression:
         return this.visitBindExpression(node);
-      default:
+      default: {
+        for (const plugin of this.plugins) {
+          if (plugin.generatorVisitors) {
+            const result = plugin.generatorVisitors(this, node);
+            if (result !== undefined) return result;
+          }
+        }
         throw new Error(`Unknown expression type: ${node.type}`);
+      }
     }
   }
 

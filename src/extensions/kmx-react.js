@@ -390,6 +390,13 @@ function buildPropsObject(props, children) {
 
 // --- Plugin export ---
 
+function autoImports(usedFeatures) {
+  if (usedFeatures && (usedFeatures.has('JSXElement') || usedFeatures.has('JSXFragment'))) {
+    return ["import { jsx, jsxs, Fragment } from 'react/jsx-runtime';"];
+  }
+  return [];
+}
+
 const kmxReactPlugin = {
   name: 'kmx-react',
 
@@ -404,6 +411,8 @@ const kmxReactPlugin = {
   generatorVisitors(generator, node) {
     return generateJSX(generator, node);
   },
+
+  autoImports,
 };
 
 export default kmxReactPlugin;

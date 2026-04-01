@@ -3218,6 +3218,17 @@ test('KMX: fragment', () => {
   assertContains(js, 'children: [');
 });
 
+test('KMX: auto-imports jsx-runtime', () => {
+  const js = compile('fn App() { return <div>hi</div> }', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  assertContains(js, "import { jsx, jsxs, Fragment } from 'react/jsx-runtime'");
+});
+
+test('KMX: no jsx-runtime import without JSX', () => {
+  const js = compile('dec x = 1', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
+  const hasJsxImport = js.includes('jsx-runtime');
+  assertEqual(hasJsxImport, false);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
