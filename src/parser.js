@@ -94,12 +94,13 @@ class ParseError extends Error {
 }
 
 export class Parser {
-  constructor(tokens) {
+  constructor(tokens, options = {}) {
     this.tokens = tokens.filter(t => t.type !== TokenType.NEWLINE || this.isSignificantNewline(t));
     this.pos = 0;
     this.decVariables = new Set(); // Track deeply immutable variables
     this.secretVariables = new Set(); // Track secret variables
     this.inMatchArmBody = false; // Track when inside match arm body to limit expression parsing
+    this.plugins = options.plugins || [];
   }
 
   isSignificantNewline(token) {
@@ -621,9 +622,21 @@ export class Parser {
   parseFunctionDeclaration() {
     this.expect(TokenType.FN, 'Expected fn');
     const async = false; // TODO: handle async
-    // Accept keywords as function names (e.g., fn race(...))
-    const nameToken = this.advance();
-    const name = nameToken.value;
+    // Allow identifiers and contextual keywords as function names
+    // (e.g., fn test(), fn describe() — these are keywords but valid as function names)
+    const ALLOWED_KEYWORD_NAMES = new Set([
+      'test', 'describe', 'expect', 'assert', 'match', 'guard',
+      'collect', 'hoard', 'race', 'worker', 'spawn', 'sleep', 'after',
+      'type', 'extern', 'module', 'print',
+    ]);
+    let name;
+    if (this.check(TokenType.IDENTIFIER)) {
+      name = this.advance().value;
+    } else if (ALLOWED_KEYWORD_NAMES.has(this.peek().value)) {
+      name = this.advance().value;
+    } else {
+      this.error('Expected function name');
+    }
     
     this.expect(TokenType.LPAREN, 'Expected (');
     const params = this.parseParameterList();
@@ -2258,6 +2271,14 @@ export class Parser {
   }
 
   parsePrimary() {
+    // Check plugins for custom expression parsing
+    for (const plugin of this.plugins) {
+      if (plugin.parserRules) {
+        const node = plugin.parserRules(this);
+        if (node) return node;
+      }
+    }
+
     if (this.check(TokenType.COLLECT) || this.check(TokenType.HOARD) || this.check(TokenType.RACE)) {
       return this.parseConcurrentExpression();
     }
@@ -2656,7 +2677,7 @@ export class Parser {
   }
 }
 
-export function parse(tokens) {
-  const parser = new Parser(tokens);
+export function parse(tokens, options = {}) {
+  const parser = new Parser(tokens, options);
   return parser.parse();
 }

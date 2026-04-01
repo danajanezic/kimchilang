@@ -14,7 +14,6 @@ Available modules:
   stdlib.math      - Math utilities (abs, round, trig, etc.)
   stdlib.json      - JSON utilities (parse, stringify, pretty)
   stdlib.console   - Console/IO utilities (log, error, table, etc.)
-  stdlib.promise   - Promise utilities (all, race, delay, etc.)
   stdlib.date      - Date/time utilities (now, format, diff, etc.)
   stdlib.function  - Function utilities (compose, pipe, etc.)
 

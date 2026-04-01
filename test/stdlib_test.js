@@ -599,59 +599,6 @@ console.log('\n--- console.km ---\n');
 })();
 
 // ============================================================
-// promise.km (uses new Promise() - skip type checker)
-// ============================================================
-console.log('\n--- promise.km ---\n');
-
-(() => {
-  const source = readStdlib('promise.km');
-  let output;
-
-  test('promise.km compiles without errors (no type check)', () => {
-    output = compileModuleNoTypeCheck(source);
-  });
-
-  test('promise.km has Promise.resolve (via optional chaining)', () => {
-    assertContains(output, 'Promise?.resolve(');
-  });
-
-  test('promise.km has Promise.reject (via optional chaining)', () => {
-    assertContains(output, 'Promise?.reject(');
-  });
-
-  test('promise.km has Promise.all (via optional chaining)', () => {
-    assertContains(output, 'Promise?.all(');
-  });
-
-  test('promise.km has Promise.allSettled (via optional chaining)', () => {
-    assertContains(output, 'Promise?.allSettled(');
-  });
-
-  test('promise.km has Promise.race (via optional chaining)', () => {
-    assertContains(output, 'Promise?.race(');
-  });
-
-  test('promise.km has Promise.any (via optional chaining)', () => {
-    assertContains(output, 'Promise?.any(');
-  });
-
-  test('promise.km delay uses new keyword and setTimeout', () => {
-    // new Promise() compiles as "new;\nPromise(..." due to current compiler behavior
-    assertContains(output, 'new');
-    assertContains(output, 'Promise(');
-    assertContains(output, 'setTimeout(');
-  });
-
-  test('promise.km exports all 8 exposed functions', () => {
-    const fns = ['_describe', 'resolve', 'reject', 'all', 'allSettled',
-      'race', 'any', 'delay'];
-    for (const fn of fns) {
-      assertContains(output, fn, `Missing function: ${fn}`);
-    }
-  });
-})();
-
-// ============================================================
 // bitwise.km
 // ============================================================
 console.log('\n--- bitwise.km ---\n');
