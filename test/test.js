@@ -3003,6 +3003,38 @@ test('Type checker annotates is not as negated', () => {
   assertEqual(binExpr.isPrimitive, 'number');
 });
 
+// IsPattern Type Resolution Tests
+console.log('\n--- IsPattern Type Resolution Tests ---\n');
+
+test('Type checker annotates IsPattern with type alias as shape', () => {
+  const source = 'type Resp = {status: number, body: any}\ndec r = match val {\nis Resp => "response"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const pattern = ast.body[1].init.arms[0].pattern;
+  assertEqual(pattern.isKind, 'shape');
+  assertEqual(pattern.isKeys.join(','), 'status,body');
+});
+
+test('Type checker annotates IsPattern Type.String as primitive', () => {
+  const source = 'dec r = match val {\nis Type.String => "string"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const pattern = ast.body[0].init.arms[0].pattern;
+  assertEqual(pattern.isKind, 'primitive');
+  assertEqual(pattern.isPrimitive, 'string');
+});
+
+test('Type checker annotates IsPattern with unknown name as instanceof', () => {
+  const source = 'dec r = match err {\nis TypeError => "type error"\n_ => "other"\n}';
+  const ast = parse(tokenize(source));
+  const checker = new TypeChecker();
+  checker.check(ast);
+  const pattern = ast.body[0].init.arms[0].pattern;
+  assertEqual(pattern.isKind, 'instanceof');
+});
+
 // Formatter Tests
 console.log('\n--- Formatter Tests ---\n');
 

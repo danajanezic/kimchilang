@@ -1310,6 +1310,40 @@ export class TypeChecker {
     node.isKind = 'instanceof';
   }
 
+  resolveIsPattern(pattern) {
+    const typeName = pattern.typeName;
+
+    // Tier 1: Type.Member — built-in primitive check
+    if (typeName.includes('.')) {
+      const [obj, member] = typeName.split('.');
+      if (obj === 'Type') {
+        const primitive = this.builtinTypeEnum.get(member);
+        if (primitive) {
+          pattern.isKind = 'primitive';
+          pattern.isPrimitive = primitive;
+          return;
+        }
+        this.addError(`Unknown Type member '${member}'`, pattern);
+      }
+      pattern.isKind = 'instanceof';
+      return;
+    }
+
+    // Tier 2: type alias with object shape — duck typing
+    const alias = this.typeAliases.get(typeName);
+    if (alias) {
+      const resolved = alias.params.length === 0 ? alias.body : this.substituteTypeParams(alias.body, new Map());
+      if (resolved.kind === Type.Object && resolved.properties) {
+        pattern.isKind = 'shape';
+        pattern.isKeys = Object.keys(resolved.properties);
+        return;
+      }
+    }
+
+    // Tier 3: unknown name — instanceof fallback
+    pattern.isKind = 'instanceof';
+  }
+
   visitUnaryExpression(node) {
     this.visitExpression(node.argument);
     
@@ -1475,6 +1509,11 @@ export class TypeChecker {
 
     for (const arm of node.arms) {
       this.pushScope();
+
+      // Resolve IsPattern type names
+      if (arm.pattern.type === 'IsPattern') {
+        this.resolveIsPattern(arm.pattern);
+      }
 
       // Define bindings from pattern
       if (arm.pattern.type === 'BindingPattern') {
