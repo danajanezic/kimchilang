@@ -47,7 +47,7 @@ Planned improvements:
 - [ ] Debugger integration
 - [ ] Source maps for compiled output
 - [x] ~~Watch mode (`kimchi run --watch`)~~ — watches source + project .km files, re-runs on change
-- [ ] `kimchi fmt` formatter
+- [x] ~~`kimchi fmt` formatter~~ — 6 auto-fixable rules: indent, no-tabs, no-trailing-spaces, newline-after-function, newline-after-shebang, no-multiple-empty-lines
 
 ## Standard Library
 
