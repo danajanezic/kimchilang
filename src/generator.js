@@ -588,6 +588,12 @@ export class CodeGenerator {
       }
 
       this.usedFeatures = this.scanUsedFeatures(node);
+
+      // Reject Node.js-only features in browser builds
+      if (this.usedFeatures.has('ShellBlock')) throw new Error('shell blocks are not available in browser builds');
+      if (this.usedFeatures.has('SpawnBlock')) throw new Error('spawn blocks are not available in browser builds');
+      if (this.usedFeatures.has('WorkerExpression')) throw new Error('worker is not available in browser builds');
+
       this.asyncFunctions = this.buildAsyncMap(node);
 
       // Plugin auto-imports (e.g., jsx-runtime)
