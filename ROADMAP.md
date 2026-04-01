@@ -2,7 +2,6 @@
 
 ## Module System
 
-- [ ] Alias-free imports — `dep myapp.lib.http` without `as`, accessible via full path `myapp.lib.http.get()`. The `as` form remains for shorthand. No index files — files are modules, directories are just organization.
 - [x] ~~Remove index file fallback from CLI's `modulePathToFilePath`~~ — removed, files are modules, directories are just organization
 
 ### Default Module Function Exporting
