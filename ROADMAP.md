@@ -43,7 +43,7 @@ Planned improvements:
 - [ ] Production build optimizations — minification, tree-shaking (leverages `module pure`), code splitting
 - [x] ~~JSX support in `.kmx` files~~ — via compiler plugin system. `<div>{expr}</div>` compiles to React 19 `jsx()`/`jsxs()` from `react/jsx-runtime`. Auto-import, components as functions, `stdlib/kmx/react.km` for full API.
 - [x] ~~Regex patterns in match arms~~ — `match str { /^hello/ => "greeting" }` compiles to `.test()` checks
-- [ ] Nullish equality — `!= null` currently compiles to `!== null` which doesn't catch `undefined`. Need either `== null` to mean `=== null || === undefined`, or a dedicated `is null` / `is defined` check. Major footgun for JS interop.
+- [x] ~~Nullish equality~~ — `== null` and `!= null` now compile to loose equality (`==`/`!=`), catching both `null` and `undefined`. All other comparisons remain strict (`===`/`!==`).
 - [ ] Optional extern parameters — `fn readFile(path: string, encoding?: string)` to allow calling with fewer args. Currently forces `any` type workarounds.
 - [ ] Rest parameters in extern — `fn join(...parts: string)` for variadic JS functions. Currently requires declaring fixed arity.
 - [ ] `import.meta.url` support — needed for resolving paths relative to the current module. Currently no way to get the module's own file path.

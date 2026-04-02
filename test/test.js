@@ -272,6 +272,18 @@ test('Inequality uses strict inequality', () => {
   assertContains(js, '!==');
 });
 
+test('Null comparison uses loose equality to catch undefined', () => {
+  const js = compile('dec x = a == null', { skipTypeCheck: true });
+  assertContains(js, '== null');
+  const js2 = compile('dec x = a != null', { skipTypeCheck: true });
+  assertContains(js2, '!= null');
+});
+
+test('Null on left side also uses loose equality', () => {
+  const js = compile('dec x = null == a', { skipTypeCheck: true });
+  assertContains(js, '== a');
+});
+
 // Integration Tests
 console.log('\n--- Integration Tests ---\n');
 

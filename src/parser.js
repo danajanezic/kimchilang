@@ -2100,6 +2100,12 @@ export class Parser {
         operator = token.value === '==' ? '===' : '!==';
       }
       const right = this.parseComparison();
+      // null comparisons use loose equality (== / !=) to catch both null and undefined
+      if ((operator === '===' || operator === '!==') &&
+          ((right.type === NodeType.Literal && right.value === null) ||
+           (left.type === NodeType.Literal && left.value === null))) {
+        operator = operator === '===' ? '==' : '!=';
+      }
       left = {
         type: NodeType.BinaryExpression,
         operator,
