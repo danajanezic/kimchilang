@@ -3571,6 +3571,22 @@ test('fn...is return type — intersection with multiple types', () => {
   assertContains(js, 'function make');
 });
 
+test('Match with is multi-type pattern — intersection', () => {
+  const source = 'type A = {x: number}\ntype B = {y: number}\nfn test(obj) {\nreturn match obj {\nis A, B => "both"\nis A => "just A"\n_ => "none"\n}\n}';
+  const js = compile(source);
+  assertContains(js, "'x' in _subject");
+  assertContains(js, "'y' in _subject");
+  assertContains(js, '&&');
+});
+
+test('Match with in multi-type pattern — union', () => {
+  const source = 'type C = {r: number}\ntype D = {w: number}\nfn test(obj) {\nreturn match obj {\nin C, D => "shape"\n_ => "other"\n}\n}';
+  const js = compile(source);
+  assertContains(js, "'r' in _subject");
+  assertContains(js, "'w' in _subject");
+  assertContains(js, '||');
+});
+
 // ==================== Is Operator End-to-End Tests ====================
 
 console.log('\n--- Is Operator End-to-End Tests ---\n');

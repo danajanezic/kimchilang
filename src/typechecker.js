@@ -1718,9 +1718,19 @@ export class TypeChecker {
     for (const arm of node.arms) {
       this.pushScope();
 
-      // Resolve IsPattern type names
+      // Resolve IsPattern type names (single or multi-type)
       if (arm.pattern.type === 'IsPattern') {
-        this.resolveIsPattern(arm.pattern);
+        if (arm.pattern.typeNames) {
+          // Multi-type: resolve each individually and annotate
+          arm.pattern._resolvedTypes = [];
+          for (const tn of arm.pattern.typeNames) {
+            const proxy = { typeName: tn };
+            this.resolveIsPattern(proxy);
+            arm.pattern._resolvedTypes.push({ isKind: proxy.isKind, isKeys: proxy.isKeys, isPrimitive: proxy.isPrimitive, typeName: tn });
+          }
+        } else {
+          this.resolveIsPattern(arm.pattern);
+        }
       }
 
       // Define bindings from pattern

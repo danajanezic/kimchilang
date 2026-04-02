@@ -1900,7 +1900,17 @@ export class CodeGenerator {
       }
 
       case 'IsPattern': {
-        condition = this.emitIsPatternCondition(pattern);
+        if (pattern._resolvedTypes && pattern._resolvedTypes.length > 1) {
+          // Multi-type pattern: is A, B, C (intersection) or in A, B, C (union)
+          const joiner = pattern.multiMode === 'union' ? ' || ' : ' && ';
+          const checks = pattern._resolvedTypes.map(rt => {
+            const singlePattern = { ...pattern, isKind: rt.isKind, isKeys: rt.isKeys, isPrimitive: rt.isPrimitive, typeName: rt.typeName, _resolvedTypes: null };
+            return this.emitIsPatternCondition(singlePattern);
+          });
+          condition = checks.length > 1 ? `(${checks.join(joiner)})` : checks[0];
+        } else {
+          condition = this.emitIsPatternCondition(pattern);
+        }
         if (guard) {
           const guardExpr = this.visitExpression(guard);
           condition += ` && (${guardExpr})`;

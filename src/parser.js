@@ -891,18 +891,25 @@ export class Parser {
       return { type: NodeType.WildcardPattern };
     }
 
-    // is TypeCheck
-    if (this.check(TokenType.IS)) {
+    // is TypeCheck — single or multi-type (intersection)
+    // in TypeCheck — single or multi-type (union)
+    if (this.check(TokenType.IS) || this.check(TokenType.IN)) {
+      const mode = this.peek().type === TokenType.IN ? 'union' : 'intersection';
       this.advance();
-      let typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name after is').value;
-      // Accept dotted names like Type.String
-      if (this.match(TokenType.DOT)) {
-        const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
-        typeName = `${typeName}.${member}`;
-      }
+      const typeNames = [];
+      do {
+        let typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name').value;
+        if (this.match(TokenType.DOT)) {
+          const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
+          typeName = `${typeName}.${member}`;
+        }
+        typeNames.push(typeName);
+      } while (this.match(TokenType.COMMA));
       return {
         type: 'IsPattern',
-        typeName,
+        typeName: typeNames[0],
+        typeNames: typeNames.length > 1 ? typeNames : null,
+        multiMode: typeNames.length > 1 ? mode : null,
       };
     }
 
