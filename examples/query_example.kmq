@@ -1,0 +1,85 @@
+#!/usr/bin/env kimchi
+// Query Directive Example
+// CRUD database abstraction where types are the schema
+// Note: requires a postgres database to run
+
+as db dep stdlib.db.postgres({url: "postgres://localhost/example"})
+as query dep stdlib.db.query({db: db})
+
+// --- Types as schema ---
+// Type name maps to table: User -> user, Post -> post
+
+type User = {id: number, name: string, email: string, role: string, active: boolean}
+type Post = {id: number, title: string, body: string, user_id: number}
+
+// --- Read operations ---
+
+// Find by ID
+dec user = query User { find 1 }
+print "Found: ${user.name}"
+
+// All rows
+dec everyone = query User { all }
+print "Total users: ${everyone.length}"
+
+// First and last
+dec first = query User { first }
+dec last = query User { last }
+print "First: ${first.name}, Last: ${last.name}"
+
+// Count
+dec total = query User { count }
+print "Count: ${total}"
+
+// --- Filtering, sorting, pagination ---
+
+dec admins = query User {
+  where {role: "admin", active: true}
+  sortBy "name" asc
+  limit 10
+}
+print "Active admins: ${admins.length}"
+
+// Variable interpolation
+dec searchRole = "user"
+dec users = query User { where {role: $searchRole} }
+print "Users with role '${searchRole}': ${users.length}"
+
+// --- Mutations ---
+
+// Create
+dec newUser = query User {
+  create {name: "Dana", email: "dana@test.com", role: "user", active: true}
+}
+print "Created: ${newUser.name} (id: ${newUser.id})"
+
+// Update
+dec updated = query User { update 1 {name: "Alice Updated"} }
+print "Updated: ${updated.name}"
+
+// Remove
+query User { remove 4 }
+print "Removed user 4"
+
+// --- Relationships ---
+
+dec userWithPosts = query User {
+  find 1
+  include Post
+}
+print "${userWithPosts.name} has ${userWithPosts.post.length} posts"
+
+// --- Compose with contracts ---
+
+fn getActiveAdmins() is User {
+  return query User {
+    where {role: "admin", active: true}
+    sortBy "name" asc
+  }
+}
+
+dec activeAdmins = getActiveAdmins()
+print "Active admins found: ${activeAdmins.length}"
+
+print ""
+print "Query example complete!"

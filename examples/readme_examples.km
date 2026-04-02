@@ -329,4 +329,72 @@ print "describeType(null): ${describeType(null)}"
 dec x = "test"
 print "x is not Type.Number: ${x is not Type.Number}"
 
+// === Contracts ===
+
+type HasName = {name: string}
+type HasEmail = {email: string}
+type Circle = {radius: number}
+type Rectangle = {width: number, height: number}
+
+// Guard with contract
+fn getProfile(user) {
+  guard user is HasName, HasEmail else { return "missing fields" }
+  return "${user.name} <${user.email}>"
+}
+
+print "profile: ${getProfile({name: "Alice", email: "a@test.com"})}"
+print "profile: ${getProfile({name: "Bob"})}"
+
+// Union guard
+fn getArea(shape) {
+  guard shape in Circle, Rectangle else { return 0 }
+  return match shape {
+    is Circle => 3.14 * shape.radius * shape.radius
+    is Rectangle => shape.width * shape.height
+  }
+}
+
+print "circle area: ${getArea({radius: 5})}"
+print "rect area: ${getArea({width: 4, height: 6})}"
+
+// === Return Types ===
+
+type Success = {ok: boolean, data: any}
+type Failure = {ok: boolean, error: string}
+
+fn safeDivide(a, b) in Success, Failure {
+  guard b != 0 else { return {ok: false, error: "division by zero"} }
+  return {ok: true, data: a / b}
+}
+
+dec r1 = safeDivide(10, 3)
+dec r2 = safeDivide(10, 0)
+print "divide 10/3: ok=${r1.ok}"
+print "divide 10/0: ok=${r2.ok}"
+
+// === Regex ===
+
+dec greeting = "Hello, World!" ~ /Hello, (\w+)!/ => {
+  return "Found: ${$match[1]}"
+}
+print greeting
+
+fn classify(line) {
+  return match line {
+    /^ERROR/ => "critical"
+    /^WARN/ => "warning"
+    _ => "ok"
+  }
+}
+
+print "classify: ${classify("ERROR: fail")}"
+print "classify: ${classify("INFO: ok")}"
+
+// === Null Safety ===
+
+dec maybe = null
+print "null == null: ${maybe == null}"
+print "null != null: ${maybe != null}"
+// != null catches both null AND undefined
+
 print "All README examples validated successfully!"

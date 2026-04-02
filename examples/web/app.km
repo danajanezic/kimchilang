@@ -1,8 +1,14 @@
 // Task Management App — API + HTML pages
-// Showcases: pattern matching routing, guard validation, Date.new(),
-//            response helpers, path params, query filtering, HTML rendering
+// Showcases: contracts, return types, pattern matching routing,
+//            guard validation, response helpers, HTML rendering
 
 as server dep stdlib.web.server({config: {Port: 3000, Host: "0.0.0.0", Cors: {origin: "*", methods: "GET, POST, PUT, DELETE"}}})
+
+// --- Contracts ---
+
+type Task = {id: string, title: string, status: string, priority: string, owner: string}
+type User = {id: string, name: string, role: string, token: string}
+type CreateTaskRequest = {title: string}
 
 // --- In-memory data store ---
 
@@ -21,11 +27,11 @@ dec users = [
 
 // --- Helpers ---
 
-fn findTask(id) {
+fn findTask(id) in Task {
   return tasks.find(t => t.id == id)
 }
 
-fn findUser(token) {
+fn findUser(token) in User {
   return users.find(u => u.token == token)
 }
 
