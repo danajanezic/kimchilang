@@ -105,7 +105,8 @@ export class StaticLexer {
     if (value === 'false') return { type: 'BOOLEAN', value: false };
     if (value === 'null') return { type: 'NULL', value: null };
     if (value === 'secret') return { type: 'SECRET' };
-    
+    if (value === 'type') return { type: 'TYPE' };
+
     return { type: 'IDENTIFIER', value };
   }
 
@@ -161,6 +162,12 @@ export class StaticLexer {
         case '`': this.tokens.push({ type: 'BACKTICK' }); break;
         case '=': this.tokens.push({ type: 'EQUALS' }); break;
         case ',': this.tokens.push({ type: 'COMMA' }); break;
+        case ':': this.tokens.push({ type: 'COLON' }); break;
+        case '|': this.tokens.push({ type: 'PIPE' }); break;
+        case '(': this.tokens.push({ type: 'LPAREN' }); break;
+        case ')': this.tokens.push({ type: 'RPAREN' }); break;
+        case '<': this.tokens.push({ type: 'LT' }); break;
+        case '>': this.tokens.push({ type: 'GT' }); break;
         default:
           this.error(`Unexpected character: ${char}`);
       }
@@ -217,23 +224,40 @@ export class StaticParser {
 
   parse() {
     this.skipNewlines();
-    
+
     while (!this.check('EOF')) {
       this.parseDeclaration();
       this.skipNewlines();
     }
-    
+
     return this.declarations;
   }
 
   parseDeclaration() {
+    // Type declaration: type Name = {key: type, ...}
+    if (this.check('TYPE')) {
+      this.advance();
+      this.skipNewlines();
+      const nameToken = this.expect('IDENTIFIER', 'Expected type name');
+      const name = nameToken.value;
+      this.expect('EQUALS', 'Expected = after type name');
+      this.skipNewlines();
+      const typeBody = this.parseTypeBody();
+      // Store types separately from data declarations
+      if (!this.declarations._types) {
+        this.declarations._types = {};
+      }
+      this.declarations._types[name] = typeBody;
+      return;
+    }
+
     // Check for secret modifier
     let isSecret = false;
     if (this.match('SECRET')) {
       isSecret = true;
       this.skipNewlines();
     }
-    
+
     // Expect an identifier (the name)
     const nameToken = this.expect('IDENTIFIER', 'Expected declaration name');
     const name = nameToken.value;
@@ -361,6 +385,109 @@ export class StaticParser {
     return { type: 'enum', members };
   }
 
+  parseTypeBody() {
+    this.skipNewlines();
+
+    if (this.check('LBRACE')) {
+      // Object shape: {key: type, key2: type}
+      this.advance();
+      const properties = {};
+      this.skipNewlines();
+
+      while (!this.check('RBRACE') && !this.check('EOF')) {
+        const keyToken = this.expect('IDENTIFIER', 'Expected property name');
+        const key = keyToken.value;
+        this.expect('COLON', 'Expected : after property name');
+        const valueType = this.parseTypeExpression();
+        properties[key] = valueType;
+
+        if (this.match('COMMA')) {
+          this.skipNewlines();
+        } else if (this.check('NEWLINE')) {
+          this.skipNewlines();
+        }
+      }
+
+      this.expect('RBRACE', 'Expected }');
+      return { kind: 'object', properties };
+    }
+
+    // Simple type or union
+    return this.parseTypeExpression();
+  }
+
+  parseTypeExpression() {
+    this.skipNewlines();
+    let left = this.parseSimpleType();
+
+    // Union: type1 | type2
+    while (this.match('PIPE')) {
+      this.skipNewlines();
+      const right = this.parseSimpleType();
+      left = { kind: 'union', members: [...(left.kind === 'union' ? left.members : [left]), right] };
+    }
+
+    return left;
+  }
+
+  parseSimpleType() {
+    this.skipNewlines();
+
+    if (this.check('IDENTIFIER')) {
+      const name = this.advance().value;
+
+      // Function type: (params) => returnType
+      // Generic: Name<T>
+      if (this.match('LT')) {
+        const params = [];
+        while (!this.check('GT') && !this.check('EOF')) {
+          params.push(this.parseTypeExpression());
+          this.match('COMMA');
+        }
+        this.expect('GT', 'Expected >');
+        return { kind: 'generic', name, params };
+      }
+
+      // Array shorthand: type[]
+      if (this.check('LBRACKET') && this.tokens[this.pos + 1]?.type === 'RBRACKET') {
+        this.advance();
+        this.advance();
+        return { kind: 'array', elementType: { kind: 'named', name } };
+      }
+
+      return { kind: 'named', name };
+    }
+
+    if (this.check('LPAREN')) {
+      // Function type: (param: type) => returnType
+      this.advance();
+      const params = [];
+      while (!this.check('RPAREN') && !this.check('EOF')) {
+        if (this.check('IDENTIFIER')) {
+          const paramName = this.advance().value;
+          if (this.match('COLON')) {
+            params.push({ name: paramName, type: this.parseTypeExpression() });
+          } else {
+            params.push({ name: paramName, type: { kind: 'named', name: 'any' } });
+          }
+        }
+        this.match('COMMA');
+      }
+      this.expect('RPAREN', 'Expected )');
+      // Expect => for return type
+      this.expect('EQUALS', 'Expected =>');
+      this.expect('GT', 'Expected > in =>');
+      const returnType = this.parseTypeExpression();
+      return { kind: 'function', params, returnType };
+    }
+
+    if (this.check('LBRACE')) {
+      return this.parseTypeBody();
+    }
+
+    this.error('Expected type');
+  }
+
   parseValue() {
     this.skipNewlines();
     
@@ -407,10 +534,10 @@ export class StaticParser {
 // Generate JavaScript code from parsed static file
 export function generateStaticCode(declarations, modulePath) {
   let code = '// Generated from .static file\n\n';
-  
+
   // Check if any declarations use secrets
   const hasSecrets = checkForSecrets(declarations);
-  
+
   if (hasSecrets) {
     // Add _secret helper for secret values
     code += `// Secret wrapper class\n`;
@@ -423,11 +550,17 @@ export function generateStaticCode(declarations, modulePath) {
     code += `}\n`;
     code += `function _secret(value) { return new _Secret(value); }\n\n`;
   }
-  
+
+  // Export type declarations as metadata (consumed by type checker)
+  if (declarations._types) {
+    code += `export const _types = ${JSON.stringify(declarations._types)};\n\n`;
+  }
+
   for (const [name, decl] of Object.entries(declarations)) {
+    if (name === '_types') continue;
     code += `export const ${name} = ${generateValue(decl)};\n\n`;
   }
-  
+
   return code;
 }
 
@@ -497,4 +630,40 @@ export function parseStaticFile(source, modulePath = '') {
   const tokens = lexer.tokenize();
   const parser = new StaticParser(tokens, modulePath);
   return parser.parse();
+}
+
+// Convert static type declarations to KimchiLang type strings
+// for registration in the type checker
+export function extractStaticTypes(declarations) {
+  if (!declarations._types) return {};
+  const result = {};
+  for (const [name, typeBody] of Object.entries(declarations._types)) {
+    result[name] = staticTypeToString(typeBody);
+  }
+  return result;
+}
+
+function staticTypeToString(typeNode) {
+  switch (typeNode.kind) {
+    case 'named':
+      return typeNode.name;
+    case 'object': {
+      const props = Object.entries(typeNode.properties)
+        .map(([k, v]) => `${k}: ${staticTypeToString(v)}`)
+        .join(', ');
+      return `{${props}}`;
+    }
+    case 'array':
+      return `${staticTypeToString(typeNode.elementType)}[]`;
+    case 'union':
+      return typeNode.members.map(m => staticTypeToString(m)).join(' | ');
+    case 'function': {
+      const params = typeNode.params.map(p => `${staticTypeToString(p.type)}`).join(', ');
+      return `(${params}) => ${staticTypeToString(typeNode.returnType)}`;
+    }
+    case 'generic':
+      return `${typeNode.name}<${typeNode.params.map(p => staticTypeToString(p)).join(', ')}>`;
+    default:
+      return 'any';
+  }
 }

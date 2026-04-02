@@ -48,6 +48,14 @@ export class TypeChecker {
     this.mutVariables = new Set();
     this._insideClosure = false;
     this._collectedReturnTypes = null;
+
+    // Register types from static file imports
+    if (options.staticTypes) {
+      for (const [name, typeStr] of Object.entries(options.staticTypes)) {
+        const parsed = this.parseTypeString(typeStr);
+        this.typeAliases.set(name, { params: [], body: parsed });
+      }
+    }
     this._isPureModule = false;
     this._isSingletonModule = false;
 

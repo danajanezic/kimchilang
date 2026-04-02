@@ -5,6 +5,7 @@ import { Parser, parse } from './parser.js';
 import { CodeGenerator, generate } from './generator.js';
 import { TypeChecker } from './typechecker.js';
 import { Linter, Severity } from './linter.js';
+import { parseStaticFile, extractStaticTypes } from './static-parser.js';
 
 // Module registry for tracking required args across modules
 const moduleRegistry = new Map();
@@ -74,7 +75,22 @@ export class KimchiCompiler {
     
     // Step 2.7: Type checking
     if (!this.options.skipTypeCheck) {
-      const typeChecker = new TypeChecker({ modulePath, target: this.options.target });
+      // Collect types from static file dependencies
+      const staticTypes = {};
+      if (this.options.staticFileResolver) {
+        for (const dep of depStatements) {
+          if (dep.isStatic && this.options.staticFileSource) {
+            const source = this.options.staticFileSource(dep.path);
+            if (source) {
+              const declarations = parseStaticFile(source);
+              const types = extractStaticTypes(declarations);
+              Object.assign(staticTypes, types);
+            }
+          }
+        }
+      }
+
+      const typeChecker = new TypeChecker({ modulePath, target: this.options.target, staticTypes });
       const typeErrors = typeChecker.check(ast);
       if (typeErrors.length > 0) {
         const errorMessages = typeErrors.map(e => `Type Error: ${e.message}`).join('\n');
