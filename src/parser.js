@@ -897,6 +897,16 @@ export class Parser {
       return this.parseMatchArrayPattern();
     }
 
+    // Regex pattern: /pattern/flags
+    if (this.check(TokenType.REGEX)) {
+      const token = this.advance();
+      return {
+        type: 'RegexPattern',
+        pattern: token.value.pattern,
+        flags: token.value.flags,
+      };
+    }
+
     // Literal value or binding variable
     if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
         this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {

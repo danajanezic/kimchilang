@@ -1,7 +1,9 @@
 // KMX-React — JSX compiler extension for KimchiLang
 // Compiles JSX syntax to React 19's jsx()/jsxs() from react/jsx-runtime
 
-import { Token } from '../lexer.js';
+import { Token, tokenize } from '../lexer.js';
+import { parse } from '../parser.js';
+import { generate } from '../generator.js';
 
 // --- JSX Lexer ---
 
@@ -327,7 +329,7 @@ function generateJSX(generator, node) {
     return JSON.stringify(node.value);
   }
   if (node.type === 'JSXExpression') {
-    return node.source;
+    return compileExpression(node.source);
   }
   return undefined;
 }
@@ -396,6 +398,41 @@ function autoImports(usedFeatures) {
   }
   return [];
 }
+
+// Compile a JSX expression's raw source through the full KimchiLang pipeline
+// This handles both KimchiLang syntax (dec, match, etc.) and nested JSX
+function compileExpression(source) {
+  // Simple expressions without JSX or KimchiLang keywords — pass through
+  if (!/<[a-zA-Z>]/.test(source) && !/\b(dec|mut|match|guard|fn|if)\b/.test(source)) {
+    return source;
+  }
+
+  try {
+    // Wrap in a function to make it a valid KimchiLang program,
+    // then extract the body
+    const wrapped = `fn _expr_() {\nreturn ${source}\n}`;
+    const plugins = [kmxReactPlugin];
+    const tokens = tokenize(wrapped, plugins);
+    const ast = parse(tokens, { plugins });
+    const js = generate(ast, { target: 'browser', plugins, skipTypeCheck: true });
+
+    // Extract the function body — strip the wrapper
+    const lines = js.split('\n');
+    // Find "function _expr_() {" and "}" then extract between
+    const startIdx = lines.findIndex(l => l.includes('function _expr_()'));
+    const endIdx = lines.lastIndexOf('}');
+    if (startIdx >= 0 && endIdx > startIdx) {
+      const body = lines.slice(startIdx + 1, endIdx).join('\n');
+      // Strip "return " prefix and trailing semicolons
+      return body.replace(/^\s*return\s+/, '').replace(/;\s*$/, '');
+    }
+    return source;
+  } catch {
+    // If compilation fails, return raw source
+    return source;
+  }
+}
+
 
 const kmxReactPlugin = {
   name: 'kmx-react',

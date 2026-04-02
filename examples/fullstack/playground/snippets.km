@@ -1,0 +1,13 @@
+// Playground example snippets and taglines
+// Code is loaded from /examples.json served by the server
+
+expose dec taglines = [
+  "Kimchi probiotics bind 87% of pollutants — we bind 100% of bugs",
+  "Kimchi bacteria survive intestinal conditions — our code survives production",
+  "Kimchi increases excretion of nanoplastics — we flush out technical debt",
+  "Kimchi's Leuconostoc mesenteroides stays stable under stress — so does this compiler",
+  "Kimchi fermentation produces resilient microorganisms — we produce resilient programs",
+  "Kimchi probiotics adsorb contaminants on contact — our linter catches issues on save",
+  "Kimchi reduces accumulation in the GI tract — we reduce accumulation in your codebase",
+  "Kimchi's probiotic efficiency holds at 57% in the gut — our runtime holds at 100%"
+]

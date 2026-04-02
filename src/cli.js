@@ -842,7 +842,11 @@ async function runFile(filePath, options = {}) {
     }
 
     const cachePath = interp.getCachePath(source);
-    execSync(`node "${cachePath}"`, {
+    // Forward module args as CLI flags to the cached script
+    const moduleArgFlags = Object.entries(options.moduleArgs || {})
+      .map(([k, v]) => `--${k} ${JSON.stringify(v)}`)
+      .join(' ');
+    execSync(`node "${cachePath}" ${moduleArgFlags}`, {
       stdio: 'inherit',
       cwd: dirname(resolve(filePath)),
       env: { ...process.env, NODE_COMPILE_CACHE: cacheDir }

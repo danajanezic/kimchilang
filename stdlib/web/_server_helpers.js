@@ -56,6 +56,9 @@ export function startServer(port, host, corsConfig, callback) {
         if (res.body === null || res.body === undefined) {
           nodeRes.writeHead(res.status, resHeaders);
           nodeRes.end();
+        } else if (Buffer.isBuffer(res.body)) {
+          nodeRes.writeHead(res.status, resHeaders);
+          nodeRes.end(res.body);
         } else if (typeof res.body === 'string') {
           resHeaders['Content-Type'] = resHeaders['Content-Type'] || 'text/plain';
           nodeRes.writeHead(res.status, resHeaders);

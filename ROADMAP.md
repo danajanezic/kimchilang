@@ -42,6 +42,18 @@ Planned improvements:
 - [ ] Dev server with hot reload — `kimchi dev frontend/`, on-demand transpilation, browser auto-refresh
 - [ ] Production build optimizations — minification, tree-shaking (leverages `module pure`), code splitting
 - [x] ~~JSX support in `.kmx` files~~ — via compiler plugin system. `<div>{expr}</div>` compiles to React 19 `jsx()`/`jsxs()` from `react/jsx-runtime`. Auto-import, components as functions, `stdlib/kmx/react.km` for full API.
+- [x] ~~Regex patterns in match arms~~ — `match str { /^hello/ => "greeting" }` compiles to `.test()` checks
+- [ ] Nullish equality — `!= null` currently compiles to `!== null` which doesn't catch `undefined`. Need either `== null` to mean `=== null || === undefined`, or a dedicated `is null` / `is defined` check. Major footgun for JS interop.
+- [ ] Optional extern parameters — `fn readFile(path: string, encoding?: string)` to allow calling with fewer args. Currently forces `any` type workarounds.
+- [ ] Rest parameters in extern — `fn join(...parts: string)` for variadic JS functions. Currently requires declaring fixed arity.
+- [ ] `import.meta.url` support — needed for resolving paths relative to the current module. Currently no way to get the module's own file path.
+- [ ] `catch` without parens — allow `catch e { }` in addition to `catch(e) { }` for consistency with other KimchiLang blocks
+
+## Type Checker
+
+- [ ] Visit `PipeExpression` children — pipe operands are not type-checked (undefined vars, wrong call signatures silently pass)
+- [ ] Linter: track variable usage inside `is` expressions and template literal interpolations — currently reports false "unused variable" warnings
+- [ ] Fix false-positive unreachable code warnings for conditional blocks — `|cond| => { return ... }` followed by more code always warns
 
 ## Tooling
 
@@ -52,6 +64,12 @@ Planned improvements:
 - [ ] Source maps for compiled output
 - [x] ~~Watch mode (`kimchi run --watch`)~~ — watches source + project .km files, re-runs on change
 - [x] ~~`kimchi fmt` formatter~~ — 6 auto-fixable rules: indent, no-tabs, no-trailing-spaces, newline-after-function, newline-after-shebang, no-multiple-empty-lines
+- [x] ~~CLI args → module args~~ — `kimchi run app.km --name World` passes `--name` as module arg
+- [ ] `kimchi serve` — dev server that bundles `.kmx` frontend, serves static files, and provides hot reload. Eliminates manual server setup for frontend projects.
+- [ ] `kimchi init fullstack` — scaffold a fullstack project (server.km + app.kmx + public/ + importmap)
+- [ ] Bundler stdlib resolution — `as react dep stdlib.kmx.react` should resolve to the actual stdlib directory, not relative to the entry file
+- [ ] Binary file support in web server — `readFile` without encoding for images/fonts. Currently requires `any` type workaround and modified server helper.
+- [ ] Interpreter CWD — `process.cwd()` should return the directory where `kimchi run` was invoked, not the script's directory
 
 ## Standard Library
 
@@ -75,6 +93,8 @@ Planned improvements:
 ## Web Framework
 
 - [x] ~~Built-in minimal web server (`stdlib.web.server`)~~ — single callback, immutable request objects, response helpers, CORS. Routing via match, validation via guard, middleware via pipes. No external dependencies.
+- [x] ~~Buffer response support~~ — server helper now handles `Buffer.isBuffer()` bodies for binary responses (images, fonts)
+- [ ] Static file serving helper — `server.static("public/")` to serve a directory without manual MIME type handling
 - [ ] WebSocket support
 - [ ] Server-sent events
 

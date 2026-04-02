@@ -199,7 +199,23 @@ export class KimchiInterpreter {
       'const _module = async function'
     );
     const shutdownHandler = `
-const _exports = await _module({});
+// Parse CLI args (--name=value or --name value) into module opts
+const _cliArgs = {};
+const _argv = process.argv.slice(2);
+for (let _i = 0; _i < _argv.length; _i++) {
+  const _a = _argv[_i];
+  if (_a.startsWith('--')) {
+    const _eq = _a.indexOf('=');
+    if (_eq !== -1) {
+      _cliArgs[_a.slice(2, _eq)] = _a.slice(_eq + 1);
+    } else if (_i + 1 < _argv.length && !_argv[_i + 1].startsWith('--')) {
+      _cliArgs[_a.slice(2)] = _argv[++_i];
+    } else {
+      _cliArgs[_a.slice(2)] = true;
+    }
+  }
+}
+const _exports = await _module(_cliArgs);
 if (_exports && typeof _exports._shutdown === 'function') {
   const _onShutdown = async () => { await _exports._shutdown(); process.exit(0); };
   process.on('SIGINT', _onShutdown);

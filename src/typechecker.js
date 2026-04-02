@@ -93,6 +93,22 @@ export class TypeChecker {
       this.defineVariable('requestAnimationFrame', this.createType(Type.Function));
       this.defineVariable('alert', this.createType(Type.Function));
       this.defineVariable('confirm', this.createType(Type.Function));
+      this.defineVariable('performance', this.createType(Type.Any));
+      this.defineVariable('Blob', this.createType(Type.Any));
+      this.defineVariable('URL', this.createType(Type.Any));
+      this.defineVariable('parent', this.createType(Type.Any));
+      this.defineVariable('FormData', this.createType(Type.Any));
+      this.defineVariable('Headers', this.createType(Type.Any));
+      this.defineVariable('Response', this.createType(Type.Any));
+      this.defineVariable('Request', this.createType(Type.Any));
+      this.defineVariable('Event', this.createType(Type.Any));
+      this.defineVariable('CustomEvent', this.createType(Type.Any));
+      this.defineVariable('AbortController', this.createType(Type.Any));
+      this.defineVariable('IntersectionObserver', this.createType(Type.Any));
+      this.defineVariable('MutationObserver', this.createType(Type.Any));
+      this.defineVariable('ResizeObserver', this.createType(Type.Any));
+      this.defineVariable('history', this.createType(Type.Any));
+      this.defineVariable('screen', this.createType(Type.Any));
     }
   }
 
@@ -916,6 +932,12 @@ export class TypeChecker {
   }
 
   visitFunctionDeclaration(node) {
+    // Register nested functions in current scope so they're visible to siblings
+    if (!this.functions.has(node.name)) {
+      this.registerFunction(node);
+      this.defineVariable(node.name, this.createType(Type.Function));
+    }
+
     // Track exposed functions for module export type
     if (node.exposed) {
       const fnInfo = this.functions.get(node.name);
@@ -1200,9 +1222,6 @@ export class TypeChecker {
   }
 
   visitIdentifier(node) {
-    if (this._insideClosure && this.mutVariables.has(node.name)) {
-      this.addError(`Cannot capture mut variable '${node.name}' in closure`, node);
-    }
     const varType = this.lookupVariable(node.name);
     if (varType) return varType;
     
@@ -1753,12 +1772,17 @@ export class TypeChecker {
 
   visitAssignmentExpression(node) {
     const valueType = this.visitExpression(node.right);
-    
+
+    // Block reassignment of mut variables inside closures
+    if (this._insideClosure && node.left.type === NodeType.Identifier && this.mutVariables.has(node.left.name)) {
+      this.addError(`Cannot reassign mut variable '${node.left.name}' inside a closure`, node);
+    }
+
     // Update variable type if it's a simple identifier
     if (node.left.type === NodeType.Identifier) {
       this.defineVariable(node.left.name, valueType);
     }
-    
+
     return valueType;
   }
 

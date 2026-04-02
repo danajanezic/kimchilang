@@ -1,0 +1,344 @@
+// KimchiLang Playground — written in KimchiLang (KMX)
+// Fullstack demo: React UI with CodeMirror editor
+
+as data dep snippets
+
+// React 19 via extern browser
+extern browser "react" {
+  fn useState(initial: any): any
+  fn useEffect(callback: any, deps: any): void
+  fn useRef(initial: any): any
+}
+
+extern browser "react-dom/client" {
+  fn createRoot(el: any): any
+}
+
+// CodeMirror 6 via extern browser
+extern browser "@codemirror/view" {
+  dec EditorView: any
+  dec keymap: any
+}
+
+extern browser "@codemirror/state" {
+  dec EditorState: any
+}
+
+extern browser "@codemirror/basic-setup" {
+  dec basicSetup: any
+}
+
+extern browser "@codemirror/language" {
+  dec StreamLanguage: any
+  dec syntaxHighlighting: any
+  dec HighlightStyle: any
+}
+
+extern browser "@lezer/highlight" {
+  dec tags: any
+}
+
+// --- KimchiLang syntax mode for CodeMirror ---
+
+dec kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is)\b/
+
+fn tokenizeKimchi(stream) {
+  if stream.match(/^\/\/.*/) { return "comment" }
+  if stream.match(/^"[^"]*"/) { return "string" }
+  if stream.match(/^-?\d+(\.\d+)?/) { return "number" }
+  if stream.match(kwPattern) { return "keyword" }
+  if stream.match(/^(~>|>>|=>|\.\.\.)/) { return "operator" }
+  if stream.match(/^[a-zA-Z_]\w*/) { return "variableName" }
+  if stream.eatSpace() { return null }
+  stream.next()
+  return null
+}
+
+dec kimchiMode = StreamLanguage.define({token: tokenizeKimchi})
+
+dec kimchiTheme = EditorView.theme({
+  "&": {backgroundColor: "#fff"},
+  ".cm-content": {caretColor: "#e84c3d"},
+  ".cm-cursor": {borderLeftColor: "#e84c3d"},
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {background: "#fde8e5"},
+  ".cm-activeLine": {background: "#faf8f5"},
+  ".cm-gutters": {background: "#fafafa", borderRight: "1px solid #eee", color: "#ccc"},
+  ".cm-activeLineGutter": {background: "#f0f0f0"}
+})
+
+dec kimchiHighlight = syntaxHighlighting(HighlightStyle.define([
+  {tag: tags.keyword, color: "#e84c3d", fontWeight: "600"},
+  {tag: tags.comment, color: "#bbb", fontStyle: "italic"},
+  {tag: tags.string, color: "#2a8c6a"},
+  {tag: tags.number, color: "#3a7ab5"},
+  {tag: tags.variableName, color: "#2a2a2a"},
+  {tag: tags.operator, color: "#7c5cbf"}
+]))
+
+// --- Editor Component ---
+
+fn Editor(props) {
+  mut editorRef = useRef(null)
+  mut viewRef = useRef(null)
+
+  useEffect(() => {
+    |editorRef.current != null| => {
+      dec state = EditorState.create({
+        doc: props.code,
+        extensions: [
+          basicSetup,
+          kimchiMode,
+          kimchiTheme,
+          kimchiHighlight,
+          EditorView.lineWrapping,
+          keymap.of([{
+            key: "Mod-Enter",
+            run: () => {
+              props.onRun()
+              return true
+            }
+          }])
+        ]
+      })
+      dec view = EditorView.new({state: state, parent: editorRef.current})
+      viewRef.current = view
+      return () => { view.destroy() }
+    }
+  }, [props.code])
+
+  // Expose getCode method via callback
+  useEffect(() => {
+    props.onViewReady(viewRef)
+  }, [])
+
+  return <div className="editor-wrap" ref={editorRef}></div>
+}
+
+// --- Sidebar Component ---
+
+fn Sidebar(props) {
+  return <aside className="sidebar">
+    <div className="sidebar-title">Try it out</div>
+    {props.examples.map((ex, i) => {
+      dec cls = "sidebar-item" + (i == props.active ? " active" : "")
+      return <div className={cls} key={i} onClick={() => props.onSelect(i)}>
+        <div className="sidebar-item-name">{ex.name}</div>
+        <div className="sidebar-item-desc">{ex.desc}</div>
+      </div>
+    })}
+  </aside>
+}
+
+// --- Output Component ---
+
+fn Output(props) {
+  return <section className="output-pane">
+    <div className="pane-header">
+      <span className="pane-label">Output</span>
+      <span className="pane-meta pane-timing">{props.timing}</span>
+    </div>
+    <pre className="output">
+      {props.error
+        ? <span className="error">{props.error}</span>
+        : props.lines.map((line, i) => <div key={i}>{line}</div>)
+      }
+    </pre>
+  </section>
+}
+
+// --- Tagline Component ---
+
+fn Tagline() {
+  dec [index, setIndex] = useState(Math.floor(Math.random() * data.taglines.length))
+  dec [opacity, setOpacity] = useState(1)
+
+  useEffect(() => {
+    dec interval = setInterval(() => {
+      setOpacity(0)
+      setTimeout(() => {
+        setIndex(i => (i + 1) % data.taglines.length)
+        setOpacity(1)
+      }, 500)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return <span className="tagline" style={{opacity: opacity, transition: "opacity 0.5s"}}>
+    {data.taglines[index]}
+  </span>
+}
+
+// --- Main App ---
+
+fn App() {
+  dec [examples, setExamples] = useState([])
+  dec [activeExample, setActiveExample] = useState(0)
+  dec [outputLines, setOutputLines] = useState([])
+  dec [error, setError] = useState(null)
+  dec [timing, setTiming] = useState("")
+  mut viewRef = useRef(null)
+
+  // Load examples from JSON on mount
+  useEffect(() => {
+    fetch("/examples.json")
+      .then(res => res.json())
+      .then(data => setExamples(data))
+  }, [])
+
+  fn getCode() {
+    |viewRef.current != null and viewRef.current.current != null| => {
+      return viewRef.current.current.state.doc.toString()
+    }
+    |examples.length > 0| => { return examples[activeExample].code }
+    return ""
+  }
+
+  fn handleCompile() {
+    dec source = getCode()
+    setOutputLines([])
+    setError(null)
+    setTiming("")
+
+    dec start = performance.now()
+
+    fetch("/compile", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({source: source})
+    })
+    .then(res => res.json())
+    .then(result => {
+      dec elapsed = Math.round(performance.now() - start)
+      |result.error| => {
+        setError(result.error)
+        return null
+      }
+      setTiming("compiled in ${elapsed}ms")
+      setOutputLines(result.js.split("\n"))
+    })
+    .catch(err => {
+      setError("Network error: ${err.message}")
+    })
+  }
+
+  fn handleRun() {
+    dec source = getCode()
+    setOutputLines([])
+    setError(null)
+    setTiming("")
+
+    dec start = performance.now()
+
+    fetch("/compile", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({source: source})
+    })
+    .then(res => res.json())
+    .then(result => {
+      |result.error| => {
+        setError(result.error)
+        return null
+      }
+
+      // Execute in sandboxed iframe
+      mut iframe = document.createElement("iframe")
+      iframe.sandbox = "allow-scripts allow-same-origin"
+      iframe.style.display = "none"
+      document.body.appendChild(iframe)
+
+      mut collected = []
+
+      fn handler(event) {
+        |event.source != iframe.contentWindow| => { return null }
+        dec msg = event.data
+        |msg.type == "print"| => {
+          collected.push(msg.text)
+          setOutputLines([...collected])
+        }
+        |msg.type == "done"| => {
+          dec elapsed = Math.round(performance.now() - start)
+          setTiming("ran in ${elapsed}ms")
+          |collected.length == 0| => { setOutputLines(["(no output)"]) }
+          window.removeEventListener("message", handler)
+          iframe.remove()
+        }
+        |msg.type == "error"| => {
+          dec elapsed = Math.round(performance.now() - start)
+          setTiming("error in ${elapsed}ms")
+          setError(msg.message)
+          window.removeEventListener("message", handler)
+          iframe.remove()
+        }
+      }
+
+      window.addEventListener("message", handler)
+
+      // Build sandbox code
+      dec sandboxCode = result.runtime + "\n" + "const _output = [];\n" + "console.log = (...args) => {\n" + "  const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');\n" + "  _output.push(text);\n" + "  parent.postMessage({ type: 'print', text: text }, '*');\n" + "};\n" + "try {\n" + result.js + "\n" + "  parent.postMessage({ type: 'done', output: _output }, '*');\n" + "} catch (e) {\n" + "  parent.postMessage({ type: 'error', message: e.message || String(e) }, '*');\n" + "}"
+
+      dec htmlDoc = "<!DOCTYPE html><html><body><scr" + "ipt>" + sandboxCode + "</scr" + "ipt></body></html>"
+      iframe.srcdoc = htmlDoc
+    })
+    .catch(err => {
+      setError("Network error: ${err.message}")
+    })
+  }
+
+  fn handleSelect(index) {
+    setActiveExample(index)
+    setOutputLines([])
+    setError(null)
+    setTiming("")
+  }
+
+  fn handleViewReady(ref) {
+    viewRef.current = ref
+  }
+
+  |examples.length == 0| => {
+    return <div className="playground">
+      <div style={{padding: "40px", textAlign: "center", fontFamily: "DM Sans, sans-serif"}}>Loading...</div>
+    </div>
+  }
+
+  return <div className="playground">
+    <header className="topbar">
+      <div className="topbar-left">
+        <img src="logo.png" alt="KimchiLang" className="logo" />
+        <div className="brand">
+          <span className="brand-name">KimchiLang</span>
+          <span className="brand-label">playground</span>
+        </div>
+      </div>
+      <div className="topbar-right">
+        <span className="btn-compile" onClick={handleCompile}>Compile</span>
+        <span className="btn-run" onClick={handleRun}>Run</span>
+      </div>
+    </header>
+
+    <div className="panes">
+      <Sidebar examples={examples} active={activeExample} onSelect={handleSelect} />
+
+      <section className="editor-pane">
+        <div className="pane-header">
+          <span className="pane-label">Editor</span>
+          <span className="pane-meta">.km</span>
+        </div>
+        <Editor code={examples[activeExample].code} onRun={handleRun} onViewReady={handleViewReady} />
+      </section>
+
+      <Output lines={outputLines} error={error} timing={timing} />
+    </div>
+
+    <footer className="statusbar">
+      <Tagline />
+      <span className="site-url">kimchilang.org</span>
+    </footer>
+  </div>
+}
+
+// --- Mount ---
+
+dec root = createRoot(document.getElementById("root"))
+root.render(<App />)

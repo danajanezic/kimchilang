@@ -906,6 +906,33 @@ test('Generate match with array destructuring', () => {
   assertContains(js, '_subject[0] === 0');
 });
 
+test('Parse match with regex pattern', () => {
+  const source = 'dec r = match input {\n/^hello/ => "greeting"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '/^hello/.test(_subject)');
+  assertContains(js, '"greeting"');
+});
+
+test('Generate match with regex pattern', () => {
+  const source = 'dec r = match input {\n/^hello/ => "greeting"\n/^\\d+/ => "number"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '/^hello/.test(_subject)');
+  assertContains(js, '"greeting"');
+});
+
+test('Generate match with regex pattern and flags', () => {
+  const source = 'dec r = match input {\n/^hello/i => "greeting"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '/^hello/i.test(_subject)');
+});
+
+test('Generate match with regex pattern and guard', () => {
+  const source = 'dec r = match input {\n/^hello/ when input.length > 10 => "long greeting"\n_ => "other"\n}';
+  const js = generate(parse(tokenize(source)));
+  assertContains(js, '/^hello/.test(_subject)');
+  assertContains(js, '> 10');
+});
+
 test('Generate match returns null when no default arm', () => {
   const source = 'dec r = match x {\n1 => "one"\n}';
   const js = generate(parse(tokenize(source)));

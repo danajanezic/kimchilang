@@ -61,6 +61,7 @@ export const TokenType = {
   WORKER: 'WORKER',
   SPAWN: 'SPAWN',
   SPAWN_CONTENT: 'SPAWN_CONTENT',
+  LAZY: 'LAZY',
 
   // Operators
   PLUS: 'PLUS',
@@ -166,6 +167,7 @@ const KEYWORDS = {
   'module': TokenType.MODULE,
   'worker': TokenType.WORKER,
   'spawn': TokenType.SPAWN,
+  'lazy': TokenType.LAZY,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,
@@ -190,16 +192,27 @@ export class Token {
 }
 
 export class Lexer {
-  constructor(source) {
+  constructor(source, plugins = []) {
     this.source = source;
     this.pos = 0;
     this.line = 1;
     this.column = 1;
     this.tokens = [];
+    this.plugins = plugins;
   }
 
   error(message) {
     throw new Error(`Lexer Error at ${this.line}:${this.column}: ${message}`);
+  }
+
+  tryPluginToken() {
+    for (const plugin of this.plugins) {
+      if (plugin.lexerRules) {
+        const token = plugin.lexerRules(this);
+        if (token) return token;
+      }
+    }
+    return null;
   }
 
   peek(offset = 0) {
@@ -627,13 +640,20 @@ export class Lexer {
   tokenize() {
     while (this.pos < this.source.length) {
       this.skipWhitespace();
-      
+
       if (this.pos >= this.source.length) break;
-      
+
+      // Check plugins for custom tokens
+      const pluginToken = this.tryPluginToken();
+      if (pluginToken) {
+        this.tokens.push(pluginToken instanceof Token ? pluginToken : new Token(pluginToken.type, pluginToken.value, pluginToken.line, pluginToken.column));
+        continue;
+      }
+
       const startLine = this.line;
       const startColumn = this.column;
       const char = this.peek();
-      
+
       // Comments
       if (char === '/' && this.peek(1) === '/') {
         this.advance();
@@ -871,7 +891,7 @@ export class Lexer {
   }
 }
 
-export function tokenize(source) {
-  const lexer = new Lexer(source);
+export function tokenize(source, plugins = []) {
+  const lexer = new Lexer(source, plugins);
   return lexer.tokenize();
 }

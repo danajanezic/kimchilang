@@ -596,6 +596,49 @@ export class CodeGenerator {
 
       this.asyncFunctions = this.buildAsyncMap(node);
 
+      // Emit extern browser imports (tree-shaken)
+      // Also register extern names as known shapes so they use . not ?.
+      const externDeclarations = node.body.filter(stmt => stmt.type === NodeType.ExternDeclaration);
+      const externDefaults = node.body.filter(stmt => stmt.type === NodeType.ExternDefaultDeclaration);
+      for (const ext of externDeclarations) {
+        for (const d of ext.declarations) {
+          this.knownShapes.set(d.alias || d.name, true);
+        }
+      }
+      for (const ext of externDefaults) {
+        this.knownShapes.set(ext.alias, true);
+      }
+      const usedIdentifiers = this.collectUsedIdentifiers(node);
+
+      const namedByModule = new Map();
+      for (const ext of externDeclarations) {
+        for (const d of ext.declarations) {
+          const localName = d.alias || d.name;
+          if (usedIdentifiers.has(localName)) {
+            if (!namedByModule.has(ext.source)) {
+              namedByModule.set(ext.source, []);
+            }
+            if (d.alias) {
+              namedByModule.get(ext.source).push(`${d.name} as ${d.alias}`);
+            } else {
+              namedByModule.get(ext.source).push(d.name);
+            }
+          }
+        }
+      }
+      for (const [source, specs] of namedByModule) {
+        const uniqueSpecs = [...new Set(specs)];
+        this.emitLine(`import { ${uniqueSpecs.join(', ')} } from '${source}';`);
+      }
+      for (const ext of externDefaults) {
+        if (usedIdentifiers.has(ext.alias)) {
+          this.emitLine(`import ${ext.alias} from '${ext.source}';`);
+        }
+      }
+      if (namedByModule.size > 0 || externDefaults.some(e => usedIdentifiers.has(e.alias))) {
+        this.emitLine();
+      }
+
       // Plugin auto-imports (e.g., jsx-runtime)
       for (const plugin of this.plugins) {
         if (plugin.autoImports) {
@@ -629,8 +672,17 @@ export class CodeGenerator {
     const argNames = argDeclarations.map(arg => arg.name);
 
     // Collect extern declarations and emit tree-shaken imports
+    // Register extern names as known shapes so they use . not ?.
     const externDeclarations = node.body.filter(stmt => stmt.type === NodeType.ExternDeclaration);
     const externDefaults = node.body.filter(stmt => stmt.type === NodeType.ExternDefaultDeclaration);
+    for (const ext of externDeclarations) {
+      for (const d of ext.declarations) {
+        this.knownShapes.set(d.alias || d.name, true);
+      }
+    }
+    for (const ext of externDefaults) {
+      this.knownShapes.set(ext.alias, true);
+    }
     const usedIdentifiers = this.collectUsedIdentifiers(node);
 
     // Group named externs by source module
@@ -1892,6 +1944,16 @@ export class CodeGenerator {
         break;
       }
 
+      case 'RegexPattern': {
+        const flags = pattern.flags || '';
+        condition = `/${pattern.pattern}/${flags}.test(_subject)`;
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr})`;
+        }
+        break;
+      }
+
       case 'WildcardPattern':
       case NodeType.WildcardPattern: {
         condition = 'true';
@@ -1985,7 +2047,11 @@ export class CodeGenerator {
   }
 
   visitAssignmentExpression(node) {
+    // Assignment targets must use '.' not '?.' — optional chaining is invalid on LHS
+    const prevForceDirectAccess = this._forceDirectAccess;
+    this._forceDirectAccess = true;
     const left = this.visitExpression(node.left);
+    this._forceDirectAccess = prevForceDirectAccess;
     const right = this.visitExpression(node.right);
     return `${left} ${node.operator} ${right}`;
   }
@@ -2014,11 +2080,11 @@ export class CodeGenerator {
 
     if (node.computed) {
       const property = this.visitExpression(node.property);
-      const safe = this.isKnownNonNull(node.object, null);
+      const safe = this._forceDirectAccess || this.isKnownNonNull(node.object, null);
       return safe ? `${object}[${property}]` : `${object}?.[${property}]`;
     }
 
-    const safe = this.isKnownNonNull(node.object, node.property);
+    const safe = this._forceDirectAccess || this.isKnownNonNull(node.object, node.property);
     return safe ? `${object}.${node.property}` : `${object}?.${node.property}`;
   }
 
