@@ -3571,6 +3571,22 @@ test('fn...is return type — intersection with multiple types', () => {
   assertContains(js, 'function make');
 });
 
+test('Expression: x is A, B — intersection', () => {
+  const source = 'type A = {x: number}\ntype B = {y: number}\nfn test(obj) {\nreturn obj is A, B\n}';
+  const js = compile(source);
+  assertContains(js, "'x' in obj");
+  assertContains(js, "'y' in obj");
+  assertContains(js, '&&');
+});
+
+test('Expression: x in A, B — union', () => {
+  const source = 'type C = {r: number}\ntype D = {w: number}\nfn test(obj) {\nreturn obj in C, D\n}';
+  const js = compile(source);
+  assertContains(js, "'r' in obj");
+  assertContains(js, "'w' in obj");
+  assertContains(js, '||');
+});
+
 test('Match with is multi-type pattern — intersection', () => {
   const source = 'type A = {x: number}\ntype B = {y: number}\nfn test(obj) {\nreturn match obj {\nis A, B => "both"\nis A => "just A"\n_ => "none"\n}\n}';
   const js = compile(source);
