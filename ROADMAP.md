@@ -19,9 +19,8 @@ Planned improvements:
 - [x] ~~`lazy dep` — consumer-side modifier on dep imports. Defers factory call until after module init. Orthogonal to singleton.~~
 - [x] ~~`module pure` — compile-time check that module is side-effect-free (no env, shell, spawn, sleep, print, module-level mut). Mutually exclusive with singleton.~~
 - [ ] `@annotations` — reserved syntax for function-level annotations (future feature, not module directives)
-- [ ] Typed module interfaces — use generics/type system to type-check module exports and required args at compile time
 - [x] ~~Graceful shutdown — `expose fn _shutdown()` convention that `kimchi run` calls on SIGTERM/SIGINT~~
-- [ ] Expose type declarations — let modules export type aliases so consumers can use them (currently types are file-scoped)
+- [x] ~~Expose type declarations~~ — static files export type aliases via `type Name = {shape}`, registered in type checker on import
 
 ## Language Design
 
@@ -37,9 +36,9 @@ Planned improvements:
 - [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
 - [x] ~~Drop `async`/`await`~~ — compiler auto-detects async-ness from call graph. `sleep ms` replaces manual Promise construction.
 - [x] ~~Frontend build system — `kimchi build entry.km -o dist/bundle.js`. Compiles with `--target browser`, bundles deps into IIFE, inlines runtime. No factory wrappers. Prerequisite for `.kmx`.~~
-- [ ] `extern node`/`extern browser` platform annotations — compile error when platform mismatches build target
+- [x] ~~`extern node`/`extern browser` platform annotations~~ — compile error when platform mismatches build target
 - [ ] Build config file (`build.static`) — entry, output, target, options
-- [ ] Dev server with hot reload — `kimchi dev frontend/`, on-demand transpilation, browser auto-refresh
+- [ ] Dev server with hot reload — see `kimchi serve` in Tooling section
 - [ ] Production build optimizations — minification, tree-shaking (leverages `module pure`), code splitting
 - [x] ~~JSX support in `.kmx` files~~ — via compiler plugin system. `<div>{expr}</div>` compiles to React 19 `jsx()`/`jsxs()` from `react/jsx-runtime`. Auto-import, components as functions, `stdlib/kmx/react.km` for full API.
 - [x] ~~Regex patterns in match arms~~ — `match str { /^hello/ => "greeting" }` compiles to `.test()` checks
@@ -60,13 +59,14 @@ Planned improvements:
 A type system built on KimchiLang's existing primitives (`type`, `is`, `guard`, `match`) rather than TypeScript-style annotations or Hindley-Milner inference. Types narrow through control flow — the compiler tracks what `is`, `guard`, and `match` prove about values.
 
 Phase 1 — Foundation:
-- [ ] Fix nullish equality (`!= null` must catch undefined) — prerequisite for all type narrowing
+- [x] ~~Fix nullish equality (`!= null` must catch undefined)~~ — `== null`/`!= null` now use loose equality
 - [ ] Enforce extern parameter types at call sites — types are already declared, just not checked
-- [ ] Track `guard x != null` narrowing through the rest of the function scope
-- [ ] Track `is` narrowing in match arms and if blocks
+- [x] ~~Track `guard x != null` narrowing through the rest of the function scope~~
+- [x] ~~Track `is` narrowing in match arms and if blocks~~ — `guard x is Type` narrows, multi-type `is A, B, C` merges shapes
 
 Phase 2 — Inference:
-- [ ] Infer function return types from match/guard exhaustiveness — if all arms return strings, the function returns string
+- [x] ~~Infer function return types from return statements~~ — compiler collects return types and infers common shape
+- [x] ~~Declared return types~~ — `fn name() is ReturnType` declares return shape, compiler registers for callers
 - [ ] Infer variable types from literal assignments — `dec x = 5` means `x` is `number`
 - [ ] Propagate types through pipe chains — `5 ~> double ~> addOne` infers each step as `number`
 - [ ] Warn on type mismatch in binary expressions — `"hello" + 5` should warn
@@ -80,7 +80,6 @@ Phase 4 — Advanced:
 - [ ] Type-check module boundaries — `expose fn` return types validated against callers across `dep` imports
 - [ ] Typed module interfaces — declare required exports so `dep` consumers get compile-time checks
 - [ ] Effect tracking — functions that `throw`, `print`, or use `shell` could be tagged, preventing accidental side effects in `module pure`
-- [ ] Fix false-positive unreachable code warnings for conditional blocks — `|cond| => { return ... }` followed by more code always warns
 
 ## Tooling
 
@@ -95,7 +94,7 @@ Phase 4 — Advanced:
 - [ ] `kimchi serve` — dev server that bundles `.kmx` frontend, serves static files, and provides hot reload. Eliminates manual server setup for frontend projects.
 - [ ] `kimchi init fullstack` — scaffold a fullstack project (server.km + app.kmx + public/ + importmap)
 - [ ] Bundler stdlib resolution — `as react dep stdlib.kmx.react` should resolve to the actual stdlib directory, not relative to the entry file
-- [ ] Binary file support in web server — `readFile` without encoding for images/fonts. Currently requires `any` type workaround and modified server helper.
+- [x] ~~Binary file support in web server~~ — Buffer response support added to server helper. `readFile(path, null)` returns Buffer for binary files.
 - [ ] Interpreter CWD — `process.cwd()` should return the directory where `kimchi run` was invoked, not the script's directory
 
 ## Standard Library
