@@ -8,7 +8,6 @@ extern "node:fs/promises" {
   async fn writeFile(path: string, data: string): void
 }
 
-
 extern "node:path" {
   fn join(a: string, b: string): string
   fn extname(path: string): string
@@ -20,12 +19,18 @@ extern "node:os" {
   fn tmpdir(): string
 }
 
-// Resolve directories — pass project root as arg
+// --- Contracts ---
+
+type CompileRequest = {source: string}
+type CompileResponse = {js: string, runtime: string}
+type ErrorResponse = {error: string}
+
+// --- Configuration ---
+
 arg root
 dec projectRoot = root
 dec playgroundDir = resolve(projectRoot, "examples/fullstack/playground")
 
-// MIME types for static serving
 dec mimeTypes = {
   ".html": "text/html",
   ".css": "text/css",
@@ -37,17 +42,16 @@ dec mimeTypes = {
   ".woff2": "font/woff2"
 }
 
-// Load the runtime source at startup (strip exports for browser use)
-dec runtimeRaw = readFile(join(projectRoot, "src/runtime.js"), "utf-8")
-dec runtime = runtimeRaw
+dec textExtensions = [".html", ".css", ".js", ".json", ".svg"]
+
+// Load runtime source at startup (strip exports for browser use)
+dec runtime = readFile(join(projectRoot, "src/runtime.js"), "utf-8")
   .split("\n")
   .filter(line => !line.startsWith("import "))
   .map(line => line.startsWith("export ") ? line.slice(7) : line)
   .join("\n")
 
 // --- Static file serving ---
-
-dec textExtensions = [".html", ".css", ".js", ".json", ".svg"]
 
 fn serveFile(filePath) {
   guard !filePath.includes("..") else { return server.forbidden("forbidden") }
@@ -56,8 +60,6 @@ fn serveFile(filePath) {
   dec ext = extname(fullPath)
   dec mime = mimeTypes[ext] ?? "application/octet-stream"
   dec isText = textExtensions.includes(ext)
-
-  // Pass null encoding for binary files — readFile returns Buffer
   dec encoding = "utf-8".if(isText).else(null)
   dec content = readFile(fullPath, encoding)
   return server.response(200, content, {"Content-Type": mime})
@@ -65,14 +67,14 @@ fn serveFile(filePath) {
 
 // --- Compile endpoint ---
 
-fn compileSource(source) {
-  // Write source to temp file, compile via CLI, read output
+fn compileSource(source) is Type.String {
   dec tmpFile = join(tmpdir(), "playground_input.km")
   dec outFile = join(tmpdir(), "playground_output.js")
   writeFile(tmpFile, source)
 
   dec cliPath = join(projectRoot, "src/cli.js")
   dec result = shell(cliPath, tmpFile, outFile) { node $cliPath compile $tmpFile -o $outFile 2>&1 }
+  guard result is ShellResult else { throw "compile failed" }
 
   if result.exitCode != 0 {
     throw result.stdout
@@ -80,16 +82,9 @@ fn compileSource(source) {
 
   dec js = readFile(outFile, "utf-8")
 
-  // Strip module wrapper and runtime import for playground execution
-  dec lines = js.split("\n")
-
-  // Strip import lines, then make the module self-executing
-  mut code = js
-  // Remove import lines (runtime is inlined separately)
-  code = code.split("\n").filter(l => !l.startsWith("import ")).join("\n").trim()
-  // Replace "export default async function" with self-calling wrapper
+  // Strip imports and make module self-executing
+  mut code = js.split("\n").filter(l => !l.startsWith("import ")).join("\n").trim()
   code = code.replace("export default async function", "(async function")
-  // Add self-call at the end
   code = code + "\n)({})"
   return code
 }
@@ -99,8 +94,7 @@ fn compileSource(source) {
 server.listen((req) => {
   // Compile API
   |req.path == "/compile" and req.method == "POST"| => {
-    guard req.body != null else { return server.badRequest("request body required") }
-    guard req.body.source != null else { return server.badRequest("source is required") }
+    guard req.body is CompileRequest else { return server.badRequest("source is required") }
 
     try {
       dec js = compileSource(req.body.source)

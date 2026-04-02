@@ -38,11 +38,16 @@ extern browser "@lezer/highlight" {
   dec tags: any
 }
 
+// --- Contracts ---
+
+type CompileResult = {js: string, runtime: string}
+type CompileError = {error: string}
+
 // --- KimchiLang syntax mode for CodeMirror ---
 
-dec kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is)\b/
+dec kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/
 
-fn tokenizeKimchi(stream) {
+fn tokenizeKimchi(stream) is Type.String {
   if stream.match(/^\/\/.*/) { return "comment" }
   if stream.match(/^"[^"]*"/) { return "string" }
   if stream.match(/^-?\d+(\.\d+)?/) { return "number" }
@@ -106,7 +111,6 @@ fn Editor(props) {
     }
   }, [props.code])
 
-  // Expose getCode method via callback
   useEffect(() => {
     props.onViewReady(viewRef)
   }, [])
@@ -168,6 +172,22 @@ fn Tagline() {
   </span>
 }
 
+// --- Compile/Run logic ---
+
+fn compileSource(source) {
+  return fetch("/compile", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({source: source})
+  }).then(res => res.json())
+}
+
+fn buildSandboxHtml(result) is Type.String {
+  guard result is CompileResult else { return "" }
+  dec sandboxCode = result.runtime + "\n" + "const _output = [];\n" + "console.log = (...args) => {\n" + "  const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');\n" + "  _output.push(text);\n" + "  parent.postMessage({ type: 'print', text: text }, '*');\n" + "};\n" + "try {\n" + result.js + "\n" + "  parent.postMessage({ type: 'done', output: _output }, '*');\n" + "} catch (e) {\n" + "  parent.postMessage({ type: 'error', message: e.message || String(e) }, '*');\n" + "}"
+  return "<!DOCTYPE html><html><body><scr" + "ipt>" + sandboxCode + "</scr" + "ipt></body></html>"
+}
+
 // --- Main App ---
 
 fn App() {
@@ -178,14 +198,14 @@ fn App() {
   dec [timing, setTiming] = useState("")
   mut viewRef = useRef(null)
 
-  // Load examples from JSON on mount
+  // Load examples on mount
   useEffect(() => {
     fetch("/examples.json")
       .then(res => res.json())
       .then(data => setExamples(data))
   }, [])
 
-  fn getCode() {
+  fn getCode() is Type.String {
     |viewRef.current != null and viewRef.current.current != null| => {
       return viewRef.current.current.state.doc.toString()
     }
@@ -193,103 +213,91 @@ fn App() {
     return ""
   }
 
-  fn handleCompile() {
-    dec source = getCode()
+  fn resetOutput() {
     setOutputLines([])
     setError(null)
     setTiming("")
+  }
 
+  fn handleCompile() {
+    dec source = getCode()
+    resetOutput()
     dec start = performance.now()
 
-    fetch("/compile", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({source: source})
-    })
-    .then(res => res.json())
-    .then(result => {
-      dec elapsed = Math.round(performance.now() - start)
-      |result.error| => {
-        setError(result.error)
-        return null
-      }
-      setTiming("compiled in ${elapsed}ms")
-      setOutputLines(result.js.split("\n"))
-    })
-    .catch(err => {
-      setError("Network error: ${err.message}")
-    })
+    compileSource(source)
+      .then(result => {
+        dec elapsed = Math.round(performance.now() - start)
+        |result.error| => {
+          setError(result.error)
+          return null
+        }
+        setTiming("compiled in ${elapsed}ms")
+        setOutputLines(result.js.split("\n"))
+      })
+      .catch(err => {
+        setError("Network error: ${err.message}")
+      })
   }
 
   fn handleRun() {
     dec source = getCode()
-    setOutputLines([])
-    setError(null)
-    setTiming("")
-
+    resetOutput()
     dec start = performance.now()
 
-    fetch("/compile", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({source: source})
-    })
-    .then(res => res.json())
-    .then(result => {
-      |result.error| => {
-        setError(result.error)
-        return null
-      }
-
-      // Execute in sandboxed iframe
-      mut iframe = document.createElement("iframe")
-      iframe.sandbox = "allow-scripts allow-same-origin"
-      iframe.style.display = "none"
-      document.body.appendChild(iframe)
-
-      mut collected = []
-
-      fn handler(event) {
-        |event.source != iframe.contentWindow| => { return null }
-        dec msg = event.data
-        |msg.type == "print"| => {
-          collected.push(msg.text)
-          setOutputLines([...collected])
+    compileSource(source)
+      .then(result => {
+        |result.error| => {
+          setError(result.error)
+          return null
         }
-        |msg.type == "done"| => {
-          dec elapsed = Math.round(performance.now() - start)
-          setTiming("ran in ${elapsed}ms")
-          |collected.length == 0| => { setOutputLines(["(no output)"]) }
-          window.removeEventListener("message", handler)
-          iframe.remove()
+
+        // Execute in sandboxed iframe
+        mut iframe = document.createElement("iframe")
+        iframe.sandbox = "allow-scripts allow-same-origin"
+        iframe.style.display = "none"
+        document.body.appendChild(iframe)
+
+        mut collected = []
+
+        fn handler(event) {
+          |event.source != iframe.contentWindow| => { return null }
+          dec msg = event.data
+          guard msg != null else { return null }
+
+          return match msg.type {
+            "print" => {
+              collected.push(msg.text)
+              setOutputLines([...collected])
+            }
+            "done" => {
+              dec elapsed = Math.round(performance.now() - start)
+              setTiming("ran in ${elapsed}ms")
+              |collected.length == 0| => { setOutputLines(["(no output)"]) }
+              window.removeEventListener("message", handler)
+              iframe.remove()
+            }
+            "error" => {
+              dec elapsed = Math.round(performance.now() - start)
+              setTiming("error in ${elapsed}ms")
+              setError(msg.message)
+              window.removeEventListener("message", handler)
+              iframe.remove()
+            }
+            _ => null
+          }
         }
-        |msg.type == "error"| => {
-          dec elapsed = Math.round(performance.now() - start)
-          setTiming("error in ${elapsed}ms")
-          setError(msg.message)
-          window.removeEventListener("message", handler)
-          iframe.remove()
-        }
-      }
 
-      window.addEventListener("message", handler)
-
-      // Build sandbox code
-      dec sandboxCode = result.runtime + "\n" + "const _output = [];\n" + "console.log = (...args) => {\n" + "  const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');\n" + "  _output.push(text);\n" + "  parent.postMessage({ type: 'print', text: text }, '*');\n" + "};\n" + "try {\n" + result.js + "\n" + "  parent.postMessage({ type: 'done', output: _output }, '*');\n" + "} catch (e) {\n" + "  parent.postMessage({ type: 'error', message: e.message || String(e) }, '*');\n" + "}"
-
-      dec htmlDoc = "<!DOCTYPE html><html><body><scr" + "ipt>" + sandboxCode + "</scr" + "ipt></body></html>"
-      iframe.srcdoc = htmlDoc
-    })
-    .catch(err => {
-      setError("Network error: ${err.message}")
-    })
+        window.addEventListener("message", handler)
+        iframe.srcdoc = buildSandboxHtml(result)
+      })
+      .catch(err => {
+        setError("Network error: ${err.message}")
+      })
   }
 
   fn handleSelect(index) {
     setActiveExample(index)
-    setOutputLines([])
-    setError(null)
-    setTiming("")
+    resetOutput()
   }
 
   fn handleViewReady(ref) {

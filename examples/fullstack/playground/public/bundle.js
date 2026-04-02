@@ -71,7 +71,7 @@ const taglines = ["Kimchi probiotics bind 87% of pollutants — we bind 100% of 
 
 var data = _mod_snippets;
 
-const kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is)\b/;
+const kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/;
 function tokenizeKimchi(stream) {
   if (stream?.match(/^\/\/.*/)) {
     return "comment";
@@ -151,6 +151,18 @@ function Tagline() {
   return jsx("span", { className: "tagline", style: {opacity: opacity, transition: "opacity 0.5s"}, children: data.taglines[index] });
 }
 
+function compileSource(source) {
+  return fetch("/compile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source }) })?.then(res => res?.json());
+}
+
+function buildSandboxHtml(result) {
+  if (!((typeof result === 'object' && result !== null && 'js' in result && 'runtime' in result))) {
+    return "";
+  }
+  const sandboxCode = ((((((((((((((result.runtime + "\n") + "const _output = [];\n") + "console.log = (...args) => {\n") + "  const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');\n") + "  _output.push(text);\n") + "  parent.postMessage({ type: 'print', text: text }, '*');\n") + "};\n") + "try {\n") + result.js) + "\n") + "  parent.postMessage({ type: 'done', output: _output }, '*');\n") + "} catch (e) {\n") + "  parent.postMessage({ type: 'error', message: e.message || String(e) }, '*');\n") + "}");
+  return (((("<!DOCTYPE html><html><body><scr" + "ipt>") + sandboxCode) + "</scr") + "ipt></body></html>");
+}
+
 function App() {
   const [examples, setExamples] = useState([]);
   const [activeExample, setActiveExample] = useState(0);
@@ -172,21 +184,25 @@ function App() {
     return "";
   }
   
-  function handleCompile() {
-    const source = getCode();
+  function resetOutput() {
     setOutputLines([]);
     setError(null);
     setTiming("");
+  }
+  
+  function handleCompile() {
+    const source = getCode();
+    resetOutput();
     const start = performance?.now();
-    fetch("/compile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source }) })?.then(res => res?.json())?.then(result => {
+    compileSource(source)?.then(result => {
       const elapsed = Math.round((performance?.now() - start));
-      if (result?.error) {
-        setError(result?.error);
+      if (result.error) {
+        setError(result.error);
         return null;
         return;
       }
       setTiming(`compiled in ${elapsed}ms`);
-      setOutputLines(result?.js?.split("\n"));
+      setOutputLines(result.js?.split("\n"));
     })?.catch(err => {
       setError(`Network error: ${err?.message}`);
     });
@@ -194,13 +210,11 @@ function App() {
   
   function handleRun() {
     const source = getCode();
-    setOutputLines([]);
-    setError(null);
-    setTiming("");
+    resetOutput();
     const start = performance?.now();
-    fetch("/compile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source }) })?.then(res => res?.json())?.then(result => {
-      if (result?.error) {
-        setError(result?.error);
+    compileSource(source)?.then(result => {
+      if (result.error) {
+        setError(result.error);
         return null;
         return;
       }
@@ -215,34 +229,37 @@ function App() {
           return;
         }
         const msg = event?.data;
-        if ((msg.type === "print")) {
-          collected.push(msg.text);
-          setOutputLines([...collected]);
-          return;
-        } else if ((msg.type === "done")) {
-          const elapsed = Math.round((performance?.now() - start));
-          setTiming(`ran in ${elapsed}ms`);
-          if ((collected.length === 0)) {
-            setOutputLines(["(no output)"]);
-            return;
-          }
-          window.removeEventListener("message", handler);
-          iframe.remove();
-          return;
-        } else if ((msg.type === "error")) {
-          const elapsed = Math.round((performance?.now() - start));
-          setTiming(`error in ${elapsed}ms`);
-          setError(msg.message);
-          window.removeEventListener("message", handler);
-          iframe.remove();
-          return;
+        if (!((msg != null))) {
+          return null;
         }
+        return (() => {
+          const _subject = msg.type;
+          if (_subject === "print") {
+            collected.push(msg.text);
+            setOutputLines([...collected]);
+          } else if (_subject === "done") {
+            const elapsed = Math.round((performance?.now() - start));
+            setTiming(`ran in ${elapsed}ms`);
+            if ((collected.length === 0)) {
+  setOutputLines(["(no output)"]);
+  return;
+}
+            window.removeEventListener("message", handler);
+            iframe.remove();
+          } else if (_subject === "error") {
+            const elapsed = Math.round((performance?.now() - start));
+            setTiming(`error in ${elapsed}ms`);
+            setError(msg.message);
+            window.removeEventListener("message", handler);
+            iframe.remove();
+          } else {
+            return null;
+          }
+        })();
       }
       
       window.addEventListener("message", handler);
-      const sandboxCode = ((((((((((((((result?.runtime + "\n") + "const _output = [];\n") + "console.log = (...args) => {\n") + "  const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');\n") + "  _output.push(text);\n") + "  parent.postMessage({ type: 'print', text: text }, '*');\n") + "};\n") + "try {\n") + result?.js) + "\n") + "  parent.postMessage({ type: 'done', output: _output }, '*');\n") + "} catch (e) {\n") + "  parent.postMessage({ type: 'error', message: e.message || String(e) }, '*');\n") + "}");
-      const htmlDoc = (((("<!DOCTYPE html><html><body><scr" + "ipt>") + sandboxCode) + "</scr") + "ipt></body></html>");
-      iframe.srcdoc = htmlDoc;
+      iframe.srcdoc = buildSandboxHtml(result);
     })?.catch(err => {
       setError(`Network error: ${err?.message}`);
     });
@@ -250,9 +267,7 @@ function App() {
   
   function handleSelect(index) {
     setActiveExample(index);
-    setOutputLines([]);
-    setError(null);
-    setTiming("");
+    resetOutput();
   }
   
   function handleViewReady(ref) {
