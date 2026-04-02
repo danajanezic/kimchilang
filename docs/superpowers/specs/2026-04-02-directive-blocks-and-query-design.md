@@ -8,7 +8,7 @@ Two designs in one: (1) a formalized convention for **directive blocks** — Kim
 
 ### What it is
 
-A directive block is domain-specific syntax enclosed in `{ }` that a compiler plugin compiles to JavaScript. The pattern already exists in KimchiLang (`shell`, `spawn`, `sql`). This spec formalizes the convention so future extensions follow a consistent shape.
+A directive block is domain-specific syntax enclosed in `{ }` that a compiler plugin compiles to JavaScript. The pattern already exists in KimchiLang (`shell`, `spawn`). This spec formalizes the convention so third-party extensions can add new directive blocks.
 
 ### Syntax
 
@@ -16,66 +16,126 @@ A directive block is domain-specific syntax enclosed in `{ }` that a compiler pl
 directiveName [(override)] [TypeAnnotation] { domain-specific body }
 ```
 
-- **directiveName** — hardcoded by the plugin, registered in the extension registry
-- **(override)** — optional, plugin-defined. Passes context to the compiled output. Each plugin decides what the parens mean (connection override, input variables, etc.)
-- **TypeAnnotation** — optional `is Type` / `in Type1, Type2` / bare `Type`, depending on the directive. Same semantics as everywhere else in KimchiLang.
-- **{ body }** — lexed and parsed by the plugin, not the core language
+- **directiveName** — declared by the extension package, registered when imported
+- **(override)** — optional, extension-defined. Each extension decides what the parens mean (connection override, input variables, etc.)
+- **TypeAnnotation** — optional `is Type` / `in Type1, Type2` / bare `Type`, depending on the directive
+- **{ body }** — lexed and parsed by the extension plugin, not the core language
 
-### Runtime/Compile-time split
+### Four layers of KimchiLang
 
-Each directive has two halves:
+| Layer | Import syntax | Example | What it is |
+|-------|--------------|---------|------------|
+| **Language** | none | `shell`, `spawn`, `match`, `guard` | Built-in, always available |
+| **KMX** | `.kmx` extension | JSX syntax | Frontend runtime, auto-loaded by file extension |
+| **Stdlib** | `dep stdlib.X` | `as db dep stdlib.db.postgres` | Standard library — drivers, utilities, no compiler plugins |
+| **Extensions** | `dep @X` | `dep @db.query({db: db})` | Directive-capable packages from the pantry — include compiler plugin + runtime |
 
-| Half | What | Where |
-|------|------|-------|
-| **Compile-time** | Plugin (JS) — lexer, parser, generator hooks | `src/extensions/<name>.js` |
-| **Runtime** | Stdlib module (KimchiLang) — exposes functions the compiled code calls | `stdlib/db/<name>.km` or similar |
+### How extensions are imported
 
-The plugin compiles directive syntax into function calls on the runtime module. The module takes dependencies as `arg` declarations and validates them with contracts.
+Extensions use `dep @namespace.name` with no alias. The import does three things:
 
-### Connection pattern
-
-Directive-capable modules register a default connection via `dep`. The directive uses it automatically. Parens override the default with a specific connection:
+1. Imports the runtime module (passes args)
+2. Loads the compiler plugin (lexer/parser/generator hooks)
+3. Registers the directive keyword (declared by the extension)
 
 ```
-as db dep stdlib.db.postgres({url: "postgres://localhost/app"})
+as db dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
+dep @db.query({db: db})
+dep @db.sql({db: db})
+
+type User = {id: number, name: string, email: string}
+
+// "query" and "sql" are now directive keywords in this module
+dec user = query User { find 42 }
+dec report = sql is User { SELECT * FROM users }
+```
+
+No alias needed. No `module has` needed. The `dep @` line is the signal.
+
+### Directive name ownership
+
+Each extension package declares its directive name internally. `@db.query` declares `query`. `@db.sql` declares `sql`. The user doesn't choose the name.
+
+If two extensions declare the same directive name, it's a **compile error**:
+
+```
+dep @db.query({db: db})
+dep @acme.query({db: db})
+// Compile Error: directive name "query" declared by both @db.query and @acme.query
+```
+
+A resolution mechanism for name conflicts will be designed later.
+
+### Shadowing prevention
+
+The registered directive name becomes a reserved keyword within the module. Any variable, function, or parameter with the same name is a compile error:
+
+```
+dep @db.query({db: db})
+
+dec query = "something"  // Compile Error: 'query' is a directive keyword in this module
+```
+
+### Connection override pattern
+
+Extensions that need a connection can accept a default via args and allow per-call overrides in parens:
+
+```
+as main dep stdlib.db.postgres({url: "postgres://localhost/app"})
 as analytics dep stdlib.db.postgres({url: "postgres://localhost/analytics"})
 
-// Register default connection
-as sql dep stdlib.db.sql({db: db})
+dep @db.query({db: main})
 
-// Uses default (db)
-dec users = sql is User { SELECT * FROM users }
+// Default connection (main)
+dec user = query User { find 42 }
 
 // Override with specific connection
-dec events = sql(analytics) is Event { SELECT * FROM events }
+dec events = query(analytics) Event { where {type: "click"} }
 ```
 
-No parens = default. Parens = override. Plugin defines the rules for what goes in the parens.
+No parens = default (from module args). Parens = override. The extension defines what parens mean.
 
-### How the compiler links directives to modules
+### Extension package structure
 
-The plugin registers which `dep` module path it pairs with. When the compiler encounters a `dep` import for that module path, it stores the internal variable name. When the directive is used, the compiled output calls methods on that internal variable. If parens provide an override, the compiled output uses the override variable instead.
+An extension package (stored in `.km_extensions/` or the pantry) contains:
 
-Example: the `sql` plugin registers that `stdlib.db.sql` is its runtime module. When the compiler sees `as sql dep stdlib.db.sql({db: db})`, it knows `_dep_sql` provides the runtime. `sql is User { SELECT * }` compiles to `await _dep_sql.query("SELECT *")`. `sql(analytics) is User { SELECT * }` compiles to `await analytics.query("SELECT *")`.
+```
+@db.query/
+  plugin.js       # Compiler plugin (lexer/parser/generator hooks)
+  runtime.km      # KimchiLang runtime module (exposes functions)
+  manifest.json   # Declares directive name, dependencies, version
+```
 
-### Existing directives (unchanged)
+The `manifest.json` declares:
 
-| Directive | Plugin | Runtime | Parens meaning |
-|-----------|--------|---------|---------------|
-| `shell` | built-in | built-in `_shell` | input variables for interpolation |
-| `spawn` | built-in | built-in `_spawn` | — |
-| `sql` | `src/extensions/sql.js` | `stdlib/db/sql.km` | connection override |
-| `query` | `src/extensions/query.js` (new) | `stdlib/db/query.km` (new) | connection override |
+```json
+{
+  "name": "@db.query",
+  "directive": "query",
+  "runtime": "runtime.km",
+  "plugin": "plugin.js"
+}
+```
 
-### Contract for database modules
+### Contract for database extensions
 
-All database directive modules accept a `db` arg that must satisfy:
+Database extensions accept a `db` arg that must satisfy:
 
 ```
 type Queryable = {query: (sql: string, params: any) => any}
 ```
 
-The `guard db is Queryable` check runs at module initialization. Any driver that exposes `query(sql, params)` works — postgres, mysql, sqlite.
+The extension's runtime validates this at initialization:
+
+```
+// @db.query/runtime.km
+arg db
+guard db is Queryable else { throw "db must have a query function" }
+```
+
+### Built-in directives (unchanged)
+
+`shell` and `spawn` remain built-in language constructs — no `dep @` needed. KMX (JSX) remains auto-loaded by `.kmx` file extension. These are not extensions, they're part of the core language and frontend runtime.
 
 ---
 
@@ -89,7 +149,7 @@ A CRUD database abstraction where types are the schema. No ORM classes, no migra
 
 ```
 as db dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
-as query dep stdlib.db.query({db: db})
+dep @db.query({db: db})
 ```
 
 ### Types as schema
@@ -100,7 +160,7 @@ type Post = {id: number, title: string, body: string, user_id: number}
 type Profile = {id: number, bio: string, user_id: number}
 ```
 
-The type name maps to a table: `User` → `users` (lowercase, pluralized with `s` suffix). The type's properties are the columns. The contract system (`guard x is User`) validates that query results match the shape.
+The type name maps to a table: `User` → `users` (lowercase + `s` suffix). The type's properties are the columns.
 
 ### CRUD Operations
 
@@ -110,7 +170,6 @@ The type name maps to a table: `User` → `users` (lowercase, pluralized with `s
 dec user = query User { find 42 }
 ```
 
-Compiles to: `await query.find("users", 42)`
 SQL: `SELECT * FROM users WHERE id = $1`
 Returns: `User` or `null`
 
@@ -120,7 +179,6 @@ Returns: `User` or `null`
 dec users = query User { all }
 ```
 
-Compiles to: `await query.all("users")`
 SQL: `SELECT * FROM users`
 Returns: `User[]`
 
@@ -230,18 +288,9 @@ print userWithPosts.name
 print userWithPosts.posts.length
 ```
 
-Implementation: separate queries joined in the runtime. First query fetches the user, subsequent queries fetch related rows by foreign key.
+Implementation: separate queries joined in the runtime module.
 
-```js
-// Compiled:
-const _user = await query.find("users", 42);
-if (_user) {
-  _user.posts = await query._include("posts", "user_id", _user.id);
-  _user.profile = await query._include("profiles", "user_id", _user.id);
-}
-```
-
-#### Include with where
+#### Include with filtering
 
 ```
 dec userWithRecentPosts = query User {
@@ -256,12 +305,29 @@ dec userWithRecentPosts = query User {
 
 Include takes an optional block that filters/sorts the related rows.
 
+### Variable interpolation
+
+Query bodies can reference KimchiLang variables with `$`:
+
+```
+dec minAge = 21
+dec role = "admin"
+
+dec users = query User {
+  where {age: $minAge, role: $role}
+  limit 10
+}
+```
+
+The `$var` references become parameterized query values, same as the SQL plugin. SQL injection is impossible.
+
 ### Connection override
 
 ```
 as main dep stdlib.db.postgres({url: "postgres://localhost/app"})
 as analytics dep stdlib.db.postgres({url: "postgres://localhost/analytics"})
-as query dep stdlib.db.query({db: main})
+
+dep @db.query({db: main})
 
 // Default connection (main)
 dec user = query User { find 42 }
@@ -272,20 +338,16 @@ dec events = query(analytics) Event { where {type: "click"} }
 
 ### Composing with contracts
 
-The query directive returns typed data. Contracts validate it:
-
 ```
 type ActiveAdmin = {id: number, name: string, role: string, active: boolean}
 
 fn getActiveAdmins() is ActiveAdmin {
-  dec admins = query User {
+  return query User {
     where {role: "admin", active: true}
     sortBy "name" asc
   }
-  return admins
 }
 
-// Caller gets typed result
 dec admins = getActiveAdmins()
 guard admins.length > 0 else { throw "no admins found" }
 print admins[0].name  // compiler knows .name exists
@@ -293,59 +355,56 @@ print admins[0].name  // compiler knows .name exists
 
 ### Composing with sql
 
-For complex queries that exceed the CRUD abstraction, drop to `sql`:
+For complex queries beyond CRUD, drop to raw sql:
 
 ```
-as sql dep stdlib.db.sql({db: db})
+dep @db.sql({db: db})
 
-type UserReport = {name: string, post_count: number, last_post: string}
+type UserReport = {name: string, post_count: number}
 
 dec report = sql is UserReport {
-  SELECT u.name, COUNT(p.id) as post_count, MAX(p.created_at) as last_post
+  SELECT u.name, COUNT(p.id) as post_count
   FROM users u
   LEFT JOIN posts p ON p.user_id = u.id
   GROUP BY u.name
   HAVING COUNT(p.id) > 5
-  ORDER BY post_count DESC
 }
 ```
 
-Simple CRUD uses `query`. Complex reporting/analytics uses `sql`. Both share the same `db` connection and type contracts.
+Simple operations use `query`. Complex analytics use `sql`. Both share the same `db` connection and type contracts.
 
 ---
 
-## Implementation plan
+## Implementation
 
-### Plugin: `src/extensions/query.js`
+### Extension: `@db.query`
 
-**Lexer:** Recognize `query` keyword followed by an identifier (type name) and `{`. Capture the body. Handle optional `(override)` before the type name.
+**plugin.js (compiler hooks):**
+- **Lexer:** Recognize `query` followed by identifier + `{`. Handle optional `(override)` between `query` and the type name. Capture body.
+- **Parser:** Parse body operations: `find`, `all`, `first`, `last`, `count`, `where`, `sortBy`, `limit`, `offset`, `create`, `update`, `remove`, `include`. Extract `$var` references. Build `QueryBlock` AST node.
+- **Generator:** Compile to function calls on the extension's runtime module. Type name → table name conversion at compile time.
 
-**Parser:** Parse body operations: `find`, `all`, `first`, `last`, `count`, `where`, `sortBy`, `limit`, `offset`, `create`, `update`, `remove`, `include`. Build a `QueryBlock` AST node.
+**runtime.km (runtime module):**
+- Accepts `{db: Queryable}` arg
+- Exposes: `find`, `all`, `first`, `last`, `count`, `where`, `create`, `update`, `remove`, `include`
+- Each function builds SQL and calls `db.query(sql, params)`
 
-**Generator:** Compile to `await _dep_query.find(...)`, `await _dep_query.where(...)`, etc. Chain operations into a single SQL query where possible.
+### Extension: `@db.sql`
 
-### Runtime: `stdlib/db/query.km`
+Migrate existing `src/extensions/sql.js` to extension package format. Same plugin, new import pattern.
 
-Exposes: `find`, `all`, `first`, `last`, `count`, `where`, `create`, `update`, `remove`, `_include`.
+### Migration path
 
-Each function builds SQL from the table name, conditions, and options, then calls `db.query(sql, params)`.
-
-Type-to-table mapping: `User` → `users` (lowercase + `s`). Done in the plugin at compile time — the runtime receives table name strings.
-
-### Update to SQL plugin
-
-Remove `(connection)` syntax from the sql plugin. Replace with module-arg pattern matching query. Update `stdlib/db/sql.km` to accept `{db: db}` arg.
-
-### Migration for existing sql(db) usage
-
-The playground's `server.km` and any `sql(db)` usage needs to update to the new pattern. The `(db)` override syntax still works for non-default connections, but the default case drops the parens.
+Current `sql(db) is User { ... }` syntax continues to work during transition. The `dep @db.sql` import pattern is the new recommended approach.
 
 ---
 
 ## Out of scope
 
 - Schema migrations / DDL
-- Transaction blocks (future directive: `transaction { ... }`)
-- Connection pooling config beyond what the driver provides
-- Database-specific syntax in the query directive (it generates standard SQL)
+- Transaction blocks (future directive)
+- Connection pooling configuration
+- Database-specific SQL in the query directive
 - Table name customization (always type name → lowercase + s)
+- Directive name conflict resolution mechanism (compile error for now)
+- KimchiLang-native extension authoring (noted as future task #128)
