@@ -733,38 +733,61 @@ export class TypeChecker {
     this.popScope();
 
     // Type narrowing: guard x is MyType else { ... }
-    // After the guard, x is known to have the shape defined by MyType
+    // Also: guard x is A, B, C (intersection — merge all shapes)
+    // Also: guard x in A, B, C (union — any shape)
     if (node.test && node.test.type === 'BinaryExpression' &&
-        (node.test.operator === 'is') && node.test.left?.type === 'Identifier') {
+        (node.test.operator === 'is' || node.test.operator === 'in') &&
+        node.test.left?.type === 'Identifier') {
       const identifier = node.test.left.name;
-      const typeName = node.test.right?.type === 'Identifier' ? node.test.right.name : null;
+      const types = node.test.multiTypes || [node.test.right];
+      const mode = node.test.multiMode || (node.test.operator === 'in' ? 'union' : 'intersection');
 
-      if (typeName) {
-        const alias = this.typeAliases.get(typeName);
-        if (alias) {
-          const resolved = alias.params.length === 0
-            ? alias.body
-            : this.substituteTypeParams(alias.body, new Map());
-          // Merge new shape properties with existing type (support sequential guards)
-          const current = this.lookupVariable(identifier);
-          if (current && current.kind === Type.Object && resolved.kind === Type.Object && resolved.properties) {
-            const merged = this.createObjectType({
-              ...(current.properties || {}),
-              ...resolved.properties,
-            });
-            this.defineVariable(identifier, merged);
-          } else {
-            this.defineVariable(identifier, resolved);
+      // Resolve each type alias to its shape
+      const resolvedShapes = [];
+      for (const typeNode of types) {
+        const typeName = typeNode?.type === 'Identifier' ? typeNode.name : null;
+        if (typeName) {
+          const alias = this.typeAliases.get(typeName);
+          if (alias) {
+            const resolved = alias.params.length === 0
+              ? alias.body
+              : this.substituteTypeParams(alias.body, new Map());
+            resolvedShapes.push(resolved);
+          }
+        }
+        // Primitive narrowing: guard x is Type.String
+        if (typeNode?.type === NodeType.MemberExpression && typeNode.object?.name === 'Type') {
+          const member = typeNode.property;
+          const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
+          if (primitiveMap[member]) {
+            resolvedShapes.push(this.createType(primitiveMap[member]));
           }
         }
       }
 
-      // Also handle primitive narrowing: guard x is Type.String
-      if (node.test.right?.type === NodeType.MemberExpression && node.test.right.object?.name === 'Type') {
-        const member = node.test.right.property;
-        const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
-        if (primitiveMap[member]) {
-          this.defineVariable(identifier, this.createType(primitiveMap[member]));
+      if (resolvedShapes.length > 0) {
+        if (mode === 'intersection') {
+          // Merge all shapes — the variable has ALL properties
+          let merged = this.lookupVariable(identifier) || this.createType(Type.Any);
+          for (const shape of resolvedShapes) {
+            if (shape.kind === Type.Object && shape.properties) {
+              if (merged.kind === Type.Object && merged.properties) {
+                merged = this.createObjectType({ ...merged.properties, ...shape.properties });
+              } else {
+                merged = shape;
+              }
+            } else {
+              merged = shape;
+            }
+          }
+          this.defineVariable(identifier, merged);
+        } else {
+          // Union — the variable is ANY of the shapes
+          if (resolvedShapes.length === 1) {
+            this.defineVariable(identifier, resolvedShapes[0]);
+          } else {
+            this.defineVariable(identifier, this.createUnionType(resolvedShapes));
+          }
         }
       }
     }
@@ -1297,8 +1320,8 @@ export class TypeChecker {
   visitBinaryExpression(node) {
     const op = node.operator;
     const leftType = this.visitExpression(node.left);
-    // For 'is' / 'is not', the right-hand side is a type name, not a runtime expression
-    const rightType = (op === 'is' || op === 'is not') ? this.createType(Type.Any) : this.visitExpression(node.right);
+    // For 'is' / 'is not' / 'in' (with multiTypes), the right-hand side is a type name, not a runtime expression
+    const rightType = (op === 'is' || op === 'is not' || (op === 'in' && node.multiTypes)) ? this.createType(Type.Any) : this.visitExpression(node.right);
 
     // Arithmetic operators
     if (['+', '-', '*', '/', '%', '**'].includes(op)) {
@@ -1316,7 +1339,30 @@ export class TypeChecker {
 
     // is / is not operator — resolve right-hand type and annotate AST
     if (op === 'is' || op === 'is not') {
-      this.resolveIsOperator(node);
+      if (node.multiTypes) {
+        // Annotate each type node individually
+        for (const t of node.multiTypes) {
+          const proxy = { right: t, operator: 'is' };
+          this.resolveIsOperator(proxy);
+          t._isKind = proxy.isKind;
+          t._isKeys = proxy.isKeys;
+          t._isPrimitive = proxy.isPrimitive;
+        }
+      } else {
+        this.resolveIsOperator(node);
+      }
+      return this.createType(Type.Boolean);
+    }
+
+    // in operator — guard x in A, B, C (union type check)
+    if (op === 'in' && node.multiTypes) {
+      for (const t of node.multiTypes) {
+        const proxy = { right: t, operator: 'is' };
+        this.resolveIsOperator(proxy);
+        t._isKind = proxy.isKind;
+        t._isKeys = proxy.isKeys;
+        t._isPrimitive = proxy.isPrimitive;
+      }
       return this.createType(Type.Boolean);
     }
     

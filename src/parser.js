@@ -2030,7 +2030,7 @@ export class Parser {
     // In match arm bodies, don't consume IS — it starts the next arm's pattern
     while (this.inMatchArmBody
       ? this.match(TokenType.EQ, TokenType.NEQ)
-      : this.match(TokenType.EQ, TokenType.NEQ, TokenType.IS, TokenType.NOT)) {
+      : this.match(TokenType.EQ, TokenType.NEQ, TokenType.IS, TokenType.NOT, TokenType.IN)) {
       const token = this.tokens[this.pos - 1];
       let operator;
       if (token.type === TokenType.IS) {
@@ -2040,6 +2040,43 @@ export class Parser {
         } else {
           operator = 'is';
         }
+        // Check for multi-type: guard x is A, B, C (intersection)
+        const right = this.parseComparison();
+        if (this.check(TokenType.COMMA)) {
+          const types = [right];
+          while (this.match(TokenType.COMMA)) {
+            this.skipNewlines();
+            types.push(this.parseComparison());
+          }
+          left = {
+            type: NodeType.BinaryExpression,
+            operator,
+            left,
+            right: types[0],
+            multiTypes: types,
+            multiMode: 'intersection',
+          };
+          continue;
+        }
+        left = { type: NodeType.BinaryExpression, operator, left, right };
+        continue;
+      } else if (token.type === TokenType.IN) {
+        // guard x in A, B, C — union type check (any match)
+        const firstType = this.parseComparison();
+        const types = [firstType];
+        while (this.match(TokenType.COMMA)) {
+          this.skipNewlines();
+          types.push(this.parseComparison());
+        }
+        left = {
+          type: NodeType.BinaryExpression,
+          operator: 'in',
+          left,
+          right: types[0],
+          multiTypes: types,
+          multiMode: 'union',
+        };
+        continue;
       } else if (token.type === TokenType.NOT) {
         // Standalone 'not' at equality level means != (like Python's 'not in' pattern)
         // But we need 'is' before it, so this shouldn't happen in normal flow

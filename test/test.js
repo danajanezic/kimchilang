@@ -967,6 +967,26 @@ test('Guard is with primitive type narrows correctly', () => {
   assertContains(js, "typeof x === 'string'");
 });
 
+test('Guard is with multiple types — intersection', () => {
+  const source = 'type HasName = {name: string}\ntype HasEmail = {email: string}\nfn profile(u) {\nguard u is HasName, HasEmail else { return null }\nreturn u.name\n}';
+  const js = compile(source);
+  // Should check both shapes with AND
+  assertContains(js, "'name' in u");
+  assertContains(js, "'email' in u");
+  assertContains(js, '&&');
+  // After guard, direct access
+  assertContains(js, 'u.name');
+});
+
+test('Guard in with multiple types — union', () => {
+  const source = 'type Circle = {radius: number}\ntype Rect = {width: number}\nfn describe(s) {\nguard s in Circle, Rect else { return null }\nreturn s\n}';
+  const js = compile(source);
+  // Should check either shape with OR
+  assertContains(js, "'radius' in s");
+  assertContains(js, "'width' in s");
+  assertContains(js, '||');
+});
+
 test('Generate match returns null when no default arm', () => {
   const source = 'dec r = match x {\n1 => "one"\n}';
   const js = generate(parse(tokenize(source)));

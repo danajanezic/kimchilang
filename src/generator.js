@@ -1351,9 +1351,9 @@ export class CodeGenerator {
       }
     }
 
-    // Track known shape after guard x is MyType else { ... }
+    // Track known shape after guard x is MyType / guard x in Type1, Type2
     if (node.test.type === NodeType.BinaryExpression &&
-        node.test.operator === 'is' &&
+        (node.test.operator === 'is' || node.test.operator === 'in') &&
         node.test.left &&
         node.test.left.type === NodeType.Identifier) {
       this.knownShapes.set(node.test.left.name, true);
@@ -2040,7 +2040,25 @@ export class CodeGenerator {
 
     // Handle 'is' operator - duck typing checks
     if (node.operator === 'is' || node.operator === 'is not') {
+      if (node.multiTypes) {
+        // guard x is A, B, C — intersection (AND all checks)
+        const checks = node.multiTypes.map(t => {
+          const singleNode = { operator: 'is', right: t, isKind: t._isKind, isKeys: t._isKeys, isPrimitive: t._isPrimitive };
+          return this.emitIsCheck(left, singleNode);
+        });
+        return checks.join(' && ');
+      }
       return this.emitIsCheck(left, node);
+    }
+
+    // Handle 'in' operator for type union checks
+    if (node.operator === 'in' && node.multiTypes) {
+      // guard x in A, B, C — union (OR any check)
+      const checks = node.multiTypes.map(t => {
+        const singleNode = { operator: 'is', right: t, isKind: t._isKind, isKeys: t._isKeys, isPrimitive: t._isPrimitive };
+        return this.emitIsCheck(left, singleNode);
+      });
+      return `(${checks.join(' || ')})`;
     }
 
     return `(${left} ${node.operator} ${right})`;

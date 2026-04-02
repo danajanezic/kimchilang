@@ -24,6 +24,48 @@ After the guard, the compiler narrows `item`'s type to the `Storable` shape. Pro
 
 At runtime, `is` uses duck typing — it checks that the required keys exist on the object, not that it was constructed by a specific class. Any object with `key` and `save` properties satisfies the contract.
 
+## Multi-Type Guards
+
+### Intersection: `guard x is A, B, C`
+
+Check that a value satisfies ALL contracts at once:
+
+```
+type HasName = {name: string}
+type HasEmail = {email: string}
+type HasAge = {age: number}
+
+fn createProfile(user) {
+  guard user is HasName, HasEmail, HasAge else { return "missing fields" }
+  // user has .name, .email, and .age
+  return "${user.name} (${user.age}) <${user.email}>"
+}
+```
+
+This is equivalent to three sequential guards but more concise. The compiler merges all shapes — after the guard, the variable has all properties from all listed types.
+
+### Union: `guard x in A, B, C`
+
+Check that a value satisfies ANY of the contracts:
+
+```
+type Circle = {radius: number}
+type Rectangle = {width: number, height: number}
+type Triangle = {base: number, height: number}
+
+fn area(shape) {
+  guard shape in Circle, Rectangle, Triangle else { return 0 }
+
+  return match shape {
+    is Circle => 3.14159 * shape.radius * shape.radius
+    is Rectangle => shape.width * shape.height
+    is Triangle => 0.5 * shape.base * shape.height
+  }
+}
+```
+
+The `in` keyword reads as "guard that shape is in this set of types." The guard ensures the value is one of the listed shapes, then `match` with `is` determines which one.
+
 ## Composing Contracts
 
 Sequential guards merge their shapes:
