@@ -15,6 +15,9 @@ function lexQuery(lexer) {
   const after = lexer.source[lexer.pos + 5];
   if (after && /[a-zA-Z0-9_]/.test(after)) return null;
 
+  // Don't match if preceded by a dot (e.g., stdlib.db.query)
+  if (lexer.pos > 0 && lexer.source[lexer.pos - 1] === '.') return null;
+
   // Look ahead past whitespace for '(', or an uppercase letter (type name)
   let ahead = lexer.pos + 5;
   while (ahead < lexer.source.length && (lexer.source[ahead] === ' ' || lexer.source[ahead] === '\t')) ahead++;

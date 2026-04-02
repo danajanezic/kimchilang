@@ -9,17 +9,17 @@ module singleton
 arg url
 
 extern "./_pg_helpers.js" {
-  async fn connect(connectionUrl: string): boolean
-  async fn query(sql: string, params: any): any
-  async fn close(): void
+  async fn pgConnect(connectionUrl: string): boolean
+  async fn pgQuery(sql: string, params: any): any
+  async fn pgClose(): void
 }
 
-connect(url)
+pgConnect(url)
 
 expose fn query(sql, params) {
-  return query(sql, params)
+  return pgQuery(sql, params)
 }
 
 expose fn _shutdown() {
-  close()
+  pgClose()
 }

@@ -10,34 +10,33 @@ module singleton
 type Queryable = {query: (sql: string, params: any) => any}
 
 arg db
-guard db is Queryable else { throw "query module requires a db with a query() function" }
 
 extern "./_query_helpers.js" {
   fn setDb(db: any): void
-  async fn find(table: string, id: any): any
-  async fn all(table: string): any
-  async fn first(table: string): any
-  async fn last(table: string): any
-  async fn count(table: string): any
-  async fn where(table: string, opts: any): any
-  async fn create(table: string, data: any): any
-  async fn update(table: string, id: any, data: any): any
-  async fn remove(table: string, id: any): void
-  async fn _include(table: string, foreignKey: string, parentId: any, opts: any): any
+  async fn _find(table: string, id: any): any
+  async fn _all(table: string): any
+  async fn _first(table: string): any
+  async fn _last(table: string): any
+  async fn _count(table: string): any
+  async fn _where(table: string, opts: any): any
+  async fn _create(table: string, data: any): any
+  async fn _update(table: string, id: any, data: any): any
+  async fn _remove(table: string, id: any): void
+  async fn _includeRel(table: string, foreignKey: string, parentId: any, opts: any): any
 }
 
 setDb(db)
 
-expose fn find(table, id) { return find(table, id) }
-expose fn all(table) { return all(table) }
-expose fn first(table) { return first(table) }
-expose fn last(table) { return last(table) }
-expose fn count(table) { return count(table) }
-expose fn where(table, opts) { return where(table, opts) }
-expose fn create(table, data) { return create(table, data) }
-expose fn update(table, id, data) { return update(table, id, data) }
-expose fn remove(table, id) { return remove(table, id) }
-expose fn _include(table, fk, parentId, opts) { return _include(table, fk, parentId, opts) }
+expose fn find(table, id) { return _find(table, id) }
+expose fn all(table) { return _all(table) }
+expose fn first(table) { return _first(table) }
+expose fn last(table) { return _last(table) }
+expose fn count(table) { return _count(table) }
+expose fn where(table, opts) { return _where(table, opts) }
+expose fn create(table, data) { return _create(table, data) }
+expose fn update(table, id, data) { return _update(table, id, data) }
+expose fn remove(table, id) { return _remove(table, id) }
+expose fn _include(table, fk, parentId, opts) { return _includeRel(table, fk, parentId, opts) }
 
 expose fn _shutdown() {
   // No cleanup needed — db connection is managed by the driver module

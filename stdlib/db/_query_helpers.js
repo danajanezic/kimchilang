@@ -11,31 +11,31 @@ function getDb() {
   return _db;
 }
 
-export async function find(table, id) {
+export async function _find(table, id) {
   const result = await getDb().query(`SELECT * FROM ${esc(table)} WHERE id = $1`, [id]);
   return result.length > 0 ? result[0] : null;
 }
 
-export async function all(table) {
+export async function _all(table) {
   return getDb().query(`SELECT * FROM ${esc(table)}`);
 }
 
-export async function first(table) {
+export async function _first(table) {
   const result = await getDb().query(`SELECT * FROM ${esc(table)} ORDER BY id ASC LIMIT 1`);
   return result.length > 0 ? result[0] : null;
 }
 
-export async function last(table) {
+export async function _last(table) {
   const result = await getDb().query(`SELECT * FROM ${esc(table)} ORDER BY id DESC LIMIT 1`);
   return result.length > 0 ? result[0] : null;
 }
 
-export async function count(table) {
+export async function _count(table) {
   const result = await getDb().query(`SELECT COUNT(*) as count FROM ${esc(table)}`);
   return parseInt(result[0].count, 10);
 }
 
-export async function where(table, opts) {
+export async function _where(table, opts) {
   const conditions = opts.conditions || {};
   const keys = Object.keys(conditions);
   const values = Object.values(conditions);
@@ -63,7 +63,7 @@ export async function where(table, opts) {
   return getDb().query(sql, values);
 }
 
-export async function create(table, data) {
+export async function _create(table, data) {
   const keys = Object.keys(data);
   const values = Object.values(data);
   const placeholders = keys.map((_, i) => `$${i + 1}`);
@@ -73,7 +73,7 @@ export async function create(table, data) {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function update(table, id, data) {
+export async function _update(table, id, data) {
   const keys = Object.keys(data);
   const values = Object.values(data);
   const setClauses = keys.map((k, i) => `${esc(k)} = $${i + 1}`);
@@ -84,13 +84,13 @@ export async function update(table, id, data) {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function remove(table, id) {
+export async function _remove(table, id) {
   await getDb().query(`DELETE FROM ${esc(table)} WHERE id = $1`, [id]);
 }
 
-export async function _include(table, foreignKey, parentId, opts) {
+export async function _includeRel(table, foreignKey, parentId, opts) {
   if (opts) {
-    return where(table, {
+    return _where(table, {
       conditions: { ...opts.conditions, [foreignKey]: parentId },
       sortBy: opts.sortBy,
       order: opts.order,

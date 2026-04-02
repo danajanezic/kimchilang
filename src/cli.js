@@ -781,7 +781,7 @@ async function runTests(filePath, options = {}) {
   const interp = new KimchiInterpreter({ cacheDir, projectRoot: process.cwd() });
 
   try {
-    const code = interp.prepare(source, {
+    const code = await interp.prepare(source, {
       basePath: dirname(resolve(filePath)),
     });
 
@@ -829,9 +829,10 @@ async function runFile(filePath, options = {}) {
   const source = readFileSync(resolve(filePath), 'utf-8');
 
   try {
-    const code = interp.prepare(source, {
+    const code = await interp.prepare(source, {
       basePath: dirname(resolve(filePath)),
       skipLint: options.skipLint,
+      filePath: resolve(filePath),
     });
 
     if (options.debug) {
@@ -1470,7 +1471,7 @@ async function main() {
         const { KimchiInterpreter } = await import('./interpreter.js');
         const interp = new KimchiInterpreter();
         try {
-          const code = interp.prepare(source);
+          const code = await interp.prepare(source);
           const os = await import('os');
           const crypto = await import('crypto');
           const tempFile = join(os.default.tmpdir(), `kimchi_stdin_${crypto.default.randomBytes(4).toString('hex')}.mjs`);

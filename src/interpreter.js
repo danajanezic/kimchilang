@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { compile } from './index.js';
 import { parseStaticFile, generateStaticCode } from './static-parser.js';
+import { loadPluginsForFile } from './extensions/registry.js';
 
 // Read runtime source once at module load, strip ES module syntax for inlining
 const RUNTIME_SOURCE = readFileSync(new URL('./runtime.js', import.meta.url), 'utf-8');
@@ -19,7 +20,7 @@ export class KimchiInterpreter {
     this.projectRoot = options.projectRoot || process.cwd();
   }
 
-  prepare(source, options = {}) {
+  async prepare(source, options = {}) {
     const hash = createHash('sha256').update(source).digest('hex').slice(0, 16);
 
     // Check cache
@@ -41,12 +42,16 @@ export class KimchiInterpreter {
       return existsSync(staticPath);
     };
 
+    // Load plugins based on file extension
+    const plugins = options.filePath ? await loadPluginsForFile(options.filePath) : [];
+
     // Compile via existing pipeline
     const javascript = compile(cleanSource, {
       skipLint: options.skipLint,
       showLintWarnings: true,
       basePath: options.basePath,
       staticFileResolver,
+      plugins,
     });
 
     // Resolve dependencies — compile all imported .km modules into the cache

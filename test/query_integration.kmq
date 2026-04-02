@@ -1,0 +1,118 @@
+// Query Directive Integration Test
+// Runs against kimchi_test_db with real postgres
+
+as db dep stdlib.db.postgres({url: "postgres://localhost/kimchi_test_db"})
+as query dep stdlib.db.query({db: db})
+
+type Person = {id: number, name: string, email: string, role: string, active: boolean}
+type Post = {id: number, title: string, body: string, person_id: number}
+
+mut passed = 0
+mut failed = 0
+
+fn check(label, condition) {
+  if condition {
+    print "  OK: ${label}"
+    passed += 1
+  } else {
+    print "  FAIL: ${label}"
+    failed += 1
+  }
+}
+
+// === find ===
+print "=== find ==="
+dec alice = query Person { find 1 }
+check("find returns Alice", alice.name == "Alice")
+check("find has email", alice.email == "alice@test.com")
+
+dec nobody = query Person { find 999 }
+check("find returns null for missing", nobody == null)
+
+
+// === all ===
+print "=== all ==="
+dec everyone = query Person { all }
+check("all returns 3 people", everyone.length == 3)
+
+// === first / last ===
+print "=== first / last ==="
+dec first = query Person { first }
+check("first is Alice (id 1)", first.name == "Alice")
+
+dec last = query Person { last }
+check("last is Charlie (id 3)", last.name == "Charlie")
+
+// === count ===
+print "=== count ==="
+dec total = query Person { count }
+check("count is 3", total == 3)
+
+// === where ===
+print "=== where ==="
+dec admins = query Person { where {role: "admin"} }
+check("where role=admin returns 1", admins.length == 1)
+check("admin is Alice", admins[0].name == "Alice")
+
+dec active = query Person { where {active: true} }
+check("where active=true returns 2", active.length == 2)
+
+// === where + sortBy + limit ===
+print "=== where + sortBy + limit ==="
+dec sorted = query Person { where {active: true} sortBy "name" asc limit 1 }
+check("sorted asc limit 1 is Alice", sorted[0].name == "Alice")
+
+dec sortedDesc = query Person { where {active: true} sortBy "name" desc limit 1 }
+check("sorted desc limit 1 is Bob", sortedDesc[0].name == "Bob")
+
+// === create ===
+print "=== create ==="
+dec newPerson = query Person { create {name: "Dana", email: "dana@test.com", role: "user", active: true} }
+check("create returns new person", newPerson != null)
+check("create has name Dana", newPerson.name == "Dana")
+check("create assigned an id", newPerson.id != null)
+
+// === update ===
+print "=== update ==="
+dec updated = query Person { update 1 {name: "Alice Updated"} }
+check("update returns updated person", updated != null)
+check("update changed name", updated.name == "Alice Updated")
+
+// Verify the update persisted
+dec verify = query Person { find 1 }
+check("update persisted", verify.name == "Alice Updated")
+
+// === remove ===
+print "=== remove ==="
+dec beforeCount = query Person { count }
+query Person { remove 4 }
+dec afterCount = query Person { count }
+check("remove decreased count", afterCount == beforeCount - 1)
+
+// === include ===
+print "=== include ==="
+dec userWithPosts = query Person { find 1 include Post }
+check("include returns person", userWithPosts != null)
+check("include has posts array", userWithPosts.post != null)
+check("Alice has 2 posts", userWithPosts.post.length == 2)
+
+// === variable interpolation ===
+print "=== variable interpolation ==="
+dec searchRole = "user"
+dec users = query Person { where {role: $searchRole} }
+check("variable interpolation works", users.length > 0)
+
+// === connection override ===
+// Note: override requires the overriding variable to be a query module, not a raw db
+// This will be addressed when the dep @ extension system lands
+
+// === results ===
+print ""
+print "=== Results ==="
+print "Passed: ${passed}"
+print "Failed: ${failed}"
+
+if failed > 0 {
+  throw "Integration tests failed: ${failed} failures"
+}
+print "All query integration tests passed!"
