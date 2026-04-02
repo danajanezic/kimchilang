@@ -10,7 +10,8 @@ A modern, expressive programming language that transpiles to JavaScript. Purely 
 - **Directly Executable** - `#!/usr/bin/env kimchi` shebang support with cached transpilation
 - **Purely Functional** - No classes, no `this`, no global scope
 - **Deeply Immutable** - All `dec` values are immutable with compile-time enforcement
-- **Pattern Matching** - `match` expressions with literal, `is` type, destructuring, and wildcard patterns
+- **Pattern Matching** - `match` expressions with literal, `is` type, [regex](docs/regex.md), destructuring, and wildcard patterns
+- **Regex** - Match operator (`~`), [regex patterns in match arms](docs/regex.md#regex-patterns-in-match-expressions), capture groups with `$match`
 - **Guard Clauses** - `guard cond else { return }` for flat, readable precondition checks
 - **Modern Operators** - Pipe (`~>`), flow (`>>`), nullish coalescing (`??`), range (`0..10`), bind (`fn.(args)`)
 - **Type System** - Compile-time type inference, [union types](docs/language-guide.md#union-types) (`string | null`), [generics](docs/language-guide.md#generics) (`type Result<T> = ...`)
@@ -77,6 +78,7 @@ kimchi run hello.kimchi
 | [Modules & Dependencies](docs/modules.md) | `dep`, `extern`, dependency injection, static files, packages |
 | [Testing](docs/testing.md) | Test framework, matchers, mocks, lifecycle hooks |
 | [CLI Commands](docs/cli.md) | Running, compiling, converting, watch mode, npm integration |
+| [Regex](docs/regex.md) | Match operator (`~`), regex in match arms, capture groups, literals |
 | [Editor Extensions](docs/editors.md) | VS Code, Windsurf, Sublime Text, LSP server |
 | [Roadmap](ROADMAP.md) | Planned features and progress |
 
