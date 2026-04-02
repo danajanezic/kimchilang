@@ -1,0 +1,107 @@
+#!/usr/bin/env kimchi
+// Contracts — using type + guard + is for shape validation
+// No interfaces, no classes — just types and guards
+
+// === Define contracts as type aliases ===
+
+type Serializable = {toJSON: () => string}
+type Validatable = {validate: () => boolean, errors: () => string[]}
+type Identifiable = {id: string}
+type Timestamped = {createdAt: string, updatedAt: string}
+
+// === Single contract ===
+
+print "=== Single Contract ==="
+
+fn serialize(item) {
+  guard item is Serializable else { return "not serializable" }
+  return item.toJSON()
+}
+
+dec doc = {
+  title: "Hello",
+  toJSON: () => { return "{\"title\": \"Hello\"}" }
+}
+
+print "  serialize(doc): ${serialize(doc)}"
+print "  serialize(42): ${serialize(42)}"
+
+// === Intersection: guard x is A, B, C ===
+
+print ""
+print "=== Intersection (is A, B, C) ==="
+
+fn auditLog(record) {
+  guard record is Identifiable, Timestamped else { return "missing audit fields" }
+  return "[${record.updatedAt}] record ${record.id}"
+}
+
+dec fullRecord = {id: "r-001", createdAt: "2026-01-01", updatedAt: "2026-04-01", data: "important"}
+dec partial = {id: "r-002"}
+
+print "  auditLog(full): ${auditLog(fullRecord)}"
+print "  auditLog(partial): ${auditLog(partial)}"
+
+// === Union: guard x in A, B, C ===
+
+print ""
+print "=== Union (in A, B, C) ==="
+
+type TextMessage = {text: string, sender: string}
+type ImageMessage = {url: string, sender: string}
+type SystemMessage = {event: string}
+
+fn formatMessage(msg) {
+  guard msg in TextMessage, ImageMessage, SystemMessage else {
+    return "[unknown message type]"
+  }
+
+  return match msg {
+    is TextMessage => "${msg.sender}: ${msg.text}"
+    is ImageMessage => "${msg.sender} sent an image: ${msg.url}"
+    is SystemMessage => "** system: ${msg.event} **"
+  }
+}
+
+print "  text: ${formatMessage({text: "hello", sender: "Alice"})}"
+print "  image: ${formatMessage({url: "pic.jpg", sender: "Bob"})}"
+print "  system: ${formatMessage({event: "user_joined"})}"
+print "  unknown: ${formatMessage({foo: "bar"})}"
+
+// === Progressive narrowing ===
+
+print ""
+print "=== Progressive Narrowing ==="
+
+type HasEmail = {email: string}
+type HasRole = {role: string}
+
+fn authorize(user) {
+  guard user is Identifiable else { return "no id" }
+  guard user is HasEmail, HasRole else { return "incomplete profile" }
+  // user now has .id, .email, .role
+  return "${user.role}: ${user.email} (${user.id})"
+}
+
+print "  full user: ${authorize({id: "u-1", email: "admin@test.com", role: "admin"})}"
+print "  no role: ${authorize({id: "u-2", email: "user@test.com"})}"
+print "  no id: ${authorize({email: "anon@test.com", role: "guest"})}"
+
+// === Contracts as documentation ===
+
+print ""
+print "=== Contract as API Documentation ==="
+
+type SearchQuery = {term: string, page: number, limit: number}
+
+fn search(query) {
+  guard query is SearchQuery else { throw "invalid search query" }
+  print "  Searching for '${query.term}' (page ${query.page}, limit ${query.limit})"
+  return [{title: "Result 1"}, {title: "Result 2"}]
+}
+
+dec results = search({term: "kimchi", page: 1, limit: 10})
+print "  Found ${results.length} results"
+
+print ""
+print "All contract examples passed!"

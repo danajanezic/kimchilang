@@ -256,6 +256,12 @@ if score >= 90 {
 guard user != null else { return null }
 guard age >= 18 else { throw error("Must be 18+") }
 
+// Guard with type contract (see docs/contracts.md)
+guard config is HasHost, HasPort else { throw "invalid config" }
+
+// Guard with union — value must be one of these types
+guard shape in Circle, Rectangle, Triangle else { return "unknown" }
+
 // While loop
 mut count = 0
 while count < 3 {
@@ -466,6 +472,48 @@ fn describe(value) {
   }
 }
 ```
+
+**Contracts with guard...is** — type narrowing after a guard:
+
+```kimchi
+type Storable = {key: string, save: () => void}
+
+fn store(item) {
+  guard item is Storable else { throw "not storable" }
+  // Compiler knows item has .key and .save — uses . not ?.
+  item.save()
+}
+```
+
+**Multi-type intersection** — `is A, B, C` checks ALL shapes:
+
+```kimchi
+type HasName = {name: string}
+type HasEmail = {email: string}
+
+fn profile(user) {
+  guard user is HasName, HasEmail else { return null }
+  // user has both .name and .email
+  return "${user.name} <${user.email}>"
+}
+```
+
+**Multi-type union** — `in A, B, C` checks ANY shape:
+
+```kimchi
+type Circle = {radius: number}
+type Rectangle = {width: number, height: number}
+
+fn area(shape) {
+  guard shape in Circle, Rectangle else { return 0 }
+  return match shape {
+    is Circle => 3.14 * shape.radius * shape.radius
+    is Rectangle => shape.width * shape.height
+  }
+}
+```
+
+See [Contracts](contracts.md) for the full guide.
 
 ### Error Handling
 

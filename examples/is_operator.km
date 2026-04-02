@@ -131,5 +131,35 @@ fn startServer(config) {
 
 startServer({ host: "localhost", port: 3000 })
 
+// === Multi-Type Guards ===
+
+print ""
+print "=== Multi-Type Guards ==="
+
+// Intersection: guard x is A, B, C — must satisfy ALL
+type HasName = {name: string}
+type HasEmail = {email: string}
+
+fn createProfile(user) {
+  guard user is HasName, HasEmail else { return "missing fields" }
+  return "${user.name} <${user.email}>"
+}
+
+print "  profile(full): ${createProfile({name: "Alice", email: "alice@test.com"})}"
+print "  profile(partial): ${createProfile({name: "Bob"})}"
+
+// Union: guard x in A, B — must satisfy ANY
+fn describeShape(shape) {
+  guard shape in Circle, Point else { return "unknown shape" }
+  return match shape {
+    is Circle => "circle at ${shape.x},${shape.y} r=${shape.radius}"
+    is Point => "point at ${shape.x},${shape.y}"
+  }
+}
+
+print "  shape(circle): ${describeShape({x: 0, y: 0, radius: 5})}"
+print "  shape(point): ${describeShape({x: 3, y: 4})}"
+print "  shape(other): ${describeShape({width: 10})}"
+
 print ""
 print "All is operator examples passed!"

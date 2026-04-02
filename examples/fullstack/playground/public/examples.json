@@ -2,7 +2,7 @@
   {
     "name": "Hello World",
     "desc": "Start here",
-    "code": "// Hello World — your first KimchiLang program\n\nfn greet(name) {\n  return \"Hello, ${name}!\"\n}\n\ndec message = greet(\"World\")\nprint message\n\n// Try changing \"World\" to your name\n\ndec nums = [1, 2, 3, 4, 5]\nprint \"Sum: ${nums.sum()}\"\nprint \"Average: ${nums.average()}\""
+    "code": "// Hello World \u2014 your first KimchiLang program\n\nfn greet(name) {\n  return \"Hello, ${name}!\"\n}\n\ndec message = greet(\"World\")\nprint message\n\n// Try changing \"World\" to your name\n\ndec nums = [1, 2, 3, 4, 5]\nprint \"Sum: ${nums.sum()}\"\nprint \"Average: ${nums.average()}\""
   },
   {
     "name": "Fibonacci",
@@ -12,17 +12,17 @@
   {
     "name": "Pipe Operator",
     "desc": "Data pipelines",
-    "code": "// Pipe operator — KimchiLang's signature feature\n\nfn double(x) { return x * 2 }\nfn addOne(x) { return x + 1 }\nfn square(x) { return x * x }\n\ndec result = 5 ~> double ~> addOne ~> square\nprint \"5 ~> double ~> addOne ~> square = ${result}\"\n\ndec nums = [1, 2, 3, 4, 5]\ndec processed = nums\n  .map(n => n ~> double)\n  .filter(n => n > 4)\nprint \"Doubled and filtered: ${processed}\""
+    "code": "// Pipe operator \u2014 KimchiLang's signature feature\n\nfn double(x) { return x * 2 }\nfn addOne(x) { return x + 1 }\nfn square(x) { return x * x }\n\ndec result = 5 ~> double ~> addOne ~> square\nprint \"5 ~> double ~> addOne ~> square = ${result}\"\n\ndec nums = [1, 2, 3, 4, 5]\ndec processed = nums\n  .map(n => n ~> double)\n  .filter(n => n > 4)\nprint \"Doubled and filtered: ${processed}\""
   },
   {
     "name": "Guard Clauses",
     "desc": "Preconditions",
-    "code": "// Guard clauses — flat, readable preconditions\n\nfn divide(a, b) {\n  guard b != 0 else { return \"Cannot divide by zero\" }\n  return a / b\n}\n\nfn greetUser(user) {\n  guard user != null else { return \"No user provided\" }\n  guard user.name != null else { return \"User has no name\" }\n  return \"Hello, ${user.name}!\"\n}\n\nprint divide(10, 3)\nprint divide(10, 0)\nprint greetUser({name: \"Alice\"})\nprint greetUser(null)"
+    "code": "// Guard clauses \u2014 flat, readable preconditions\n\nfn divide(a, b) {\n  guard b != 0 else { return \"Cannot divide by zero\" }\n  return a / b\n}\n\nfn greetUser(user) {\n  guard user != null else { return \"No user provided\" }\n  guard user.name != null else { return \"User has no name\" }\n  return \"Hello, ${user.name}!\"\n}\n\nprint divide(10, 3)\nprint divide(10, 0)\nprint greetUser({name: \"Alice\"})\nprint greetUser(null)"
   },
   {
-    "name": "Type System",
-    "desc": "Unions & duck typing",
-    "code": "// Type system — unions, generics, duck typing\n\ntype Point = {x: number, y: number}\n\nfn distance(p) {\n  guard p is Point else { return \"Not a point!\" }\n  return Math.sqrt(p.x * p.x + p.y * p.y)\n}\n\ndec a = {x: 3, y: 4}\ndec b = {name: \"not a point\"}\n\nprint \"Distance of {3,4}: ${distance(a)}\"\nprint \"Distance of string: ${distance(b)}\"\n\ndec val = 42\nprint \"42 is number: ${val is Type.Number}\"\nprint \"42 is string: ${val is Type.String}\""
+    "name": "Contracts",
+    "desc": "type + guard + is",
+    "code": "// Contracts \u2014 type + guard + is\n\ntype HasName = {name: string}\ntype HasEmail = {email: string}\ntype Circle = {radius: number}\ntype Rectangle = {width: number, height: number}\n\n// Intersection: must satisfy ALL contracts\nfn profile(user) {\n  guard user is HasName, HasEmail else { return \"missing fields\" }\n  return \"${user.name} <${user.email}>\"\n}\n\nprint profile({name: \"Alice\", email: \"a@test.com\"})\nprint profile({name: \"Bob\"})\n\n// Union: must satisfy ANY contract\nfn area(shape) {\n  guard shape in Circle, Rectangle else { return \"unknown\" }\n  return match shape {\n    is Circle => 3.14 * shape.radius * shape.radius\n    is Rectangle => shape.width * shape.height\n  }\n}\n\nprint \"circle: ${area({radius: 5})}\"\nprint \"rect: ${area({width: 4, height: 6})}\"\nprint \"other: ${area({sides: 3})}\""
   },
   {
     "name": "Enums + Match",
@@ -32,21 +32,21 @@
   {
     "name": "Immutability",
     "desc": "dec vs mut",
-    "code": "// Immutability — dec (immutable) vs mut (mutable)\n\ndec name = \"Alice\"\ndec age = 30\n\n// dec values cannot be reassigned:\n// name = \"Bob\"  // This would be a compile error!\n\nmut counter = 0\ncounter += 1\ncounter += 1\nprint \"Counter: ${counter}\"\n\ndec user = {name: \"Alice\", age: 30, role: \"admin\"}\ndec updated = {...user, age: 31}\nprint \"Original: ${user.name}, age ${user.age}\"\nprint \"Updated: ${updated.name}, age ${updated.age}\""
+    "code": "// Immutability \u2014 dec (immutable) vs mut (mutable)\n\ndec name = \"Alice\"\ndec age = 30\n\n// dec values cannot be reassigned:\n// name = \"Bob\"  // This would be a compile error!\n\nmut counter = 0\ncounter += 1\ncounter += 1\nprint \"Counter: ${counter}\"\n\ndec user = {name: \"Alice\", age: 30, role: \"admin\"}\ndec updated = {...user, age: 31}\nprint \"Original: ${user.name}, age ${user.age}\"\nprint \"Updated: ${updated.name}, age ${updated.age}\""
   },
   {
     "name": "Flow Compose",
     "desc": "Reusable pipelines",
-    "code": "// Flow composition — build reusable pipelines with >>\n\nfn trim(s) { return s.trim() }\nfn lower(s) { return s.toLowerCase() }\nfn exclaim(s) { return \"${s}!\" }\n\n// >> creates a reusable pipeline\nshout >> trim lower exclaim\n\nprint shout(\"  Hello World  \")\nprint shout(\"  KimchiLang  \")\n\nfn double(x) { return x * 2 }\nfn addTen(x) { return x + 10 }\n\ntransform >> double addTen\nprint \"transform(5) = ${transform(5)}\"\nprint \"transform(3) = ${transform(3)}\""
+    "code": "// Flow composition \u2014 build reusable pipelines with >>\n\nfn trim(s) { return s.trim() }\nfn lower(s) { return s.toLowerCase() }\nfn exclaim(s) { return \"${s}!\" }\n\n// >> creates a reusable pipeline\nshout >> trim lower exclaim\n\nprint shout(\"  Hello World  \")\nprint shout(\"  KimchiLang  \")\n\nfn double(x) { return x * 2 }\nfn addTen(x) { return x + 10 }\n\ntransform >> double addTen\nprint \"transform(5) = ${transform(5)}\"\nprint \"transform(3) = ${transform(3)}\""
   },
   {
     "name": "Conditionals",
     "desc": ".if().else() syntax",
-    "code": "// Conditional expressions — .if().else()\n\ndec age = 25\n\ndec label = \"senior\".if(age >= 65).else(\n  \"adult\".if(age >= 18).else(\"minor\")\n)\nprint \"${age} years old: ${label}\"\n\ndec nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\ndec evens = nums.filter(n => true.if(n % 2 == 0).else(false))\nprint \"Evens: ${evens}\"\n\ndec bonus = 500.if(age > 30)\nprint \"Bonus: ${bonus ?? \"none\"}\""
+    "code": "// Conditional expressions \u2014 .if().else()\n\ndec age = 25\n\ndec label = \"senior\".if(age >= 65).else(\n  \"adult\".if(age >= 18).else(\"minor\")\n)\nprint \"${age} years old: ${label}\"\n\ndec nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\ndec evens = nums.filter(n => true.if(n % 2 == 0).else(false))\nprint \"Evens: ${evens}\"\n\ndec bonus = 500.if(age > 30)\nprint \"Bonus: ${bonus ?? \"none\"}\""
   },
   {
     "name": "Memoization",
     "desc": "Built-in caching",
-    "code": "// Memoization — built-in caching with memo\n\nmemo fib(n) {\n  return match n {\n    0 => 0\n    1 => 1\n    _ => fib(n - 1) + fib(n - 2)\n  }\n}\n\nprint \"fib(10) = ${fib(10)}\"\nprint \"fib(20) = ${fib(20)}\"\nprint \"fib(30) = ${fib(30)}\"\nprint \"fib(40) = ${fib(40)}\""
+    "code": "// Memoization \u2014 built-in caching with memo\n\nmemo fib(n) {\n  return match n {\n    0 => 0\n    1 => 1\n    _ => fib(n - 1) + fib(n - 2)\n  }\n}\n\nprint \"fib(10) = ${fib(10)}\"\nprint \"fib(20) = ${fib(20)}\"\nprint \"fib(30) = ${fib(30)}\"\nprint \"fib(40) = ${fib(40)}\""
   }
 ]
