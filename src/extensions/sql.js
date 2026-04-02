@@ -15,11 +15,11 @@ function lexSQL(lexer) {
   const after = lexer.source[lexer.pos + 3];
   if (after && /[a-zA-Z0-9_]/.test(after)) return null; // not 'sql' keyword, e.g. 'sqlHelper'
 
-  // Look ahead past whitespace for 'is', 'in', or '{'
+  // Look ahead past whitespace for 'is', 'in', '{', or '(' (connection)
   let ahead = lexer.pos + 3;
   while (ahead < lexer.source.length && (lexer.source[ahead] === ' ' || lexer.source[ahead] === '\t')) ahead++;
   const rest = lexer.source.slice(ahead);
-  if (!rest.startsWith('is ') && !rest.startsWith('in ') && !rest.startsWith('{')) return null;
+  if (!rest.startsWith('is ') && !rest.startsWith('in ') && !rest.startsWith('{') && !rest.startsWith('(')) return null;
 
   const startLine = lexer.line;
   const startColumn = lexer.column;
@@ -29,6 +29,19 @@ function lexSQL(lexer) {
 
   // Skip whitespace
   while (lexer.peek() === ' ' || lexer.peek() === '\t') lexer.advance();
+
+  // Optional connection variable: sql(myConn) is Type { ... }
+  let connection = 'db'; // default
+  if (lexer.peek() === '(') {
+    lexer.advance(); // (
+    let connName = '';
+    while (lexer.peek() !== ')' && lexer.peek() !== '\0') {
+      connName += lexer.advance();
+    }
+    lexer.advance(); // )
+    connection = connName.trim();
+    while (lexer.peek() === ' ' || lexer.peek() === '\t') lexer.advance();
+  }
 
   // Parse type mode: is/in + type names
   let typeMode = null;
@@ -93,6 +106,7 @@ function lexSQL(lexer) {
     params,
     typeMode,
     typeNames,
+    connection,
   }, startLine, startColumn);
 }
 
@@ -126,6 +140,7 @@ function parseSQL(parser) {
     params: token.value.params,
     typeMode: token.value.typeMode,
     typeNames: token.value.typeNames,
+    connection: token.value.connection,
     line: token.line,
     column: token.column,
   };
@@ -136,15 +151,16 @@ function parseSQL(parser) {
 function generateSQL(generator, node) {
   if (node.type !== 'SqlQuery') return undefined;
 
+  const conn = node.connection || 'db';
   const sqlStr = JSON.stringify(node.sql);
   const params = node.params;
 
   if (params.length === 0) {
-    return `await db.query(${sqlStr})`;
+    return `await ${conn}.query(${sqlStr})`;
   }
 
   const paramList = params.join(', ');
-  return `await db.query(${sqlStr}, [${paramList}])`;
+  return `await ${conn}.query(${sqlStr}, [${paramList}])`;
 }
 
 // --- Auto-imports ---

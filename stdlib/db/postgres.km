@@ -1,0 +1,25 @@
+// KimchiLang Database — PostgreSQL
+// Usage: as db dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
+//
+// Then use with the SQL plugin:
+//   dec users = sql(db) is User { SELECT * FROM users }
+
+module singleton
+
+arg url
+
+extern "./_pg_helpers.js" {
+  async fn connect(connectionUrl: string): boolean
+  async fn query(sql: string, params: any): any
+  async fn close(): void
+}
+
+connect(url)
+
+expose fn query(sql, params) {
+  return query(sql, params)
+}
+
+expose fn _shutdown() {
+  close()
+}

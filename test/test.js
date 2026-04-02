@@ -3559,6 +3559,16 @@ test('SQL: in type annotation with multiple types', () => {
   assertContains(js, 'await db.query("SELECT * FROM accounts")');
 });
 
+test('SQL: custom connection variable', () => {
+  const js = compile('dec r = sql(pg) { SELECT 1 }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, 'await pg.query');
+});
+
+test('SQL: custom connection with type', () => {
+  const js = compile('dec r = sql(myDb) is User { SELECT * FROM users }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, 'await myDb.query');
+});
+
 test('fn...in return type — union declaration', () => {
   const source = 'type Ok = {data: any}\ntype Err = {error: string}\nfn fetch(id) in Ok, Err {\nreturn {data: "x"}\n}';
   const js = compile(source);

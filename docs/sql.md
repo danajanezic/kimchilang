@@ -6,7 +6,19 @@ The SQL plugin adds inline SQL queries to KimchiLang with compile-time parameter
 
 ## Setup
 
-SQL files use the `.kmsql` extension, which auto-loads the plugin. The plugin generates `await db.query(...)` calls — you provide the `db` connection via extern or dep.
+SQL files use the `.kmsql` extension, which auto-loads the plugin. Connect to a database using the stdlib postgres module:
+
+```
+as db dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
+```
+
+Then write queries with `sql(db)`:
+
+```
+dec users = sql(db) is User { SELECT * FROM users }
+```
+
+The connection variable in `sql(db)` tells the plugin which variable has the `.query()` method. If omitted, it defaults to `db`.
 
 ## Basic Queries
 
@@ -80,29 +92,40 @@ dec accounts = sql in Admin, User {
 // accounts[0] is Admin | User — use match...is to narrow
 ```
 
+## Connection Variable
+
+By default, `sql { ... }` calls `db.query(...)`. To use a different variable, pass it in parentheses:
+
+```
+as pg dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
+as mysql dep stdlib.db.mysql({url: "mysql://localhost/mydb"})
+
+// Each query uses its own connection
+dec users = sql(pg) is User { SELECT * FROM users }
+dec orders = sql(mysql) is Order { SELECT * FROM orders }
+```
+
 ## Full Example
 
 ```
-extern "pg" {
-  dec db: any
-}
+as db dep stdlib.db.postgres({url: "postgres://localhost/mydb"})
 
 type User = {id: number, name: string, email: string}
 type CreateResult = {id: number}
 
 fn getUsers(minAge) is User {
-  return sql is User { SELECT * FROM users WHERE age > $minAge }
+  return sql(db) is User { SELECT * FROM users WHERE age > $minAge }
 }
 
 fn createUser(name, email) is CreateResult {
-  return sql is CreateResult {
+  return sql(db) is CreateResult {
     INSERT INTO users (name, email) VALUES ($name, $email)
     RETURNING id
   }
 }
 
 fn findByNameOrEmail(search) is User {
-  return sql is User {
+  return sql(db) is User {
     SELECT * FROM users
     WHERE name ILIKE $search OR email ILIKE $search
   }
