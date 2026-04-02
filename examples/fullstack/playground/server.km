@@ -27,8 +27,7 @@ type ErrorResponse = {error: string}
 
 // --- Configuration ---
 
-arg root
-dec projectRoot = root
+arg projectRoot
 dec playgroundDir = resolve(projectRoot, "examples/fullstack/playground")
 
 dec mimeTypes = {
@@ -45,7 +44,8 @@ dec mimeTypes = {
 dec textExtensions = [".html", ".css", ".js", ".json", ".svg"]
 
 // Load runtime source at startup (strip exports for browser use)
-dec runtime = readFile(join(projectRoot, "src/runtime.js"), "utf-8")
+dec runtimeRaw = readFile(join(projectRoot, "src/runtime.js"), "utf-8")
+dec runtime = runtimeRaw
   .split("\n")
   .filter(line => !line.startsWith("import "))
   .map(line => line.startsWith("export ") ? line.slice(7) : line)

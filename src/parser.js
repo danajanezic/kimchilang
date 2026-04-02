@@ -1722,7 +1722,10 @@ export class Parser {
             this.check(TokenType.RETURN) || this.check(TokenType.MUT) ||
             this.check(TokenType.ENUM) || this.check(TokenType.GUARD) ||
             this.check(TokenType.TEST) || this.check(TokenType.DESCRIBE) ||
-            this.check(TokenType.PRINT) || this.check(TokenType.LAZY)) {
+            this.check(TokenType.PRINT) || this.check(TokenType.LAZY) ||
+            this.check(TokenType.ARG) || this.check(TokenType.MODULE) ||
+            this.check(TokenType.MEMO) || this.check(TokenType.THROW) ||
+            this.check(TokenType.TRY) || this.check(TokenType.MATCH_KEYWORD)) {
           break;
         }
       }
