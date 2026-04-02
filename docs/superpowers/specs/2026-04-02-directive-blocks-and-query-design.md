@@ -2,7 +2,7 @@
 
 ## Overview
 
-Two designs in one: (1) a formalized convention for **directive blocks** — KimchiLang's pattern for domain-specific syntax extensions, and (2) the **query directive** — a CRUD database abstraction built on that convention.
+Three designs in one: (1) a formalized convention for **directive blocks** — KimchiLang's pattern for domain-specific syntax extensions, (2) the **extension security model** — install, capability scanning, and plugin tiers, and (3) the **query directive** — a CRUD database abstraction built on those conventions.
 
 ## Part 1: Directive Block Convention
 
@@ -136,6 +136,153 @@ guard db is Queryable else { throw "db must have a query function" }
 ### Built-in directives (unchanged)
 
 `shell` and `spawn` remain built-in language constructs — no `dep @` needed. KMX (JSX) remains auto-loaded by `.kmx` file extension. These are not extensions, they're part of the core language and frontend runtime.
+
+---
+
+## Part 1.5: Extension Security Model
+
+### The problem
+
+A compiler plugin runs during compilation — it has access to the filesystem, network, and the full source code being compiled. A malicious extension could exfiltrate source code, inject backdoors into compiled output, or run arbitrary commands. This is worse than npm postinstall scripts because it's invisible — there's no separate "install" step, it just happens when you compile.
+
+### Install step
+
+Extensions must be installed before they can be used. `dep @db.query` without installation is a compile error:
+
+```
+$ kimchi compile app.km
+Compile Error: Extension @db.query is not installed. Run: kimchi install @db.query
+```
+
+Installation is the trust decision:
+
+```
+$ kimchi install @db.query
+
+@db.query v1.0.0
+  Type: native (KimchiLang)
+  Directive: query
+  ✓ Sandboxed — no raw compiler access
+
+Install? (y/n)
+```
+
+This does:
+- Downloads the package from the pantry registry
+- Displays what the extension does and what access it requires
+- Stores it locally in `.km_extensions/@db/query/`
+- Records the version and integrity hash in `km-extensions.lock`
+
+The compiler only loads plugins from `.km_extensions/` — never from the network during compilation.
+
+### Lockfile
+
+`km-extensions.lock` records installed versions and content hashes:
+
+```
+@db.query@1.0.0
+  integrity: sha256-abc123...
+  type: native
+
+@db.sql@1.0.0
+  integrity: sha256-def456...
+  type: extension
+```
+
+CI environments install from the lockfile deterministically. The `.km_extensions/` directory can be inspected, git-ignored, or vendored into the repo.
+
+### Three plugin tiers
+
+| Tier | Written in | API | Access level | Trust model |
+|------|-----------|-----|-------------|-------------|
+| **Core** | JavaScript | Full lexer/parser/generator objects | Unrestricted | Ships with KimchiLang compiler |
+| **Extension** | JavaScript | Full API, statically analyzed | Scanned for fs/net/process usage | Installed from pantry, flagged at install |
+| **Native** | KimchiLang | Declarative — pattern, body mode, template | Only what the API surface exposes | Sandboxed by design |
+
+#### Core plugins
+
+Ship with the compiler. KMX (React/JSX) is a core plugin. Users don't install these — they're part of KimchiLang.
+
+#### Extension plugins (JS)
+
+Third-party plugins written in JavaScript with full compiler API access. Statically analyzed at install time:
+
+```
+$ kimchi install @exotic.thing
+
+@exotic.thing v0.1.0
+  Type: extension (JavaScript)
+  Directive: exotic
+  Capabilities: lexer, parser, generator
+  ⚠ Uses raw compiler API — review plugin.js before installing
+  
+Install? (y/n)
+```
+
+**Static analysis (v1):** The installer scans `plugin.js` for imports and global access:
+- `import('fs')`, `require('fs')` → flags filesystem access
+- `import('net')`, `import('http')` → flags network access
+- `import('child_process')` → flags process spawning
+- `process.env` → flags environment variable access
+- `eval`, `Function()` → flags dynamic code execution
+
+Capabilities declared in `manifest.json` must match what the scanner finds. Mismatch = install refused:
+
+```
+$ kimchi install @bad.actor
+
+@bad.actor v0.1.0
+  ✗ Manifest declares no capabilities, but plugin.js uses: fs, net
+  Install refused — manifest does not match plugin code
+```
+
+This catches honest mistakes and obvious malice. It doesn't catch obfuscated code — that's what the sandbox (goal) is for.
+
+#### Native plugins (KimchiLang)
+
+Written in KimchiLang using a declarative API. These cannot escape the sandbox because the API doesn't expose raw compiler internals:
+
+```
+$ kimchi install @db.query
+
+@db.query v2.0.0
+  Type: native (KimchiLang)
+  Directive: query
+  ✓ Sandboxed — no raw compiler access
+
+Install? (y/n)
+```
+
+The native plugin API (future — task #128) would look something like:
+
+```
+// @db.query/plugin.km
+expose dec directive = "query"
+expose dec pattern = /^query\s+[A-Z]/
+expose dec bodyMode = "raw"
+
+expose fn generate(node) is Type.String {
+  dec table = node.typeName.toLowerCase() + "s"
+  return match node.op {
+    "find" => "await _query.find(\"${table}\", ${node.args[0]})"
+    "all" => "await _query.all(\"${table}\")"
+    "where" => "await _query.where(\"${table}\", ${node.args[0]})"
+    _ => "null"
+  }
+}
+```
+
+Declarative: token pattern, body capture mode, generate function that returns a string. No access to the lexer, parser, or generator objects. The compiler calls these functions — the plugin doesn't call the compiler.
+
+Most community extensions would be native. You'd only write a JS extension for things that genuinely need deep compiler access (like KMX's recursive JSX-within-expression compilation).
+
+### Security progression
+
+| Phase | What | Enforcement |
+|-------|------|-------------|
+| **v1** | Install step + static analysis | Flags suspicious JS plugins at install time |
+| **v2** | Native plugin API | KimchiLang plugins can't access compiler internals by design |
+| **Goal** | V8 sandbox for JS plugins | JS plugins run in restricted context with only compiler APIs exposed |
 
 ---
 
@@ -399,12 +546,20 @@ Current `sql(db) is User { ... }` syntax continues to work during transition. Th
 
 ---
 
+## Open design questions
+
+**Lexer timing.** Directive keywords must be known before lexing, but `dep @` imports are parsed after lexing. Solution: pre-scan source for `dep @` lines before the main lex pass. The pre-scanner only looks for `dep @X.Y` patterns and extracts extension names — it doesn't need to parse the full language. Each extension's manifest declares its directive name, so the pre-scanner knows what keywords to register.
+
+**Table name override.** The naive `User` → `users` pluralization will produce wrong results for irregular nouns. Two options to address later: (a) annotation syntax on type declarations, or (b) a table name mapping in the extension args. For v1, use lowercase without pluralization: `User` → `user`. Let users add explicit table names when needed.
+
+**Foreign key override for include.** `include Post` assumes `posts.user_id`. For non-standard foreign keys: `include Post on "author_id"`. For many-to-many: `include Tag through PostTag`. These can be added after v1 — the basic convention handles the common case.
+
 ## Out of scope
 
 - Schema migrations / DDL
-- Transaction blocks (future directive)
+- Transaction blocks (future directive: `transaction { ... }`)
 - Connection pooling configuration
 - Database-specific SQL in the query directive
-- Table name customization (always type name → lowercase + s)
 - Directive name conflict resolution mechanism (compile error for now)
-- KimchiLang-native extension authoring (noted as future task #128)
+- V8 sandbox for JS plugins (goal, not v1)
+- KimchiLang-native plugin API (task #128)
