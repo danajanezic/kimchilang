@@ -8,6 +8,7 @@ import { format } from '../src/formatter.js';
 import { bundle } from '../src/bundler.js';
 import kmxReactPlugin from '../src/extensions/kmx-react.js';
 import sqlPlugin from '../src/extensions/sql.js';
+import queryPlugin from '../src/extensions/query.js';
 import { writeFileSync, unlinkSync, mkdirSync, rmdirSync } from 'fs';
 
 let passed = 0;
@@ -3611,6 +3612,81 @@ test('Match with in multi-type pattern — union', () => {
   assertContains(js, "'r' in _subject");
   assertContains(js, "'w' in _subject");
   assertContains(js, '||');
+});
+
+// ==================== Query Plugin Tests ====================
+
+console.log('\n--- Query Plugin Tests ---\n');
+
+test('Query: find by id', () => {
+  const js = compile('dec u = query User { find 42 }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.find("user", 42)');
+});
+
+test('Query: all', () => {
+  const js = compile('dec u = query User { all }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.all("user")');
+});
+
+test('Query: first and last', () => {
+  const js = compile('dec f = query User { first }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.first("user")');
+  const js2 = compile('dec l = query User { last }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js2, 'query.last("user")');
+});
+
+test('Query: count', () => {
+  const js = compile('dec n = query User { count }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.count("user")');
+});
+
+test('Query: where with conditions', () => {
+  const js = compile('dec u = query User { where {role: "admin", active: true} }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.where("user"');
+  assertContains(js, '"role": "admin"');
+  assertContains(js, '"active": true');
+});
+
+test('Query: where + sortBy + limit + offset', () => {
+  const js = compile('dec u = query User { where {active: true} sortBy "name" asc limit 10 offset 20 }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'sortBy: "name"');
+  assertContains(js, 'order: "asc"');
+  assertContains(js, 'limit: 10');
+  assertContains(js, 'offset: 20');
+});
+
+test('Query: create', () => {
+  const js = compile('dec u = query User { create {name: "Alice", email: "a@test.com"} }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.create("user"');
+  assertContains(js, '"name": "Alice"');
+});
+
+test('Query: update', () => {
+  const js = compile('query User { update 42 {name: "Bob"} }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.update("user", 42');
+  assertContains(js, '"name": "Bob"');
+});
+
+test('Query: remove', () => {
+  const js = compile('query User { remove 42 }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.remove("user", 42)');
+});
+
+test('Query: connection override', () => {
+  const js = compile('dec u = query(analytics) User { find 1 }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'analytics.find("user", 1)');
+});
+
+test('Query: variable interpolation', () => {
+  const js = compile('dec u = query User { where {age: $minAge} }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, '"age": minAge');
+});
+
+test('Query: include', () => {
+  const js = compile('dec u = query User { find 42 include Post }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, 'query.find("user", 42)');
+  assertContains(js, 'query._include("post"');
+  assertContains(js, '"user_id"');
 });
 
 // ==================== Is Operator End-to-End Tests ====================

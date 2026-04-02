@@ -80,6 +80,7 @@ kimchi run hello.kimchi
 | [CLI Commands](docs/cli.md) | Running, compiling, converting, watch mode, npm integration |
 | [Regex](docs/regex.md) | Match operator (`~`), regex in match arms, capture groups, literals |
 | [Contracts](docs/contracts.md) | Type + guard + is as a contract system — duck-typed shape validation |
+| [Query](docs/query.md) | CRUD database abstraction — types as schema, directive block syntax |
 | [SQL](docs/sql.md) | Inline SQL with compile-time parameterization and typed results |
 | [Plugins](docs/plugins.md) | Compiler extension system — lexer, parser, generator, auto-import hooks |
 | [Editor Extensions](docs/editors.md) | VS Code, Windsurf, Sublime Text, LSP server |

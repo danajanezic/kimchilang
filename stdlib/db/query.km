@@ -1,0 +1,44 @@
+// KimchiLang Database — Query Directive Runtime
+// Usage: as query dep stdlib.db.query({db: db})
+//
+// Then use the query directive:
+//   dec user = query User { find 42 }
+//   dec admins = query User { where {role: "admin"} sortBy "name" asc limit 10 }
+
+module singleton
+
+type Queryable = {query: (sql: string, params: any) => any}
+
+arg db
+guard db is Queryable else { throw "query module requires a db with a query() function" }
+
+extern "./_query_helpers.js" {
+  fn setDb(db: any): void
+  async fn find(table: string, id: any): any
+  async fn all(table: string): any
+  async fn first(table: string): any
+  async fn last(table: string): any
+  async fn count(table: string): any
+  async fn where(table: string, opts: any): any
+  async fn create(table: string, data: any): any
+  async fn update(table: string, id: any, data: any): any
+  async fn remove(table: string, id: any): void
+  async fn _include(table: string, foreignKey: string, parentId: any, opts: any): any
+}
+
+setDb(db)
+
+expose fn find(table, id) { return find(table, id) }
+expose fn all(table) { return all(table) }
+expose fn first(table) { return first(table) }
+expose fn last(table) { return last(table) }
+expose fn count(table) { return count(table) }
+expose fn where(table, opts) { return where(table, opts) }
+expose fn create(table, data) { return create(table, data) }
+expose fn update(table, id, data) { return update(table, id, data) }
+expose fn remove(table, id) { return remove(table, id) }
+expose fn _include(table, fk, parentId, opts) { return _include(table, fk, parentId, opts) }
+
+expose fn _shutdown() {
+  // No cleanup needed — db connection is managed by the driver module
+}
