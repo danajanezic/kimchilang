@@ -86,6 +86,25 @@ export class TypeChecker {
     ]);
     this.defineVariable('Type', this.createType(Type.Object));
 
+    // Built-in result types
+    this.typeAliases.set('ShellResult', {
+      params: [],
+      body: this.createObjectType({
+        stdout: this.createType(Type.String),
+        stderr: this.createType(Type.String),
+        exitCode: this.createType(Type.Number),
+      }),
+    });
+    this.typeAliases.set('SpawnResult', {
+      params: [],
+      body: this.createObjectType({
+        stdout: this.createType(Type.String),
+        stderr: this.createType(Type.String),
+        exitCode: this.createType(Type.Number),
+        pid: this.createType(Type.Number),
+      }),
+    });
+
     // Browser globals — only available in browser builds
     if (options.target === 'browser') {
       this.defineVariable('document', this.createType(Type.Any));
