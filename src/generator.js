@@ -1350,6 +1350,14 @@ export class CodeGenerator {
         this.knownShapes.set(node.test.left.name, true);
       }
     }
+
+    // Track known shape after guard x is MyType else { ... }
+    if (node.test.type === NodeType.BinaryExpression &&
+        node.test.operator === 'is' &&
+        node.test.left &&
+        node.test.left.type === NodeType.Identifier) {
+      this.knownShapes.set(node.test.left.name, true);
+    }
   }
 
   visitIfStatement(node, isElseIf = false) {

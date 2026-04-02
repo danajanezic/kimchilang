@@ -933,6 +933,40 @@ test('Generate match with regex pattern and guard', () => {
   assertContains(js, '> 10');
 });
 
+// --- Contract pattern: type + guard + is ---
+
+test('Guard is narrows type — direct property access after guard', () => {
+  const source = 'type Point = {x: number, y: number}\nfn dist(p) {\nguard p is Point else { return 0 }\nreturn p.x + p.y\n}';
+  const js = compile(source);
+  // After guard, p should use . not ?.
+  assertContains(js, 'p.x');
+  assertContains(js, 'p.y');
+  // The guard itself checks the shape via duck typing
+  assertContains(js, "'x' in p");
+  assertContains(js, "'y' in p");
+});
+
+test('Guard is composes — sequential guards merge shapes', () => {
+  const source = 'type HasName = {name: string}\ntype HasEmail = {email: string}\nfn profile(u) {\nguard u is HasName else { return null }\nguard u is HasEmail else { return null }\nreturn u.name + u.email\n}';
+  const js = compile(source);
+  assertContains(js, 'u.name');
+  assertContains(js, 'u.email');
+});
+
+test('Guard is with type alias produces duck type check', () => {
+  const source = 'type Cacheable = {key: string, ttl: number}\nfn cache(item) {\nguard item is Cacheable else { return null }\nreturn item.key\n}';
+  const js = compile(source);
+  assertContains(js, "'key' in item");
+  assertContains(js, "'ttl' in item");
+  assertContains(js, 'item.key');
+});
+
+test('Guard is with primitive type narrows correctly', () => {
+  const source = 'fn process(x) {\nguard x is Type.String else { return null }\nreturn x.length\n}';
+  const js = compile(source);
+  assertContains(js, "typeof x === 'string'");
+});
+
 test('Generate match returns null when no default arm', () => {
   const source = 'dec r = match x {\n1 => "one"\n}';
   const js = generate(parse(tokenize(source)));

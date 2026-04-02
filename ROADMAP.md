@@ -55,6 +55,33 @@ Planned improvements:
 - [ ] Linter: track variable usage inside `is` expressions and template literal interpolations — currently reports false "unused variable" warnings
 - [ ] Fix false-positive unreachable code warnings for conditional blocks — `|cond| => { return ... }` followed by more code always warns
 
+### Pattern-Match-Driven Type System
+
+A type system built on KimchiLang's existing primitives (`type`, `is`, `guard`, `match`) rather than TypeScript-style annotations or Hindley-Milner inference. Types narrow through control flow — the compiler tracks what `is`, `guard`, and `match` prove about values.
+
+Phase 1 — Foundation:
+- [ ] Fix nullish equality (`!= null` must catch undefined) — prerequisite for all type narrowing
+- [ ] Enforce extern parameter types at call sites — types are already declared, just not checked
+- [ ] Track `guard x != null` narrowing through the rest of the function scope
+- [ ] Track `is` narrowing in match arms and if blocks
+
+Phase 2 — Inference:
+- [ ] Infer function return types from match/guard exhaustiveness — if all arms return strings, the function returns string
+- [ ] Infer variable types from literal assignments — `dec x = 5` means `x` is `number`
+- [ ] Propagate types through pipe chains — `5 ~> double ~> addOne` infers each step as `number`
+- [ ] Warn on type mismatch in binary expressions — `"hello" + 5` should warn
+
+Phase 3 — Exhaustiveness:
+- [ ] Warn on unhandled `is` patterns — if a union type has 3 variants and you match 2, warn about the missing one
+- [ ] Prove `_` arm unreachable when all variants are covered
+- [ ] Require `_` arm or exhaustive patterns for non-enum match subjects with known union types
+
+Phase 4 — Advanced:
+- [ ] Type-check module boundaries — `expose fn` return types validated against callers across `dep` imports
+- [ ] Typed module interfaces — declare required exports so `dep` consumers get compile-time checks
+- [ ] Effect tracking — functions that `throw`, `print`, or use `shell` could be tagged, preventing accidental side effects in `module pure`
+- [ ] Fix false-positive unreachable code warnings for conditional blocks — `|cond| => { return ... }` followed by more code always warns
+
 ## Tooling
 
 - [ ] REPL — interactive session with state across lines

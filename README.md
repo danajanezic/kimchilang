@@ -79,6 +79,8 @@ kimchi run hello.kimchi
 | [Testing](docs/testing.md) | Test framework, matchers, mocks, lifecycle hooks |
 | [CLI Commands](docs/cli.md) | Running, compiling, converting, watch mode, npm integration |
 | [Regex](docs/regex.md) | Match operator (`~`), regex in match arms, capture groups, literals |
+| [Contracts](docs/contracts.md) | Type + guard + is as a contract system — duck-typed shape validation |
+| [Plugins](docs/plugins.md) | Compiler extension system — lexer, parser, generator, auto-import hooks |
 | [Editor Extensions](docs/editors.md) | VS Code, Windsurf, Sublime Text, LSP server |
 | [Roadmap](ROADMAP.md) | Planned features and progress |
 

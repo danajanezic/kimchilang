@@ -732,6 +732,43 @@ export class TypeChecker {
     }
     this.popScope();
 
+    // Type narrowing: guard x is MyType else { ... }
+    // After the guard, x is known to have the shape defined by MyType
+    if (node.test && node.test.type === 'BinaryExpression' &&
+        (node.test.operator === 'is') && node.test.left?.type === 'Identifier') {
+      const identifier = node.test.left.name;
+      const typeName = node.test.right?.type === 'Identifier' ? node.test.right.name : null;
+
+      if (typeName) {
+        const alias = this.typeAliases.get(typeName);
+        if (alias) {
+          const resolved = alias.params.length === 0
+            ? alias.body
+            : this.substituteTypeParams(alias.body, new Map());
+          // Merge new shape properties with existing type (support sequential guards)
+          const current = this.lookupVariable(identifier);
+          if (current && current.kind === Type.Object && resolved.kind === Type.Object && resolved.properties) {
+            const merged = this.createObjectType({
+              ...(current.properties || {}),
+              ...resolved.properties,
+            });
+            this.defineVariable(identifier, merged);
+          } else {
+            this.defineVariable(identifier, resolved);
+          }
+        }
+      }
+
+      // Also handle primitive narrowing: guard x is Type.String
+      if (node.test.right?.type === NodeType.MemberExpression && node.test.right.object?.name === 'Type') {
+        const member = node.test.right.property;
+        const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
+        if (primitiveMap[member]) {
+          this.defineVariable(identifier, this.createType(primitiveMap[member]));
+        }
+      }
+    }
+
     // Type narrowing: guard x != null else { ... }
     if (node.test && node.test.type === 'BinaryExpression' && node.test.operator === '!=') {
       const { left, right } = node.test;
