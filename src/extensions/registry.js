@@ -6,6 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const EXTENSION_PLUGINS = {
   '.kmx': './kmx-react.js',
+  '.kmsql': './sql.js',
 };
 
 const loadedPlugins = new Map();

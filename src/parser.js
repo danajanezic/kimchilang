@@ -642,16 +642,21 @@ export class Parser {
     const params = this.parseParameterList();
     this.expect(TokenType.RPAREN, 'Expected )');
 
-    // Optional return type: fn name(params) is ReturnType { }
+    // Optional return type: fn name() is Type { } or fn name() in A, B { }
     let returnType = null;
-    if (this.match(TokenType.IS)) {
-      let typeName = this.expect(TokenType.IDENTIFIER, 'Expected return type name after is').value;
-      // Accept dotted names like Type.String
-      if (this.match(TokenType.DOT)) {
-        const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
-        typeName = `${typeName}.${member}`;
-      }
-      returnType = typeName;
+    let returnTypeMode = null; // 'intersection' or 'union'
+    if (this.match(TokenType.IS) || this.match(TokenType.IN)) {
+      returnTypeMode = this.tokens[this.pos - 1].type === TokenType.IN ? 'union' : 'intersection';
+      const types = [];
+      do {
+        let typeName = this.expect(TokenType.IDENTIFIER, 'Expected return type name').value;
+        if (this.match(TokenType.DOT)) {
+          const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
+          typeName = `${typeName}.${member}`;
+        }
+        types.push(typeName);
+      } while (this.match(TokenType.COMMA));
+      returnType = types.length === 1 ? types[0] : types;
     }
 
     const body = this.parseBlock();
@@ -663,6 +668,7 @@ export class Parser {
       body,
       async,
       returnType,
+      returnTypeMode,
     };
   }
 

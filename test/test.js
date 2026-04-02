@@ -7,6 +7,7 @@ import { convertJS } from '../src/js2km.js';
 import { format } from '../src/formatter.js';
 import { bundle } from '../src/bundler.js';
 import kmxReactPlugin from '../src/extensions/kmx-react.js';
+import sqlPlugin from '../src/extensions/sql.js';
 import { writeFileSync, unlinkSync, mkdirSync, rmdirSync } from 'fs';
 
 let passed = 0;
@@ -3530,6 +3531,44 @@ test('KMX: no jsx-runtime import without JSX', () => {
   const js = compile('dec x = 1', { skipTypeCheck: true, plugins: [kmxReactPlugin] });
   const hasJsxImport = js.includes('jsx-runtime');
   assertEqual(hasJsxImport, false);
+});
+
+// ==================== SQL Plugin Tests ====================
+
+console.log('\n--- SQL Plugin Tests ---\n');
+
+test('SQL: basic query without params', () => {
+  const js = compile('dec r = sql { SELECT * FROM users }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, 'await db.query("SELECT * FROM users")');
+});
+
+test('SQL: parameterized query', () => {
+  const js = compile('dec r = sql { SELECT * FROM users WHERE id = $id AND name = $name }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, '$1');
+  assertContains(js, '$2');
+  assertContains(js, '[id, name]');
+});
+
+test('SQL: is type annotation', () => {
+  const js = compile('dec r = sql is User { SELECT * FROM users }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, 'await db.query("SELECT * FROM users")');
+});
+
+test('SQL: in type annotation with multiple types', () => {
+  const js = compile('dec r = sql in Admin, User { SELECT * FROM accounts }', { skipTypeCheck: true, plugins: [sqlPlugin] });
+  assertContains(js, 'await db.query("SELECT * FROM accounts")');
+});
+
+test('fn...in return type — union declaration', () => {
+  const source = 'type Ok = {data: any}\ntype Err = {error: string}\nfn fetch(id) in Ok, Err {\nreturn {data: "x"}\n}';
+  const js = compile(source);
+  assertContains(js, 'function fetch');
+});
+
+test('fn...is return type — intersection with multiple types', () => {
+  const source = 'type A = {x: number}\ntype B = {y: number}\nfn make() is A, B {\nreturn {x: 1, y: 2}\n}';
+  const js = compile(source);
+  assertContains(js, 'function make');
 });
 
 // ==================== Is Operator End-to-End Tests ====================

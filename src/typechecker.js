@@ -1000,27 +1000,48 @@ export class TypeChecker {
     }
   }
 
+  resolveReturnTypeName(rtName) {
+    // Check for Type.Primitive (e.g., Type.String)
+    if (typeof rtName === 'string' && rtName.includes('.')) {
+      const [obj, member] = rtName.split('.');
+      if (obj === 'Type') {
+        const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
+        if (primitiveMap[member]) {
+          return this.createType(primitiveMap[member]);
+        }
+      }
+    } else if (typeof rtName === 'string') {
+      const alias = this.typeAliases.get(rtName);
+      if (alias) {
+        return alias.params.length === 0
+          ? alias.body
+          : this.substituteTypeParams(alias.body, new Map());
+      }
+    }
+    return null;
+  }
+
   visitFunctionDeclaration(node) {
-    // Resolve declared return type: fn name() is ReturnType { }
+    // Resolve declared return type: fn name() is Type { } or fn name() in A, B { }
     let declaredReturnType = null;
     if (node.returnType) {
-      const rtName = node.returnType;
-      // Check for Type.Primitive (e.g., Type.String)
-      if (rtName.includes('.')) {
-        const [obj, member] = rtName.split('.');
-        if (obj === 'Type') {
-          const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
-          if (primitiveMap[member]) {
-            declaredReturnType = this.createType(primitiveMap[member]);
+      const names = Array.isArray(node.returnType) ? node.returnType : [node.returnType];
+      const resolved = names.map(n => this.resolveReturnTypeName(n)).filter(Boolean);
+
+      if (resolved.length > 0) {
+        if (node.returnTypeMode === 'union' || (names.length > 1 && node.returnTypeMode === 'union')) {
+          declaredReturnType = resolved.length === 1 ? resolved[0] : this.createUnionType(resolved);
+        } else if (names.length > 1) {
+          // Intersection — merge all object shapes
+          let merged = resolved[0];
+          for (let i = 1; i < resolved.length; i++) {
+            if (merged.kind === Type.Object && resolved[i].kind === Type.Object) {
+              merged = this.createObjectType({ ...merged.properties, ...resolved[i].properties });
+            }
           }
-        }
-      } else {
-        // Check type aliases
-        const alias = this.typeAliases.get(rtName);
-        if (alias) {
-          declaredReturnType = alias.params.length === 0
-            ? alias.body
-            : this.substituteTypeParams(alias.body, new Map());
+          declaredReturnType = merged;
+        } else {
+          declaredReturnType = resolved[0];
         }
       }
     }
