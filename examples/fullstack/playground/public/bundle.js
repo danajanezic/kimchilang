@@ -105,7 +105,7 @@ function Editor(props) {
   let editorRef = useRef(null);
   let viewRef = useRef(null);
   useEffect(() => {
-    if ((editorRef.current !== null)) {
+    if ((editorRef.current != null)) {
       const state = EditorState.create({ doc: props?.code, extensions: [basicSetup, kimchiMode, kimchiTheme, kimchiHighlight, EditorView.lineWrapping, keymap.of([{ key: "Mod-Enter", run: () => {
         props?.onRun();
         return true;
@@ -162,7 +162,7 @@ function App() {
     fetch("/examples.json")?.then(res => res?.json())?.then(data => setExamples(data));
   }, []);
   function getCode() {
-    if (((viewRef.current !== null) && (viewRef.current?.current !== null))) {
+    if (((viewRef.current != null) && (viewRef.current?.current != null))) {
       return viewRef.current?.current?.state?.doc?.toString();
       return;
     } else if ((examples?.length > 0)) {

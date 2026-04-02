@@ -1,0 +1,76 @@
+#!/usr/bin/env kimchi
+// SQL Plugin Example
+// Demonstrates inline SQL with contracts and parameterization
+// Note: requires a postgres database to actually run
+
+as db dep stdlib.db.postgres({url: "postgres://localhost/example"})
+
+// --- Types as contracts for query results ---
+
+type User = {id: number, name: string, email: string}
+type Post = {id: number, title: string, author_id: number}
+type UserWithPosts = {name: string, email: string, post_count: number}
+
+// --- Basic queries ---
+
+fn getAllUsers() is User {
+  return sql(db) is User { SELECT id, name, email FROM users }
+}
+
+fn getUserById(id) is User {
+  return sql(db) is User { SELECT id, name, email FROM users WHERE id = $id }
+}
+
+// --- Parameterized queries ---
+
+fn searchUsers(term, minAge) is User {
+  return sql(db) is User {
+    SELECT id, name, email FROM users
+    WHERE name ILIKE $term AND age >= $minAge
+  }
+}
+
+// --- Joins with intersection types ---
+
+fn getUsersWithPostCounts() is UserWithPosts {
+  return sql(db) is UserWithPosts {
+    SELECT u.name, u.email, COUNT(p.id) as post_count
+    FROM users u
+    LEFT JOIN posts p ON p.author_id = u.id
+    GROUP BY u.name, u.email
+  }
+}
+
+// --- Union return types ---
+
+type Success = {data: any, count: number}
+type EmptyResult = {data: any, count: number, message: string}
+
+fn fetchWithFallback(status) in Success, EmptyResult {
+  dec results = sql(db) is User { SELECT * FROM users WHERE status = $status }
+  guard results.length > 0 else {
+    return {data: [], count: 0, message: "no users found"}
+  }
+  return {data: results, count: results.length}
+}
+
+// --- Mutations ---
+
+fn createUser(name, email) {
+  return sql(db) {
+    INSERT INTO users (name, email) VALUES ($name, $email)
+    RETURNING id
+  }
+}
+
+fn updateEmail(userId, newEmail) {
+  return sql(db) {
+    UPDATE users SET email = $newEmail WHERE id = $userId
+  }
+}
+
+fn deleteUser(userId) {
+  return sql(db) { DELETE FROM users WHERE id = $userId }
+}
+
+print "SQL example compiled successfully"

@@ -40,13 +40,13 @@
     "code": "// Flow composition \u2014 build reusable pipelines with >>\n\nfn trim(s) { return s.trim() }\nfn lower(s) { return s.toLowerCase() }\nfn exclaim(s) { return \"${s}!\" }\n\n// >> creates a reusable pipeline\nshout >> trim lower exclaim\n\nprint shout(\"  Hello World  \")\nprint shout(\"  KimchiLang  \")\n\nfn double(x) { return x * 2 }\nfn addTen(x) { return x + 10 }\n\ntransform >> double addTen\nprint \"transform(5) = ${transform(5)}\"\nprint \"transform(3) = ${transform(3)}\""
   },
   {
-    "name": "Conditionals",
-    "desc": ".if().else() syntax",
-    "code": "// Conditional expressions \u2014 .if().else()\n\ndec age = 25\n\ndec label = \"senior\".if(age >= 65).else(\n  \"adult\".if(age >= 18).else(\"minor\")\n)\nprint \"${age} years old: ${label}\"\n\ndec nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\ndec evens = nums.filter(n => true.if(n % 2 == 0).else(false))\nprint \"Evens: ${evens}\"\n\ndec bonus = 500.if(age > 30)\nprint \"Bonus: ${bonus ?? \"none\"}\""
+    "name": "Return Types",
+    "desc": "fn...is and fn...in",
+    "code": "// Return types \u2014 declare what a function returns\n\ntype Success = {ok: boolean, data: any}\ntype Failure = {ok: boolean, error: string}\n\n// Union return: one of these shapes\nfn divide(a, b) in Success, Failure {\n  guard b != 0 else { return {ok: false, error: \"division by zero\"} }\n  return {ok: true, data: a / b}\n}\n\nfn showResult(r) {\n  return match r {\n    is Success => \"result: ${r.data}\"\n    is Failure => \"error: ${r.error}\"\n    _ => \"unknown\"\n  }\n}\n\nprint showResult(divide(10, 3))\nprint showResult(divide(10, 0))\n\n// Intersection return: has ALL shapes\ntype HasName = {name: string}\ntype HasEmail = {email: string}\n\nfn createContact(n, e) is HasName, HasEmail {\n  return {name: n, email: e}\n}\n\ndec c = createContact(\"Alice\", \"a@test.com\")\nprint \"${c.name} <${c.email}>\""
   },
   {
-    "name": "Memoization",
-    "desc": "Built-in caching",
-    "code": "// Memoization \u2014 built-in caching with memo\n\nmemo fib(n) {\n  return match n {\n    0 => 0\n    1 => 1\n    _ => fib(n - 1) + fib(n - 2)\n  }\n}\n\nprint \"fib(10) = ${fib(10)}\"\nprint \"fib(20) = ${fib(20)}\"\nprint \"fib(30) = ${fib(30)}\"\nprint \"fib(40) = ${fib(40)}\""
+    "name": "Regex",
+    "desc": "Match operator & patterns",
+    "code": "// Regex \u2014 three ways to use patterns\n\n// 1. Match operator (~) extracts matches\ndec input = \"Hello, World! 123\"\ndec greeting = input ~ /Hello/\nprint \"Found: ${greeting}\"\n\n// 2. Match with capture groups\ndec name = \"Hello, Alice!\" ~ /Hello, (\\w+)!/ => {\n  return \"Welcome, ${$match[1]}!\"\n}\nprint name\n\n// 3. Regex patterns in match expressions\nfn classify(line) {\n  return match line {\n    /^ERROR/ => \"critical\"\n    /^WARN/ => \"warning\"\n    /^INFO/ => \"info\"\n    _ => \"unknown\"\n  }\n}\n\nprint classify(\"ERROR: disk full\")\nprint classify(\"WARN: low memory\")\nprint classify(\"INFO: started\")\nprint classify(\"something else\")"
   }
 ]

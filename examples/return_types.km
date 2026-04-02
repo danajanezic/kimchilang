@@ -1,0 +1,70 @@
+#!/usr/bin/env kimchi
+// Return Types — fn...is and fn...in declarations
+
+// --- Single return type ---
+
+type Point = {x: number, y: number}
+
+fn makePoint(x, y) is Point {
+  return {x: x, y: y}
+}
+
+dec p = makePoint(3, 4)
+print "Point: ${p.x}, ${p.y}"
+
+// --- Intersection return type ---
+
+type HasName = {name: string}
+type HasEmail = {email: string}
+
+fn createContact(n, e) is HasName, HasEmail {
+  return {name: n, email: e}
+}
+
+dec contact = createContact("Alice", "alice@test.com")
+print "Contact: ${contact.name} <${contact.email}>"
+
+// --- Union return type ---
+
+type Success = {ok: boolean, data: any}
+type Failure = {ok: boolean, error: string}
+
+fn divide(a, b) in Success, Failure {
+  guard b != 0 else { return {ok: false, error: "division by zero"} }
+  return {ok: true, data: a / b}
+}
+
+dec r1 = divide(10, 3)
+dec r2 = divide(10, 0)
+
+fn showResult(r) {
+  return match r {
+    is Success => "result: ${r.data}"
+    is Failure => "error: ${r.error}"
+    _ => "unknown"
+  }
+}
+
+print showResult(r1)
+print showResult(r2)
+
+// --- Primitive return types ---
+
+fn double(x) is Type.Number {
+  return x * 2
+}
+
+print "double(21) = ${double(21)}"
+
+// --- Inferred return types (no declaration needed) ---
+
+fn makeUser(name, age) {
+  return {name: name, age: age, active: true}
+}
+
+// Compiler infers return shape from the literal
+dec user = makeUser("Bob", 30)
+print "User: ${user.name}, age ${user.age}"
+
+print ""
+print "All return type examples passed!"

@@ -1,31 +1,18 @@
 #!/usr/bin/env kimchi
-/** @type {string} */
-dec API_URL = "https://api.example.com"
+// KimchiLang Sample — demonstrates core features with contracts and types
 
-/**
- * @param {number} a
- * @param {number} b
- * @returns {number}
- */
-fn add(a, b) {
-  return a + b
+// --- Types as contracts ---
+
+type UserService = {
+  getUser: (id: string) => string,
+  createUser: (name: string, email: string) => any
 }
 
-/**
- * @param {string} name
- */
-fn greet(name) {
-  print "Hello, " + name
-}
+type User = {name: string, email: string}
 
-// Converted from class UserService
+// --- Functions with return types ---
 
-/**
- * Creates a user service with API methods.
- * @param {string} apiKey - API key for authentication
- * @returns {any} Service object with getUser and createUser methods
- */
-fn createUserService(apiKey) {
+fn createUserService(apiKey) is UserService {
   guard apiKey != null else { throw "apiKey is required" }
 
   return {
@@ -34,29 +21,42 @@ fn createUserService(apiKey) {
     },
     createUser: (name, email) => {
       print "Creating user: ${name}"
-      return { name, email }
+      return {name: name, email: email}
     }
   }
 }
 
-/** @type {number[]} */
-dec numbers = [1, 2, 3, 4, 5]
-dec doubled = numbers.map(x => x * 2)
+// --- Pattern matching ---
 
-/**
- * Handles an HTTP status code.
- * @param {number} status - HTTP status code
- */
-fn processStatus(status) {
-  dec message = match status {
+fn processStatus(status) is Type.String {
+  return match status {
     200 => "OK"
     404 => "Not Found"
     500 => "Server Error"
     _ => "Unknown"
   }
-  print message
 }
 
-for num in numbers {
-  print num
-}
+// --- Pipes and functional patterns ---
+
+dec numbers = [1, 2, 3, 4, 5]
+dec doubled = numbers.map(x => x * 2)
+dec result = 10 ~> (x => x * 2) ~> (x => x + 1)
+
+print "Doubled: ${doubled}"
+print "Piped: ${result}"
+
+// --- Contracts in action ---
+
+dec svc = createUserService("key-123")
+print svc.getUser("42")
+
+dec user = svc.createUser("Alice", "alice@test.com")
+guard user is User else { throw "invalid user" }
+print "Created: ${user.name} <${user.email}>"
+
+// --- Match with status ---
+
+processStatus(200)
+processStatus(404)
+processStatus(999)
