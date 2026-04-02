@@ -641,15 +641,28 @@ export class Parser {
     this.expect(TokenType.LPAREN, 'Expected (');
     const params = this.parseParameterList();
     this.expect(TokenType.RPAREN, 'Expected )');
-    
+
+    // Optional return type: fn name(params) is ReturnType { }
+    let returnType = null;
+    if (this.match(TokenType.IS)) {
+      let typeName = this.expect(TokenType.IDENTIFIER, 'Expected return type name after is').value;
+      // Accept dotted names like Type.String
+      if (this.match(TokenType.DOT)) {
+        const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
+        typeName = `${typeName}.${member}`;
+      }
+      returnType = typeName;
+    }
+
     const body = this.parseBlock();
-    
+
     return {
       type: NodeType.FunctionDeclaration,
       name,
       params,
       body,
       async,
+      returnType,
     };
   }
 

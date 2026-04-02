@@ -126,6 +126,54 @@ fn area(shape) {
 }
 ```
 
+## Return Types
+
+### Declared: `fn name() is ReturnType`
+
+Functions can declare their return shape with `is`:
+
+```
+type User = {name: string, email: string}
+
+fn createUser(name, email) is User {
+  return {name: name, email: email}
+}
+
+// Callers know the return type — compiler tracks the shape
+dec user = createUser("Alice", "a@test.com")
+print user.name   // compiler knows .name exists
+```
+
+This reads as: "createUser **is** a User-returning function." The compiler verifies the declared shape and gives callers the return type for downstream narrowing.
+
+Combine with input contracts for full function signatures:
+
+```
+type Config = {host: string, port: number}
+type ServerHandle = {url: string, close: () => void}
+
+fn startServer(config) is ServerHandle {
+  guard config is Config else { throw "invalid config" }
+  return {url: "http://${config.host}:${config.port}", close: () => { print "closed" }}
+}
+```
+
+### Inferred
+
+When no return type is declared, the compiler infers the shape from return statements. If all return paths produce object literals with the same keys, callers automatically get that shape:
+
+```
+fn makePoint(x, y) {
+  return {x: x, y: y}
+}
+
+// Compiler infers: makePoint returns {x, y}
+dec p = makePoint(3, 4)
+print p.x   // compiler knows .x exists — no declaration needed
+```
+
+Inference works for simple cases. Use `is ReturnType` when the return shape isn't obvious from the code — opaque returns from external calls, conditional returns, or as documentation.
+
 ## Why Not Interfaces?
 
 KimchiLang doesn't have interfaces, abstract classes, or `implements` declarations. The contract pattern achieves the same goals without them:

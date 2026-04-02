@@ -513,6 +513,16 @@ fn area(shape) {
 }
 ```
 
+**Return types** — declare what a function returns:
+
+```kimchi
+type User = {name: string, email: string}
+
+fn createUser(name, email) is User {
+  return {name: name, email: email}
+}
+```
+
 See [Contracts](contracts.md) for the full guide.
 
 ### Error Handling

@@ -47,6 +47,7 @@ export class TypeChecker {
     
     this.mutVariables = new Set();
     this._insideClosure = false;
+    this._collectedReturnTypes = null;
     this._isPureModule = false;
     this._isSingletonModule = false;
 
@@ -992,10 +993,41 @@ export class TypeChecker {
   }
 
   visitFunctionDeclaration(node) {
+    // Resolve declared return type: fn name() is ReturnType { }
+    let declaredReturnType = null;
+    if (node.returnType) {
+      const rtName = node.returnType;
+      // Check for Type.Primitive (e.g., Type.String)
+      if (rtName.includes('.')) {
+        const [obj, member] = rtName.split('.');
+        if (obj === 'Type') {
+          const primitiveMap = { String: Type.String, Number: Type.Number, Boolean: Type.Boolean, Array: Type.Array, Object: Type.Object };
+          if (primitiveMap[member]) {
+            declaredReturnType = this.createType(primitiveMap[member]);
+          }
+        }
+      } else {
+        // Check type aliases
+        const alias = this.typeAliases.get(rtName);
+        if (alias) {
+          declaredReturnType = alias.params.length === 0
+            ? alias.body
+            : this.substituteTypeParams(alias.body, new Map());
+        }
+      }
+    }
+
     // Register nested functions in current scope so they're visible to siblings
     if (!this.functions.has(node.name)) {
       this.registerFunction(node);
       this.defineVariable(node.name, this.createType(Type.Function));
+    }
+
+    // Update function registry with declared return type
+    if (declaredReturnType && this.functions.has(node.name)) {
+      const fnInfo = this.functions.get(node.name);
+      fnInfo.returnType = declaredReturnType;
+      fnInfo.declaredReturnType = declaredReturnType;
     }
 
     // Track exposed functions for module export type
@@ -1051,11 +1083,46 @@ export class TypeChecker {
       this.defineVariable(name, paramType);
     }
     
-    // Visit function body
+    // Visit function body — collect return types for inference
+    const prevReturnTypes = this._collectedReturnTypes;
+    this._collectedReturnTypes = [];
+
     if (node.body && node.body.body) {
       for (const stmt of node.body.body) {
         this.visitStatement(stmt);
       }
+    }
+
+    // Infer return type from collected returns (if no explicit declaration)
+    const collectedReturns = this._collectedReturnTypes;
+    this._collectedReturnTypes = prevReturnTypes;
+
+    let inferredReturnType = null;
+    if (!declaredReturnType && collectedReturns.length > 0) {
+      // If all returns have the same object shape, infer that shape
+      const objectReturns = collectedReturns.filter(t => t.kind === Type.Object && t.properties);
+      if (objectReturns.length > 0 && objectReturns.length === collectedReturns.length) {
+        // Intersect all return shapes — only keep keys present in ALL returns
+        const allKeys = Object.keys(objectReturns[0].properties);
+        const commonKeys = allKeys.filter(k => objectReturns.every(r => k in r.properties));
+        if (commonKeys.length > 0) {
+          const props = {};
+          for (const k of commonKeys) {
+            props[k] = objectReturns[0].properties[k];
+          }
+          inferredReturnType = this.createObjectType(props);
+        }
+      } else if (collectedReturns.length === 1) {
+        inferredReturnType = collectedReturns[0];
+      }
+    }
+
+    const effectiveReturnType = declaredReturnType || inferredReturnType;
+
+    // Update function registry with return type
+    if (effectiveReturnType && this.functions.has(node.name)) {
+      const fnInfo = this.functions.get(node.name);
+      fnInfo.returnType = effectiveReturnType;
     }
 
     // Register function info with KMDoc types for call-site validation
@@ -1065,7 +1132,7 @@ export class TypeChecker {
           const name = p.name || p.argument;
           return { name, type: kmdocParams.get(name) || this.createType(Type.Any) };
         }),
-        returnType: node.kmdoc && node.kmdoc.returns ? this.parseTypeString(node.kmdoc.returns.type) : this.createType(Type.Any),
+        returnType: effectiveReturnType || (node.kmdoc && node.kmdoc.returns ? this.parseTypeString(node.kmdoc.returns.type) : this.createType(Type.Any)),
         kmdocParams,
       });
     }
@@ -1134,7 +1201,11 @@ export class TypeChecker {
 
   visitReturnStatement(node) {
     if (node.argument) {
-      this.visitExpression(node.argument);
+      const returnType = this.visitExpression(node.argument);
+      // Collect return types for function return type inference
+      if (this._collectedReturnTypes && returnType) {
+        this._collectedReturnTypes.push(returnType);
+      }
     }
   }
 

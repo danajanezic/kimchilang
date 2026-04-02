@@ -978,6 +978,21 @@ test('Guard is with multiple types — intersection', () => {
   assertContains(js, 'u.name');
 });
 
+test('fn...is ReturnType — declared return type', () => {
+  const source = 'type User = {name: string, email: string}\nfn createUser(n, e) is User {\nreturn {name: n, email: e}\n}\ndec u = createUser("a", "b")\nprint u.name';
+  const js = compile(source);
+  // Should parse without errors and produce valid JS
+  assertContains(js, 'function createUser');
+  assertContains(js, 'u.name');
+});
+
+test('Return type inference from object literal', () => {
+  const source = 'fn makePoint(x, y) {\nreturn {x: x, y: y}\n}\ndec p = makePoint(1, 2)\nprint p.x';
+  const js = compile(source);
+  assertContains(js, 'function makePoint');
+  assertContains(js, 'p.x');
+});
+
 test('Guard in with multiple types — union', () => {
   const source = 'type Circle = {radius: number}\ntype Rect = {width: number}\nfn describe(s) {\nguard s in Circle, Rect else { return null }\nreturn s\n}';
   const js = compile(source);
