@@ -278,6 +278,18 @@ export class Parser {
       return this.parseModuleDirective();
     }
 
+    // @annotation before type declaration
+    if (this.check(TokenType.AT)) {
+      const annotation = this.parseAnnotation();
+      this.skipNewlines();
+      if (this.check(TokenType.TYPE)) {
+        const typeDecl = this.parseTypeDeclaration();
+        typeDecl.annotation = annotation;
+        return typeDecl;
+      }
+      this.error('@ annotation must be followed by a type declaration');
+    }
+
     if (this.check(TokenType.TYPE)) {
       return this.parseTypeDeclaration();
     }
@@ -1535,6 +1547,22 @@ export class Parser {
       type: NodeType.ModuleDirective,
       directive,
     };
+  }
+
+  parseAnnotation() {
+    this.expect(TokenType.AT, 'Expected @');
+    // Read namespaced name: @query.table or @validate.rules
+    let name = this.expect(TokenType.IDENTIFIER, 'Expected annotation name after @').value;
+    while (this.match(TokenType.DOT)) {
+      name += '.' + this.expect(TokenType.IDENTIFIER, 'Expected name after .').value;
+    }
+    // Optional argument: @query.table({...})
+    let args = null;
+    if (this.match(TokenType.LPAREN)) {
+      args = this.parseExpression();
+      this.expect(TokenType.RPAREN, 'Expected ) after annotation arguments');
+    }
+    return { name, args };
   }
 
   parseTypeDeclaration() {

@@ -11,8 +11,8 @@ function getDb() {
   return _db;
 }
 
-export async function _find(table, id) {
-  const result = await getDb().query(`SELECT * FROM ${esc(table)} WHERE id = $1`, [id]);
+export async function _find(table, id, pkCol = 'id') {
+  const result = await getDb().query(`SELECT * FROM ${esc(table)} WHERE ${esc(pkCol)} = $1`, [id]);
   return result.length > 0 ? result[0] : null;
 }
 

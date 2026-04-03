@@ -319,36 +319,63 @@ export class TypeChecker {
     }
 
     // Object shape: {key: type, key: type}
+    // Supports modifiers: key: type? (optional), key: type! (required), key: type=default
     if (str.startsWith('{') && str.endsWith('}')) {
       const inner = str.slice(1, -1).trim();
       if (!inner) return this.createObjectType({});
       const properties = {};
+      const fieldMeta = {};
       let depth = 0;
       let current = '';
+      const processField = (field) => {
+        const colonIdx = field.indexOf(':');
+        if (colonIdx === -1) return;
+        const key = field.slice(0, colonIdx).trim();
+        let valType = field.slice(colonIdx + 1).trim();
+        if (!key || !valType) return;
+
+        // Extract modifiers
+        const meta = {};
+        // Default value: type=value
+        const eqIdx = valType.indexOf('=');
+        if (eqIdx !== -1 && !valType.includes('=>')) {
+          meta.defaultValue = valType.slice(eqIdx + 1).trim();
+          valType = valType.slice(0, eqIdx).trim();
+        }
+        // Optional: type?
+        if (valType.endsWith('?')) {
+          meta.optional = true;
+          valType = valType.slice(0, -1);
+        }
+        // Required (explicit): type!
+        if (valType.endsWith('!')) {
+          meta.required = true;
+          valType = valType.slice(0, -1);
+        }
+
+        properties[key] = this.parseTypeString(valType);
+        if (Object.keys(meta).length > 0) {
+          fieldMeta[key] = meta;
+        }
+      };
+
       for (const char of inner) {
         if (char === '{') depth++;
         else if (char === '}') depth--;
         else if (char === ',' && depth === 0) {
-          const colonIdx = current.indexOf(':');
-          if (colonIdx !== -1) {
-            const key = current.slice(0, colonIdx).trim();
-            const valType = current.slice(colonIdx + 1).trim();
-            if (key && valType) properties[key] = this.parseTypeString(valType);
-          }
+          processField(current);
           current = '';
           continue;
         }
         current += char;
       }
-      if (current.trim()) {
-        const colonIdx = current.indexOf(':');
-        if (colonIdx !== -1) {
-          const key = current.slice(0, colonIdx).trim();
-          const valType = current.slice(colonIdx + 1).trim();
-          if (key && valType) properties[key] = this.parseTypeString(valType);
-        }
+      if (current.trim()) processField(current);
+
+      const objType = this.createObjectType(properties);
+      if (Object.keys(fieldMeta).length > 0) {
+        objType.fieldMeta = fieldMeta;
       }
-      return this.createObjectType(properties);
+      return objType;
     }
 
     // Function type: (type, type) => type
@@ -1528,7 +1555,9 @@ export class TypeChecker {
       const resolved = alias.params.length === 0 ? alias.body : this.substituteTypeParams(alias.body, new Map());
       if (resolved.kind === Type.Object && resolved.properties) {
         node.isKind = 'shape';
-        node.isKeys = Object.keys(resolved.properties);
+        // Skip optional fields in duck type check
+        const meta = resolved.fieldMeta || {};
+        node.isKeys = Object.keys(resolved.properties).filter(k => !meta[k]?.optional);
         return;
       }
     }
@@ -1562,7 +1591,8 @@ export class TypeChecker {
       const resolved = alias.params.length === 0 ? alias.body : this.substituteTypeParams(alias.body, new Map());
       if (resolved.kind === Type.Object && resolved.properties) {
         pattern.isKind = 'shape';
-        pattern.isKeys = Object.keys(resolved.properties);
+        const meta = resolved.fieldMeta || {};
+        pattern.isKeys = Object.keys(resolved.properties).filter(k => !meta[k]?.optional);
         return;
       }
     }

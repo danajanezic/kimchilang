@@ -3689,6 +3689,33 @@ test('Query: include', () => {
   assertContains(js, '"user_id"');
 });
 
+// ==================== Annotations & Field Modifiers ====================
+
+console.log('\n--- Annotations & Field Modifiers ---\n');
+
+test('Annotation: @query.table parsed on type declaration', () => {
+  const ast = parse(tokenize('@query.table({id: {primaryKey: true}})\ntype User = {id: number}'));
+  const td = ast.body[0];
+  assertEqual(td.type, 'TypeDeclaration');
+  assertEqual(td.annotation.name, 'query.table');
+});
+
+test('Field modifier: optional ? skipped in is check', () => {
+  const js = compile('type T = {name: string, bio: string?}\nfn f(x) {\nguard x is T else { return null }\nreturn x.name\n}');
+  assertContains(js, "'name' in x");
+  assertEqual(js.includes("'bio' in x"), false);
+});
+
+test('Field modifier: required ! included in is check', () => {
+  const js = compile('type T = {name: string!}\nfn f(x) {\nguard x is T else { return null }\nreturn x.name\n}');
+  assertContains(js, "'name' in x");
+});
+
+test('Query: @query.table annotation sets primary key column', () => {
+  const js = compile('@query.table({id: {col: "user_id", primaryKey: true}})\ntype User = {id: number, name: string}\ndec u = query User { find 42 }', { skipTypeCheck: true, plugins: [queryPlugin] });
+  assertContains(js, '"user_id"');
+});
+
 // ==================== Is Operator End-to-End Tests ====================
 
 console.log('\n--- Is Operator End-to-End Tests ---\n');

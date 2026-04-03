@@ -13,7 +13,7 @@ arg db
 
 extern "./_query_helpers.js" {
   fn setDb(db: any): void
-  async fn _find(table: string, id: any): any
+  async fn _find(table: string, id: any, pkCol: any): any
   async fn _all(table: string): any
   async fn _first(table: string): any
   async fn _last(table: string): any
@@ -27,7 +27,7 @@ extern "./_query_helpers.js" {
 
 setDb(db)
 
-expose fn find(table, id) { return _find(table, id) }
+expose fn find(table, id, pkCol) { return _find(table, id, pkCol) }
 expose fn all(table) { return _all(table) }
 expose fn first(table) { return _first(table) }
 expose fn last(table) { return _last(table) }

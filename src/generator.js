@@ -10,6 +10,7 @@ export class CodeGenerator {
     this.options = options;
     this.plugins = options.plugins || [];
     this.decVariables = new Set();
+    this.typeAnnotations = new Map(); // Map<typeName, annotation> for plugin metadata
     this.knownShapes = new Map(); // Map<name, shapeTree> for ?. optimization
     // JS globals with known shapes — use . not ?.
     for (const name of ['console', 'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date', 'Promise', 'RegExp', 'Error', 'Map', 'Set', 'Symbol', 'parseInt', 'parseFloat', 'isNaN', 'isFinite', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'document', 'window', 'navigator', 'location', 'localStorage', 'sessionStorage']) {
@@ -560,6 +561,13 @@ export class CodeGenerator {
     const argDeclarations = node.body.filter(stmt => stmt.type === NodeType.ArgDeclaration);
     const envDeclarations = node.body.filter(stmt => stmt.type === NodeType.EnvDeclaration);
     const decDeclarations = node.body.filter(stmt => stmt.type === NodeType.DecDeclaration);
+    // Collect type annotations before filtering
+    for (const stmt of node.body) {
+      if (stmt.type === NodeType.TypeDeclaration && stmt.annotation) {
+        this.typeAnnotations.set(stmt.name, stmt.annotation);
+      }
+    }
+
     const otherStatements = node.body.filter(stmt =>
       stmt.type !== NodeType.DepStatement &&
       stmt.type !== NodeType.ArgDeclaration &&
@@ -1030,6 +1038,10 @@ export class CodeGenerator {
         break;
       case NodeType.TypeDeclaration:
         // Type declarations are compile-time only — no runtime code
+        // But collect annotations for plugin access
+        if (node.annotation) {
+          this.typeAnnotations.set(node.name, node.annotation);
+        }
         break;
       case NodeType.ModuleDirective:
         break;

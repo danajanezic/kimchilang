@@ -296,12 +296,51 @@ function parseQuery(parser) {
 
 // --- Query Generator ---
 
+function getTableConfig(generator, typeName) {
+  const annotation = generator.typeAnnotations?.get(typeName);
+  if (!annotation || annotation.name !== 'query.table' || !annotation.args) return null;
+
+  // annotation.args is an ObjectExpression AST node
+  const config = {};
+  if (annotation.args.type === 'ObjectExpression' && annotation.args.properties) {
+    for (const prop of annotation.args.properties) {
+      const key = prop.key?.name || prop.key;
+      const value = {};
+      if (prop.value?.type === 'ObjectExpression' && prop.value.properties) {
+        for (const p of prop.value.properties) {
+          const k = p.key?.name || p.key;
+          const v = p.value?.value !== undefined ? p.value.value : (p.value?.name || true);
+          value[k] = v;
+        }
+      }
+      config[key] = value;
+    }
+  }
+  return config;
+}
+
+function getColumnName(tableConfig, field) {
+  if (tableConfig && tableConfig[field] && tableConfig[field].col) {
+    return tableConfig[field].col;
+  }
+  return field;
+}
+
+function getPrimaryKeyField(tableConfig) {
+  if (!tableConfig) return 'id';
+  for (const [field, meta] of Object.entries(tableConfig)) {
+    if (meta.primaryKey) return getColumnName(tableConfig, field);
+  }
+  return 'id';
+}
+
 function generateQuery(generator, node) {
   if (node.type !== 'QueryBlock') return undefined;
 
   const table = node.typeName.toLowerCase();
   const conn = node.override || 'query';
   const ops = node.operations;
+  const tableConfig = getTableConfig(generator, node.typeName);
 
   if (ops.length === 0) return 'null';
 
@@ -310,12 +349,14 @@ function generateQuery(generator, node) {
   switch (primary.op) {
     case 'find': {
       const id = resolveValue(primary.id);
+      const pk = getPrimaryKeyField(tableConfig);
+      const pkArg = pk !== 'id' ? `, "${pk}"` : '';
       const includes = ops.filter(o => o.op === 'include');
       if (includes.length === 0) {
-        return `await ${conn}.find("${table}", ${id})`;
+        return `await ${conn}.find("${table}", ${id}${pkArg})`;
       }
       // Find with includes
-      const parts = [`await ${conn}.find("${table}", ${id})`];
+      const parts = [`await ${conn}.find("${table}", ${id}${pkArg})`];
       for (const inc of includes) {
         const relTable = inc.relType.toLowerCase();
         const fk = inc.foreignKey ? `"${inc.foreignKey}"` : `"${table.replace(/s$/, '')}_id"`;
