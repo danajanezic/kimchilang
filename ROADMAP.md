@@ -47,6 +47,51 @@ Planned improvements:
 - [ ] Rest parameters in extern — `fn join(...parts: string)` for variadic JS functions. Currently requires declaring fixed arity.
 - [ ] `import.meta.url` support — needed for resolving paths relative to the current module. Currently no way to get the module's own file path.
 - [ ] `catch` without parens — allow `catch e { }` in addition to `catch(e) { }` for consistency with other KimchiLang blocks
+- [x] ~~`@annotations` on type declarations~~ — `@namespace.name({...})` metadata, invisible to type system, read by plugins
+- [x] ~~Field modifiers in types~~ — `string?` (optional, skipped in `is` checks), `string!` (required), `string = "default"` (has default)
+
+## Extension System
+
+KimchiLang grows through **directive blocks** — domain-specific syntax that plugins compile to JavaScript. Extensions have two halves: a compile-time plugin (lexer/parser/generator hooks) and a runtime module.
+
+### Four layers
+
+| Layer | Import | Example |
+|-------|--------|---------|
+| Language | built-in | `shell`, `spawn`, `match`, `guard` |
+| KMX | `.kmx` file extension | JSX/React |
+| Stdlib | `dep stdlib.X` | postgres driver, http, logging |
+| Extensions | `dep @X` | `@db.query`, `@db.sql` — directive-capable packages |
+
+### Three plugin tiers
+
+| Tier | Written in | Access | Trust |
+|------|-----------|--------|-------|
+| Core | JavaScript | Full compiler API | Ships with KimchiLang |
+| Extension | JavaScript | Full API, statically analyzed at install | From pantry, flagged at install |
+| Native | KimchiLang | Declarative API only | Sandboxed by design |
+
+### Implemented
+
+- [x] ~~Plugin system~~ — lexer/parser/generator/autoImport hooks (`src/extensions/`)
+- [x] ~~SQL plugin~~ — `sql is User { SELECT * FROM users WHERE id = $id }`
+- [x] ~~Query plugin~~ — `query User { find 42 }` CRUD with `@query.table` annotations
+- [x] ~~Plugin registry~~ — auto-load by file extension (`.kmx`, `.kmsql`, `.kmq`)
+- [x] ~~Interpreter plugin loading~~ — `kimchi run` loads plugins for file extension
+
+### Planned
+
+- [ ] `dep @namespace.name` import syntax — extension import that loads plugin + runtime + registers directive keyword
+- [ ] `kimchi install @db.query` — install extensions from pantry, separate trust decision from compilation
+- [ ] Lockfile (`km-extensions.lock`) — version + integrity hash for deterministic CI installs
+- [ ] Static analysis at install — scan `plugin.js` for fs/net/process/eval, flag capabilities, refuse on manifest mismatch
+- [ ] Native plugin API — write directive plugins in KimchiLang with declarative pattern/body/generate API, sandboxed by design
+- [ ] Pantry registry — package registry for community extensions (beyond GitHub-based deps)
+- [ ] Directive name conflict detection — compile error when two extensions declare the same keyword, resolution mechanism TBD
+
+### Extension design spec
+
+Full design at `docs/superpowers/specs/2026-04-02-directive-blocks-and-query-design.md`
 
 ## Type Checker
 
