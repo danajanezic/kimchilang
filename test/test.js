@@ -3933,6 +3933,59 @@ fn check(val) {
   assertContains(js, '_isGenerator');
 });
 
+console.log('\n--- Gen Block Compilation Tests ---\n');
+
+test('Generate basic gen block with IIFE wrapper', () => {
+  const source = `dec pull = gen {
+  yield 1
+  yield 2
+  yield 3
+}`;
+  const js = compile(source);
+  assertContains(js, 'function*');
+  assertContains(js, 'yield 1');
+  assertContains(js, 'yield 2');
+  assertContains(js, 'yield 3');
+  assertContains(js, 'DONE');
+  assertContains(js, '.next(');
+  assertContains(js, '_isGenerator');
+  assertContains(js, 'Symbol.iterator');
+});
+
+test('Generate gen block with params', () => {
+  const source = `dec pull = gen (max) {
+  mut i = 0
+  while i < max {
+    yield i
+    i += 1
+  }
+}`;
+  const js = compile(source);
+  assertContains(js, 'function*(max)');
+  assertContains(js, 'yield i');
+  assertContains(js, '_isGenerator');
+});
+
+test('Generate yield as expression (receives value)', () => {
+  const source = `dec pull = gen {
+  mut val = yield "ready"
+  yield val
+}`;
+  const js = compile(source);
+  assertContains(js, 'yield "ready"');
+  assertContains(js, '_sendValue');
+});
+
+test('Generate gen with empty parens', () => {
+  const source = `dec pull = gen () {
+  yield 42
+}`;
+  const js = compile(source);
+  assertContains(js, 'function*()');
+  assertContains(js, 'DONE');
+  assertContains(js, '_isGenerator');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

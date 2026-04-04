@@ -1316,7 +1316,8 @@ export class CodeGenerator {
     const bodyCode = this.output;
     this.output = savedOutput;
     this.indent = savedIndent;
-    return `(function*(${params}) {\n${bodyCode}})`;
+    const args = params ? `(${params})` : '()';
+    return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; const _iter = _gen${args}; const _next = function(_sendValue) { const _result = _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
   }
 
   visitYieldExpression(node) {
