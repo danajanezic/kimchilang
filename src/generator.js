@@ -1317,6 +1317,10 @@ export class CodeGenerator {
     this.output = savedOutput;
     this.indent = savedIndent;
     const args = params ? `(${params})` : '()';
+    const isAsync = this._containsAsyncMarker(node.body);
+    if (isAsync) {
+      return `(() => { const _gen = async function*(${params}) {\n${bodyCode}}; const _iter = _gen${args}; const _next = async function(_sendValue) { const _result = await _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+    }
     return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; const _iter = _gen${args}; const _next = function(_sendValue) { const _result = _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
   }
 

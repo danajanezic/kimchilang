@@ -3986,6 +3986,19 @@ test('Generate gen with empty parens', () => {
   assertContains(js, '_isGenerator');
 });
 
+test('Generate async gen block', () => {
+  const source = `dec pull = gen {
+  sleep 100
+  yield 1
+  sleep 200
+  yield 2
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'async function*');
+  assertContains(js, 'await _iter.next(');
+  assertContains(js, 'Symbol.asyncIterator');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
