@@ -342,12 +342,19 @@ export class Linter {
   collectDestructuringNames(pattern, node) {
     if (pattern.type === NodeType.ObjectPattern) {
       for (const prop of pattern.properties) {
-        this.defineVariable(prop.value, node);
+        if (typeof prop.value === 'string') {
+          this.defineVariable(prop.value, node);
+        } else {
+          this.collectDestructuringNames(prop.value, node);
+        }
       }
     } else if (pattern.type === NodeType.ArrayPattern) {
       for (const elem of pattern.elements) {
-        if (elem) {
+        if (!elem) continue;
+        if (elem.type === 'Identifier') {
           this.defineVariable(elem.name, node);
+        } else {
+          this.collectDestructuringNames(elem, node);
         }
       }
     }

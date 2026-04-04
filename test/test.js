@@ -4294,6 +4294,52 @@ test('Parse array inside object', () => {
   assertEqual(scoresProp.value.elements[0].name, 'first');
 });
 
+// Code Generation: Recursive Pattern Tests
+console.log('\n--- Code Generation: Recursive Pattern Tests ---\n');
+
+test('Generate nested object destructuring', () => {
+  const js = compile('dec { user: { name, age } } = data', { skipTypeCheck: true });
+  assertContains(js, 'const { user: { name, age } } = data');
+});
+
+test('Generate nested array destructuring', () => {
+  const js = compile('dec [first, [a, b]] = matrix', { skipTypeCheck: true });
+  assertContains(js, 'const [first, [a, b]] = matrix');
+});
+
+test('Generate object destructuring with default', () => {
+  const js = compile('dec { role = "viewer" } = user', { skipTypeCheck: true });
+  assertContains(js, 'const { role = "viewer" } = user');
+});
+
+test('Generate nested object with default', () => {
+  const js = compile('dec { address: { city = "unknown" } } = user', { skipTypeCheck: true });
+  assertContains(js, 'const { address: { city = "unknown" } } = user');
+});
+
+test('Generate array with defaults', () => {
+  const js = compile('dec [a = 0, b = 1] = arr', { skipTypeCheck: true });
+  assertContains(js, 'const [a = 0, b = 1] = arr');
+});
+
+test('Generate mixed nesting', () => {
+  const js = compile('dec { scores: [first, second] } = data', { skipTypeCheck: true });
+  assertContains(js, 'const { scores: [first, second] } = data');
+});
+
+test('Generate mut nested destructuring', () => {
+  const js = compile('mut { user: { name } } = data', { skipTypeCheck: true });
+  assertContains(js, 'let { user: { name } } = data');
+});
+
+test('Generate function param nested destructuring', () => {
+  const source = `fn greet({ name, address: { city = "unknown" } }) {
+  print name
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '{ name, address: { city = "unknown" } }');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

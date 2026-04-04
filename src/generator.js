@@ -1110,26 +1110,9 @@ export class CodeGenerator {
     }
     
     if (node.destructuring) {
-      // Handle destructuring patterns
-      if (node.pattern.type === NodeType.ObjectPattern) {
-        // Object destructuring: const { a, b } = obj;
-        const props = node.pattern.properties.map(p => {
-          if (p.key === p.value) {
-            return p.key;
-          }
-          return `${p.key}: ${p.value}`;
-        }).join(', ');
-        this.emitLine(`const { ${props} } = ${init};`);
-        for (const p of node.pattern.properties) { this.decVariables.add(p.value || p.key); }
-      } else if (node.pattern.type === NodeType.ArrayPattern) {
-        // Array destructuring: const [x, y] = arr;
-        const elems = node.pattern.elements.map(e => {
-          if (e === null) return '';
-          return e.name;
-        }).join(', ');
-        this.emitLine(`const [${elems}] = ${init};`);
-        for (const e of node.pattern.elements) { if (e) this.decVariables.add(e.name); }
-      }
+      const patternStr = this.generatePattern(node.pattern);
+      this.emitLine(`const ${patternStr} = ${init};`);
+      this.collectPatternBindings(node.pattern, name => this.decVariables.add(name));
     } else {
       this.emitLine(`const ${node.name} = ${init};`);
       this.decVariables.add(node.name);
@@ -1142,21 +1125,8 @@ export class CodeGenerator {
     let init = this.visitExpression(node.init);
 
     if (node.destructuring) {
-      if (node.pattern.type === NodeType.ObjectPattern) {
-        const props = node.pattern.properties.map(p => {
-          if (p.key === p.value) {
-            return p.key;
-          }
-          return `${p.key}: ${p.value}`;
-        }).join(', ');
-        this.emitLine(`let { ${props} } = ${init};`);
-      } else if (node.pattern.type === NodeType.ArrayPattern) {
-        const elems = node.pattern.elements.map(e => {
-          if (e === null) return '';
-          return e.name;
-        }).join(', ');
-        this.emitLine(`let [${elems}] = ${init};`);
-      }
+      const patternStr = this.generatePattern(node.pattern);
+      this.emitLine(`let ${patternStr} = ${init};`);
     } else {
       this.emitLine(`let ${node.name} = ${init};`);
       const shape = this.buildShapeTree(node.init);
@@ -1368,35 +1338,66 @@ export class CodeGenerator {
     return `yield ${arg}`.trimEnd();
   }
 
+  generatePattern(pattern) {
+    if (typeof pattern === 'string') return pattern;
+
+    if (pattern.type === 'ObjectPattern') {
+      const props = pattern.properties.map(p => {
+        const valueStr = this.generatePattern(p.value);
+        const defaultStr = p.defaultValue ? ` = ${this.visitExpression(p.defaultValue)}` : '';
+        if (p.key === valueStr) return `${p.key}${defaultStr}`;
+        return `${p.key}: ${valueStr}${defaultStr}`;
+      }).join(', ');
+      return `{ ${props} }`;
+    }
+
+    if (pattern.type === 'ArrayPattern') {
+      const elems = pattern.elements.map(e => {
+        if (e === null) return '';
+        return this.generatePattern(e);
+      }).join(', ');
+      return `[${elems}]`;
+    }
+
+    if (pattern.type === 'Identifier') {
+      const defaultStr = pattern.defaultValue ? ` = ${this.visitExpression(pattern.defaultValue)}` : '';
+      return `${pattern.name}${defaultStr}`;
+    }
+
+    return pattern.name || '';
+  }
+
+  collectPatternBindings(pattern, callback) {
+    if (pattern.type === 'ObjectPattern') {
+      for (const p of pattern.properties) {
+        if (typeof p.value === 'string') callback(p.value);
+        else if (p.value.type === 'Identifier') callback(p.value.name);
+        else this.collectPatternBindings(p.value, callback);
+      }
+    } else if (pattern.type === 'ArrayPattern') {
+      for (const e of pattern.elements) {
+        if (e === null) continue;
+        if (e.type === 'Identifier') callback(e.name);
+        else this.collectPatternBindings(e, callback);
+      }
+    }
+  }
+
   generateParams(params) {
     return params.map(p => {
       if (p.type === 'RestElement') {
         return `...${p.argument}`;
       }
-      
+
       // Handle destructuring patterns
-      if (p.destructuring === 'object') {
-        const props = p.pattern.properties.map(prop => prop.key).join(', ');
-        const pattern = `{ ${props} }`;
+      if (p.destructuring === 'object' || p.destructuring === 'array') {
+        const patternStr = this.generatePattern(p.pattern);
         if (p.defaultValue) {
-          return `${pattern} = ${this.visitExpression(p.defaultValue)}`;
+          return `${patternStr} = ${this.visitExpression(p.defaultValue)}`;
         }
-        return pattern;
+        return patternStr;
       }
-      
-      if (p.destructuring === 'array') {
-        const elems = p.pattern.elements.map(elem => {
-          if (elem === null) return '';
-          if (elem.type === 'Identifier') return elem.name;
-          return this.visitExpression(elem);
-        }).join(', ');
-        const pattern = `[${elems}]`;
-        if (p.defaultValue) {
-          return `${pattern} = ${this.visitExpression(p.defaultValue)}`;
-        }
-        return pattern;
-      }
-      
+
       if (p.defaultValue) {
         return `${p.name} = ${this.visitExpression(p.defaultValue)}`;
       }
