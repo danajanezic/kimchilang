@@ -33,7 +33,7 @@ Planned improvements:
 - [x] ~~`Foo.new(args)` constructor syntax — `new` as a static method on the base object/function, compiles to `new Foo(args)`. Enables chaining without variable assignment: `Date.new().toISOString()`. Replaces broken `new Foo()` keyword form.~~
 - [x] ~~`extern` declarations — typed contracts for JS modules (`extern "node:fs" { fn readFileSync(path: string): string }`). Compiles to tree-shaken `import` statements. Supports named and default exports.~~
 - [x] ~~Remove `js { }` interop~~ — replaced by extern declarations and `Foo.new()` constructor syntax
-- [ ] Generator functions — `gen fn range(start, end) { yield start; ... }` with iterator protocol, composable with pipes and `for...in`
+- [x] ~~Generator functions~~ — `gen { yield value }` directive blocks returning next-functions, `done` primitive, `is done`/`is Type.Done`/`is Type.Generator`, pipe composition, `for...in` integration, async auto-detection
 - [x] ~~Drop `async`/`await`~~ — compiler auto-detects async-ness from call graph. `sleep ms` replaces manual Promise construction.
 - [x] ~~Frontend build system — `kimchi build entry.km -o dist/bundle.js`. Compiles with `--target browser`, bundles deps into IIFE, inlines runtime. No factory wrappers. Prerequisite for `.kmx`.~~
 - [x] ~~`extern node`/`extern browser` platform annotations~~ — compile error when platform mismatches build target

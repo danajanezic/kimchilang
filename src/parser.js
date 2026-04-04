@@ -1949,15 +1949,19 @@ export class Parser {
   }
 
   parseAssignment() {
+    // yield can appear as RHS of assignment: input = yield "value"
+    if (this.check(TokenType.YIELD)) {
+      return this.parseYield();
+    }
     const left = this.parseTernary();
-    
-    if (this.match(TokenType.ASSIGN, TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN, 
+
+    if (this.match(TokenType.ASSIGN, TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN,
                    TokenType.STAR_ASSIGN, TokenType.SLASH_ASSIGN)) {
       const operator = this.tokens[this.pos - 1].value;
-      
+
       // Check for immutability violations on dec variables
       this.checkDecImmutability(left);
-      
+
       const right = this.parseAssignment();
       return {
         type: NodeType.AssignmentExpression,

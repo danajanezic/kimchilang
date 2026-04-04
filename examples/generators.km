@@ -1,0 +1,132 @@
+#!/usr/bin/env kimchi
+// Generators in KimchiLang — lazy, pausable sequences
+
+// === Basic generator ===
+// gen returns a next-function. Call it to get values one at a time.
+
+dec counter = gen {
+  yield 1
+  yield 2
+  yield 3
+}
+
+print "Basic generator:"
+print counter()
+print counter()
+print counter()
+print counter() is done
+
+// === Reusable generator (wrap in a function) ===
+// The gen block closes over the function's parameters.
+
+/**
+ * Yields numbers from start up to (not including) end.
+ * @param {number} start - First value
+ * @param {number} end - Stop before this value
+ */
+fn range(start, end) {
+  return gen {
+    mut i = start
+    while i < end {
+      yield i
+      i += 1
+    }
+  }
+}
+
+print "\nRange 0..5:"
+dec r = range(0, 5)
+print r()
+print r()
+print r()
+print r()
+print r()
+print r() is done
+
+// === for...in with generators ===
+// Generators are iterable — for...in consumes them automatically.
+
+print "\nFor...in with range:"
+for n in range(1, 6) {
+  print "  ${n}"
+}
+
+// === Inline generators ===
+// gen blocks can be used directly in for...in.
+
+print "\nInline gen in for...in:"
+for word in gen {
+  yield "hello"
+  yield "world"
+} {
+  print "  ${word}"
+}
+
+// === done primitive ===
+// Exhausted generators return done. Check with `is done` or `is Type.Done`.
+
+print "\nChecking for done:"
+dec small = gen { yield 42 }
+dec first = small()
+print "Value: ${first}"
+print "Is done? ${first is done}"
+print "Next is done? ${small() is done}"
+
+// === guard with done ===
+
+fn takeFirst(g) {
+  dec result = g()
+  guard result is not done else { return "empty!" }
+  return result
+}
+
+print "\nGuard with done:"
+print takeFirst(gen { yield "found it" })
+
+// === match with done ===
+
+fn check(g) {
+  return match g() {
+    v is done => "exhausted"
+    v => "got: ${v}"
+  }
+}
+
+print "\nMatch with done:"
+dec matcher = gen { yield 99 }
+print check(matcher)
+print check(matcher)
+
+// === yield receives values ===
+// yield is an expression — it returns what the caller passes in.
+
+print "\nYield receives values:"
+dec echo = gen {
+  mut input = yield "ready"
+  input = yield "you said: ${input}"
+  yield "you said: ${input}"
+}
+
+print echo()
+print echo("hello")
+print echo("world")
+
+// === Pipe composition ===
+// Piping a generator through functions returns a new lazy generator.
+
+fn double(x) { return x * 2 }
+
+print "\nPipe composition:"
+dec doubled = range(1, 4) ~> double
+print doubled()
+print doubled()
+print doubled()
+
+// === Type checking ===
+
+print "\nType checking:"
+dec tg = gen { yield 1 }
+print "Is generator? ${tg is Type.Generator}"
+print "Is done? ${tg is Type.Done}"
+print "Value is done? ${tg() is done}"
+print "Exhausted is done? ${tg() is done}"

@@ -88,6 +88,11 @@ JSDoc-style `/** */` comments with `@param {type} name`, `@returns {type}`, and 
 - `type Name<T> = body` — generic type aliases. `type Result<T> = {ok: boolean, value: T}`, `type Optional<T> = T | null`. Type parameters substituted on instantiation.
 - `string | null` — union types in extern declarations and KMDocs. One-way compatibility: `string` fits `string | null`, but not reverse. `guard x != null else { ... }` narrows the type.
 - `x is Type.String` — three-tier type checking: primitive check (`Type.String`, `Type.Number`, etc.), duck typing via type alias shapes (`x is Point` checks for keys), instanceof fallback. Works in expressions and `match` patterns. Negated with `is not`.
+- `gen { yield value }` — generator directive block. Returns a next-function (plain callable). Each call returns the next yielded value or `done` when exhausted. `yield` is an expression that receives values from the caller. Compiles to JS `function*` wrapped in an IIFE. Supports optional params: `gen (args) { }`. Async auto-detected.
+- `done` — primitive keyword (like `null`, `true`). Returned by exhausted generators. Checked with `is done` or `is Type.Done`. Compiles to a frozen Symbol sentinel (tree-shaken).
+- `is Type.Generator` — detects generator next-functions via `_isGenerator` flag.
+- `is Type.Done` / `is done` — detects the `done` primitive. Both forms are equivalent.
+- Generator pipe composition — `gen ~> fn` returns a new lazy generator applying the transform per-value. The `_pipe` helper detects generators via `_isGenerator`.
 
 ## Test Structure
 
@@ -117,7 +122,7 @@ KimchiLang has a built-in test runner invoked with `kimchi test <file>`. Syntax:
 - **No `_deepFreeze` at runtime** — immutability is compile-time only.
 - **Smart optional chaining** — generator tracks known object shapes from literals and `guard` statements. Uses `.` when safe, `?.` otherwise.
 - **Match ternary compilation** — simple literal/wildcard match expressions compile to ternary chains instead of IIFEs. Binding+guard patterns avoid nested IIFEs.
-- **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_spawn`, `_worker`, `_Secret`, `STATUS` enum, and the testing framework are only emitted when the AST uses them.
+- **Tree-shaken runtime** — `_pipe`, `_flow`, `_shell`, `_spawn`, `_worker`, `_Secret`, `STATUS` enum, `DONE` sentinel, and the testing framework are only emitted when the AST uses them.
 - **Extern imports** — `extern` declarations compile to static `import` statements. Only symbols actually used in the file are imported (tree-shaken). Extern blocks produce zero runtime code.
 - **Shared runtime module** — `src/runtime.js` contains stdlib extensions, `_obj`, and `error`. Compiled files import it; interpreter inlines it.
 
