@@ -3795,6 +3795,53 @@ test('Parse done literal', () => {
   assertEqual(decl.init.raw, 'done');
 });
 
+// === yield + gen block parsing tests ===
+
+test('Parse yield expression', () => {
+  const tokens = tokenize('dec next = gen { yield 42 }');
+  const ast = parse(tokens);
+  const genExpr = ast.body[0].init;
+  const yieldExpr = genExpr.body.body[0].expression;
+  assertEqual(yieldExpr.type, 'YieldExpression');
+  assertEqual(yieldExpr.argument.value, 42);
+});
+
+test('Parse bare yield (no argument)', () => {
+  const tokens = tokenize('dec next = gen { yield }');
+  const ast = parse(tokens);
+  const genExpr = ast.body[0].init;
+  const yieldExpr = genExpr.body.body[0].expression;
+  assertEqual(yieldExpr.type, 'YieldExpression');
+  assertEqual(yieldExpr.argument, null);
+});
+
+test('Parse gen block with no params', () => {
+  const tokens = tokenize('dec next = gen { yield 1 }');
+  const ast = parse(tokens);
+  const genExpr = ast.body[0].init;
+  assertEqual(genExpr.type, 'GeneratorExpression');
+  assertEqual(genExpr.params.length, 0);
+  assertEqual(genExpr.body.body.length, 1);
+});
+
+test('Parse gen block with empty parens', () => {
+  const tokens = tokenize('dec next = gen () { yield 1 }');
+  const ast = parse(tokens);
+  const genExpr = ast.body[0].init;
+  assertEqual(genExpr.type, 'GeneratorExpression');
+  assertEqual(genExpr.params.length, 0);
+  assertEqual(genExpr.body.body.length, 1);
+});
+
+test('Parse gen block with params', () => {
+  const tokens = tokenize('dec next = gen (max) { yield max }');
+  const ast = parse(tokens);
+  const genExpr = ast.body[0].init;
+  assertEqual(genExpr.type, 'GeneratorExpression');
+  assertEqual(genExpr.params.length, 1);
+  assertEqual(genExpr.params[0], 'max');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

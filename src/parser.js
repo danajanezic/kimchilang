@@ -72,6 +72,10 @@ export const NodeType = {
   MatchArm: 'MatchArm',
   WildcardPattern: 'WildcardPattern',
 
+  // Generators
+  GeneratorExpression: 'GeneratorExpression',
+  YieldExpression: 'YieldExpression',
+
   // Interop
   ShellBlock: 'ShellBlock',
   
@@ -1452,6 +1456,29 @@ export class Parser {
     };
   }
 
+  parseGeneratorExpression() {
+    this.advance(); // consume 'gen'
+    const params = [];
+    // Optional params in parens
+    if (this.check(TokenType.LPAREN)) {
+      this.advance(); // consume '('
+      while (!this.check(TokenType.RPAREN)) {
+        if (params.length > 0) {
+          this.expect(TokenType.COMMA);
+        }
+        const name = this.expect(TokenType.IDENTIFIER).value;
+        params.push(name);
+      }
+      this.expect(TokenType.RPAREN);
+    }
+    const body = this.parseBlock();
+    return {
+      type: NodeType.GeneratorExpression,
+      params,
+      body,
+    };
+  }
+
   parseSleepStatement() {
     this.expect(TokenType.SLEEP, 'Expected sleep');
     const duration = this.parseExpression();
@@ -1865,7 +1892,23 @@ export class Parser {
 
   // Expression parsing with precedence climbing
   parseExpression() {
+    if (this.check(TokenType.YIELD)) {
+      return this.parseYield();
+    }
     return this.parseAssignment();
+  }
+
+  parseYield() {
+    this.advance(); // consume 'yield'
+    let argument = null;
+    // yield takes an argument unless followed by } or EOF
+    if (!this.check(TokenType.RBRACE) && !this.check(TokenType.EOF)) {
+      argument = this.parseAssignment();
+    }
+    return {
+      type: NodeType.YieldExpression,
+      argument,
+    };
   }
 
   parseAssignment() {
@@ -2424,6 +2467,10 @@ export class Parser {
 
     if (this.check(TokenType.WORKER)) {
       return this.parseWorkerExpression();
+    }
+
+    if (this.check(TokenType.GEN)) {
+      return this.parseGeneratorExpression();
     }
 
     if (this.check(TokenType.AFTER)) {
