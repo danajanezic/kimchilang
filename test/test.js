@@ -3999,6 +3999,40 @@ test('Generate async gen block', () => {
   assertContains(js, 'Symbol.asyncIterator');
 });
 
+// Task 10: Pipe composition with generators
+console.log('\n--- Task 10: Pipe composition with generators ---\n');
+
+test('Generate gen piped through function returns lazy wrapper', () => {
+  const source = `fn double(x) { return x * 2 }
+dec pull = gen {
+  yield 1
+  yield 2
+  yield 3
+}
+dec doubled = pull ~> double`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_pipe(');
+  assertContains(js, '_isGenerator');
+  assertContains(js, 'DONE');
+});
+
+// Task 11: for...in integration with generators
+console.log('\n--- Task 11: for...in integration with generators ---\n');
+
+test('for...in consumes generator via Symbol.iterator', () => {
+  const source = `dec pull = gen {
+  yield 1
+  yield 2
+  yield 3
+}
+for val in pull {
+  print val
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'for (const val of');
+  assertContains(js, 'Symbol.iterator');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
