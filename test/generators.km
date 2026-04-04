@@ -1,0 +1,99 @@
+test "basic generator yields values" {
+  dec pull = gen {
+    yield 1
+    yield 2
+    yield 3
+  }
+  expect(pull()).toBe(1)
+  expect(pull()).toBe(2)
+  expect(pull()).toBe(3)
+  expect(pull() is Type.Done).toBe(true)
+}
+
+test "gen with params" {
+  dec pull = gen (max) {
+    mut i = 0
+    while i < max {
+      yield i
+      i += 1
+    }
+  }
+  expect(pull(3)).toBe(0)
+  expect(pull()).toBe(1)
+  expect(pull()).toBe(2)
+  expect(pull() is Type.Done).toBe(true)
+}
+
+test "for...in consumes generator" {
+  dec pull = gen {
+    yield 10
+    yield 20
+    yield 30
+  }
+  mut total = 0
+  for val in pull {
+    total += val
+  }
+  expect(total).toBe(60)
+}
+
+test "yield receives caller value" {
+  dec pull = gen {
+    mut val = yield "ready"
+    yield val + 1
+  }
+  expect(pull()).toBe("ready")
+  expect(pull(10)).toBe(11)
+  expect(pull() is Type.Done).toBe(true)
+}
+
+test "done is a value" {
+  dec x = done
+  expect(x is Type.Done).toBe(true)
+  expect(x is done).toBe(true)
+}
+
+test "is done keyword form" {
+  dec pull = gen { yield 42 }
+  dec a = pull()
+  expect(a is done).toBe(false)
+  dec b = pull()
+  expect(b is done).toBe(true)
+}
+
+test "gen with empty parens" {
+  dec pull = gen () {
+    yield 42
+  }
+  expect(pull()).toBe(42)
+  expect(pull() is Type.Done).toBe(true)
+}
+
+test "gen is Type.Generator" {
+  dec pull = gen { yield 1 }
+  expect(pull is Type.Generator).toBe(true)
+  expect(42 is Type.Generator).toBe(false)
+}
+
+test "inline gen in for...in" {
+  mut total = 0
+  for val in gen {
+    yield 1
+    yield 2
+    yield 3
+  } {
+    total += val
+  }
+  expect(total).toBe(6)
+}
+
+test "inline gen() in for...in" {
+  mut total = 0
+  for val in gen () {
+    yield 10
+    yield 20
+  } {
+    total += val
+  }
+  expect(total).toBe(30)
+}

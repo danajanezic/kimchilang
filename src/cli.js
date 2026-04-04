@@ -788,10 +788,18 @@ async function runTests(filePath, options = {}) {
     // Append test runner invocation (only if file has test blocks)
     let testCode = code;
     if (code.includes('function _runTests')) {
+      // Insert _runTests() after the _module call (handles both {} and _cliArgs forms)
       testCode = code.replace(
-        /await _module\(\{\}\);\s*$/,
-        'await _module({});\nawait _runTests();\n'
+        /const _exports = await _module\([^)]*\);/,
+        'const _exports = await _module(_cliArgs);\nawait _runTests();'
       );
+      // Fallback: try the old pattern for backward compat
+      if (testCode === code) {
+        testCode = code.replace(
+          /await _module\(\{\}\);\s*$/,
+          'await _module({});\nawait _runTests();\n'
+        );
+      }
     } else {
       console.error(`Error: No test or describe blocks found in ${filePath}`);
       process.exit(1);

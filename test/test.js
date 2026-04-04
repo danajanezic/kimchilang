@@ -4054,6 +4054,146 @@ test('Linter warns on gen block without yield', () => {
   assertEqual(noYieldWarning !== undefined, true);
 });
 
+// Task 13: End-to-end integration tests for generators
+console.log('\n--- Task 13: End-to-end integration tests for generators ---\n');
+
+test('End-to-end: gen block produces values and done', () => {
+  const source = `
+dec pull = gen {
+  yield 1
+  yield 2
+  yield 3
+}
+dec a = pull()
+dec b = pull()
+dec c = pull()
+dec d = pull()
+print a
+print b
+print c
+print d is Type.Done
+`;
+  const js = compile(source);
+  assertContains(js, 'function*');
+  assertContains(js, 'DONE');
+});
+
+test('End-to-end: gen with params', () => {
+  const source = `
+dec pull = gen (start, end) {
+  mut i = start
+  while i < end {
+    yield i
+    i += 1
+  }
+}
+for val in pull {
+  print val
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'function*(start, end)');
+});
+
+test('End-to-end: yield receives caller value', () => {
+  const source = `
+dec pull = gen {
+  mut val = yield "ready"
+  yield val + 1
+}
+dec first = pull()
+dec second = pull(10)
+print first
+print second
+`;
+  const js = compile(source);
+  assertContains(js, 'yield "ready"');
+});
+
+test('End-to-end: guard with is done keyword', () => {
+  const source = `
+dec pull = gen { yield 42 }
+dec val = pull()
+guard val is not done else { return }
+print val
+`;
+  const js = compile(source);
+  assertContains(js, 'DONE');
+});
+
+test('End-to-end: is done and is Type.Done are equivalent', () => {
+  const source = `
+fn check(val) {
+  dec a = val is done
+  dec b = val is Type.Done
+  return a
+}
+`;
+  const js = compile(source);
+  const doneChecks = js.match(/=== DONE/g);
+  assertEqual(doneChecks.length, 2);
+});
+
+test('End-to-end: gen with empty parens', () => {
+  const source = `
+dec pull = gen () {
+  yield 1
+  yield 2
+}
+dec a = pull()
+print a
+`;
+  const js = compile(source);
+  assertContains(js, 'DONE');
+});
+
+test('End-to-end: gen() result is Type.Generator', () => {
+  const source = `
+dec pull = gen { yield 1 }
+print pull is Type.Generator
+`;
+  const js = compile(source);
+  assertContains(js, '_isGenerator');
+});
+
+test('End-to-end: inline gen in for...in', () => {
+  const source = `
+for val in gen { yield 1
+yield 2
+yield 3 } {
+  print val
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'for (const val of');
+  assertContains(js, 'function*');
+});
+
+test('End-to-end: inline gen() in for...in', () => {
+  const source = `
+for val in gen () { yield 10
+yield 20 } {
+  print val
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'for (const val of');
+  assertContains(js, 'function*');
+});
+
+test('End-to-end: match with done keyword', () => {
+  const source = `
+fn consume(pull) {
+  match pull() {
+    v is done => "exhausted"
+    v => v
+  }
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'DONE');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

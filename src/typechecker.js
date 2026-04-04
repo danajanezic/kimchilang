@@ -1807,13 +1807,22 @@ export class TypeChecker {
             this.resolveIsPattern(proxy);
             arm.pattern._resolvedTypes.push({ isKind: proxy.isKind, isKeys: proxy.isKeys, isPrimitive: proxy.isPrimitive, typeName: tn });
           }
-        } else {
+        } else if (!arm.pattern.isDoneCheck) {
+          this.resolveIsPattern(arm.pattern);
+        }
+      }
+
+      if (arm.pattern.type === 'BindingIsPattern') {
+        // v is done / v is Type.X — resolve type check and bind variable
+        if (!arm.pattern.isDoneCheck) {
           this.resolveIsPattern(arm.pattern);
         }
       }
 
       // Define bindings from pattern
       if (arm.pattern.type === 'BindingPattern') {
+        this.defineVariable(arm.pattern.name, this.createType(Type.Any));
+      } else if (arm.pattern.type === 'BindingIsPattern') {
         this.defineVariable(arm.pattern.name, this.createType(Type.Any));
       } else if (arm.pattern.type === 'ObjectDestructurePattern') {
         for (const prop of arm.pattern.properties) {
@@ -1852,7 +1861,7 @@ export class TypeChecker {
     // Exhaustiveness checking for enum matches
     const hasWildcard = node.arms.some(a =>
       a.pattern.type === 'WildcardPattern' || a.pattern.type === NodeType.WildcardPattern ||
-      a.pattern.type === 'BindingPattern'
+      a.pattern.type === 'BindingPattern' || a.pattern.type === 'BindingIsPattern'
     );
 
     if (!hasWildcard) {

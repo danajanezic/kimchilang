@@ -912,6 +912,11 @@ export class Parser {
     if (this.check(TokenType.IS) || this.check(TokenType.IN)) {
       const mode = this.peek().type === TokenType.IN ? 'union' : 'intersection';
       this.advance();
+      // Allow 'done' keyword as a type name in is-patterns
+      if (this.check(TokenType.DONE)) {
+        this.advance();
+        return { type: 'IsPattern', typeName: 'done', isDoneCheck: true };
+      }
       const typeNames = [];
       do {
         let typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name').value;
@@ -986,6 +991,38 @@ export class Parser {
           type: 'MemberPattern',
           object,
           property,
+        };
+      }
+
+      // Check for binding with is-check: v is done, v is Type.String
+      if (this.check(TokenType.IS)) {
+        this.advance();
+        let negated = false;
+        if (this.check(TokenType.NOT)) {
+          this.advance();
+          negated = true;
+        }
+        if (this.check(TokenType.DONE)) {
+          this.advance();
+          return {
+            type: 'BindingIsPattern',
+            name,
+            typeName: 'done',
+            isDoneCheck: true,
+            negated,
+          };
+        }
+        // is Type.Something
+        let typeName = this.expect(TokenType.IDENTIFIER, 'Expected type name').value;
+        if (this.match(TokenType.DOT)) {
+          const member = this.expect(TokenType.IDENTIFIER, 'Expected member name after .').value;
+          typeName = `${typeName}.${member}`;
+        }
+        return {
+          type: 'BindingIsPattern',
+          name,
+          typeName,
+          negated,
         };
       }
 

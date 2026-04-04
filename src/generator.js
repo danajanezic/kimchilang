@@ -1347,12 +1347,18 @@ export class CodeGenerator {
     const bodyCode = this.output;
     this.output = savedOutput;
     this.indent = savedIndent;
-    const args = params ? `(${params})` : '()';
     const isAsync = this._containsAsyncMarker(node.body);
-    if (isAsync) {
-      return `(() => { const _gen = async function*(${params}) {\n${bodyCode}}; const _iter = _gen${args}; const _next = async function(_sendValue) { const _result = await _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+    if (params) {
+      // Parameterized gen: first call initializes the generator with args, subsequent calls advance it
+      if (isAsync) {
+        return `(() => { const _gen = async function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = async function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = await _iter.next(); return _r.done ? DONE : _r.value; } const _result = await _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+      }
+      return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = _iter.next(); return _r.done ? DONE : _r.value; } const _result = _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
     }
-    return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; const _iter = _gen${args}; const _next = function(_sendValue) { const _result = _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+    if (isAsync) {
+      return `(() => { const _gen = async function*() {\n${bodyCode}}; const _iter = _gen(); const _next = async function(_sendValue) { const _result = await _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+    }
+    return `(() => { const _gen = function*() {\n${bodyCode}}; const _iter = _gen(); const _next = function(_sendValue) { const _result = _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
   }
 
   visitYieldExpression(node) {
@@ -1985,6 +1991,18 @@ export class CodeGenerator {
         break;
       }
 
+      case 'BindingIsPattern': {
+        // v is done, v is Type.String — binding with type check
+        bindings.push([pattern.name, '_subject']);
+        const typeCheck = this.emitIsPatternCondition(pattern);
+        condition = pattern.negated ? `!(${typeCheck})` : typeCheck;
+        if (guard) {
+          const guardExpr = this.visitExpression(guard);
+          condition += ` && (${guardExpr.replace(new RegExp(`\\b${pattern.name}\\b`, 'g'), '_subject')})`;
+        }
+        break;
+      }
+
       case 'IsPattern': {
         if (pattern._resolvedTypes && pattern._resolvedTypes.length > 1) {
           // Multi-type pattern: is A, B, C (intersection) or in A, B, C (union)
@@ -2072,6 +2090,22 @@ export class CodeGenerator {
   }
 
   emitIsPatternCondition(pattern) {
+    // done keyword check (is done / v is done)
+    if (pattern.isDoneCheck || pattern.typeName === 'done') {
+      this.usedFeatures.add('done');
+      return '_subject === DONE';
+    }
+
+    // Type.Done / Type.Generator checks
+    if (pattern.typeName === 'Type.Done') {
+      this.usedFeatures.add('done');
+      return '_subject === DONE';
+    }
+    if (pattern.typeName === 'Type.Generator') {
+      this.usedFeatures.add('GeneratorExpression');
+      return '_subject?._isGenerator === true';
+    }
+
     const kind = pattern.isKind;
 
     if (kind === 'primitive') {
@@ -2079,6 +2113,14 @@ export class CodeGenerator {
       if (p === 'null') return '_subject === null';
       if (p === 'array') return 'Array.isArray(_subject)';
       if (p === 'object') return "typeof _subject === 'object' && _subject !== null && !Array.isArray(_subject)";
+      if (p === 'done') {
+        this.usedFeatures.add('done');
+        return '_subject === DONE';
+      }
+      if (p === 'generator') {
+        this.usedFeatures.add('GeneratorExpression');
+        return '_subject?._isGenerator === true';
+      }
       return `typeof _subject === '${p}'`;
     }
 
