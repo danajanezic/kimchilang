@@ -4033,6 +4033,27 @@ for val in pull {
   assertContains(js, 'Symbol.iterator');
 });
 
+// Task 12: Linter rules for generators
+console.log('\n--- Task 12: Linter rules for generators ---\n');
+
+test('Linter warns on yield outside gen block', () => {
+  const source = `fn foo() { yield 1 }`;
+  const linter = new Linter();
+  const ast = parse(tokenize(source));
+  const messages = linter.lint(ast, source);
+  const yieldWarning = messages.find(m => m.rule === 'yield-outside-gen');
+  assertEqual(yieldWarning !== undefined, true);
+});
+
+test('Linter warns on gen block without yield', () => {
+  const source = `dec x = gen { dec y = 1 }`;
+  const linter = new Linter();
+  const ast = parse(tokenize(source));
+  const messages = linter.lint(ast, source);
+  const noYieldWarning = messages.find(m => m.rule === 'gen-without-yield');
+  assertEqual(noYieldWarning !== undefined, true);
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

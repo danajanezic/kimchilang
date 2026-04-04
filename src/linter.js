@@ -48,6 +48,8 @@ export class Linter {
         'newline-after-function': true, // Require blank line after function declarations
         'no-multiple-empty-lines': true, // Max 1 consecutive empty line
         'mut-never-reassigned': true,
+        'yield-outside-gen': true,
+        'gen-without-yield': true,
         ...options.rules,
       },
       // Severity overrides
@@ -68,6 +70,8 @@ export class Linter {
         'newline-after-function': Severity.Info,
         'no-multiple-empty-lines': Severity.Info,
         'mut-never-reassigned': Severity.Warning,
+        'yield-outside-gen': Severity.Error,
+        'gen-without-yield': Severity.Warning,
         ...options.severity,
       },
       // Formatting options
@@ -80,6 +84,7 @@ export class Linter {
     this.currentFunction = null;
     this.source = null;
     this.lines = [];
+    this.insideGen = false;
   }
 
   lint(ast, source = null) {
@@ -87,6 +92,7 @@ export class Linter {
     this.scopes = [{ variables: new Map(), functions: new Map() }];
     this.source = source;
     this.lines = source ? source.split('\n') : [];
+    this.insideGen = false;
     
     // Format checking pass (if source is provided)
     if (source) {
@@ -729,6 +735,35 @@ export class Linter {
         this.analyzeExpression(node.condition);
         if (node.fallback) this.analyzeExpression(node.fallback);
         break;
+
+      case NodeType.GeneratorExpression: {
+        // Check that the gen body contains at least one yield
+        const hasYield = this.containsNodeType(node.body, NodeType.YieldExpression);
+        if (!hasYield && this.isRuleEnabled('gen-without-yield')) {
+          this.addMessage('gen-without-yield', 'gen block has no yield expression', node);
+        }
+        // Analyze body with insideGen = true
+        const prevInsideGen = this.insideGen;
+        this.insideGen = true;
+        if (node.body) {
+          if (node.body.type === NodeType.BlockStatement) {
+            this.pushScope();
+            this.analyzeBlock(node.body, false);
+            this.popScope();
+          } else {
+            this.analyzeExpression(node.body);
+          }
+        }
+        this.insideGen = prevInsideGen;
+        break;
+      }
+
+      case NodeType.YieldExpression:
+        if (!this.insideGen && this.isRuleEnabled('yield-outside-gen')) {
+          this.addMessage('yield-outside-gen', 'yield can only appear inside a gen block', node);
+        }
+        if (node.argument) this.analyzeExpression(node.argument);
+        break;
     }
   }
 
@@ -782,6 +817,29 @@ export class Linter {
     }
     
     this.popScope();
+  }
+
+  // Recursively check if a node subtree contains a node of the given type.
+  // Does not descend into nested GeneratorExpression nodes (yield ownership stops there).
+  containsNodeType(node, type) {
+    if (!node) return false;
+    if (node.type === type) return true;
+    // Don't descend into nested gen blocks — their yields belong to them
+    if (node.type === NodeType.GeneratorExpression && type === NodeType.YieldExpression) return false;
+    for (const key of Object.keys(node)) {
+      if (key === 'type') continue;
+      const child = node[key];
+      if (Array.isArray(child)) {
+        for (const item of child) {
+          if (item && typeof item === 'object' && item.type) {
+            if (this.containsNodeType(item, type)) return true;
+          }
+        }
+      } else if (child && typeof child === 'object' && child.type) {
+        if (this.containsNodeType(child, type)) return true;
+      }
+    }
+    return false;
   }
 
   // Third pass: check for unused top-level declarations
