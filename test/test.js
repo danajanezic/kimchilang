@@ -3786,6 +3786,15 @@ test('Tokenize done keyword', () => {
   assertEqual(tokens[0].type, 'DONE');
 });
 
+test('Parse done literal', () => {
+  const tokens = tokenize('dec x = done');
+  const ast = parse(tokens);
+  const decl = ast.body[0];
+  assertEqual(decl.init.type, 'Literal');
+  assertEqual(decl.init.value, 'done');
+  assertEqual(decl.init.raw, 'done');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

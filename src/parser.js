@@ -2515,6 +2515,15 @@ export class Parser {
         raw: 'null',
       };
     }
+
+    if (this.check(TokenType.DONE)) {
+      this.advance();
+      return {
+        type: NodeType.Literal,
+        value: 'done',
+        raw: 'done',
+      };
+    }
     
     // Regex literal
     if (this.check(TokenType.REGEX)) {
