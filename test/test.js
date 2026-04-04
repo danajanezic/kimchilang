@@ -3842,6 +3842,61 @@ test('Parse gen block with params', () => {
   assertEqual(genExpr.params[0], 'max');
 });
 
+// Task 5: done literal compilation
+test('Generate done literal', () => {
+  const js = compile('dec x = done', { skipTypeCheck: true });
+  assertContains(js, 'const DONE = Object.freeze(Symbol("done"))');
+  assertContains(js, 'const x = DONE');
+});
+
+test('done sentinel is tree-shaken when not used', () => {
+  const js = compile('dec x = 42', { skipTypeCheck: true });
+  assertEqual(js.includes('DONE'), false);
+});
+
+// Task 6: is Type.Done and is Type.Generator compilation
+test('Generate is Type.Done check', () => {
+  const source = `fn check(val) {
+  return val is Type.Done
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '=== DONE');
+});
+
+test('Generate is done keyword check', () => {
+  const source = `fn check(val) {
+  return val is done
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '=== DONE');
+});
+
+test('Generate is not done keyword check', () => {
+  const source = `fn check(val) {
+  return val is not done
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '!==');
+  assertContains(js, 'DONE');
+});
+
+test('Generate is not Type.Done check', () => {
+  const source = `fn check(val) {
+  return val is not Type.Done
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '!==');
+  assertContains(js, 'DONE');
+});
+
+test('Generate is Type.Generator check', () => {
+  const source = `fn check(val) {
+  return val is Type.Generator
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, '_isGenerator');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

@@ -51,6 +51,7 @@ export class CodeGenerator {
       if (node.type) features.add(node.type);
       if (node.type === 'ConcurrentExpression' && node.mode === 'hoard') features.add('hoard');
       if (node.secret) features.add('secret');
+      if (node.type === 'Literal' && node.value === 'done') features.add('done');
       for (const key of Object.keys(node)) {
         const val = node[key];
         if (Array.isArray(val)) {
@@ -233,7 +234,13 @@ export class CodeGenerator {
   }
 
   emitRuntimeExtensions() {
-    
+
+    // DONE sentinel — tree-shaken, only emitted when 'done' literal or GeneratorExpression is used
+    if (this.usedFeatures && (this.usedFeatures.has('done') || this.usedFeatures.has('GeneratorExpression'))) {
+      this.emitLine('const DONE = Object.freeze(Symbol("done"));');
+      this.emitLine();
+    }
+
     // Secret wrapper class - masks value when converted to string
     if (this.usedFeatures && this.usedFeatures.has('secret')) {
     this.emitLine('class _Secret {');
@@ -1671,6 +1678,10 @@ export class CodeGenerator {
   }
 
   visitLiteral(node) {
+    // done sentinel — must check before string branch since value is stored as 'done' string
+    if (node.value === 'done' && !node.isString) {
+      return 'DONE';
+    }
     // Numbers - use raw value to preserve format (hex, binary, etc)
     if (node.isNumber) {
       return node.raw;
@@ -2024,6 +2035,23 @@ export class CodeGenerator {
   emitIsCheck(subject, node) {
     const kind = node.isKind;
     const negated = node.operator === 'is not';
+    const right = node.right;
+
+    // Generator-level detection for done and generator checks (works without type checker)
+    // is done — right is a Literal with value 'done'
+    if (right && right.type === 'Literal' && right.value === 'done' && !right.isString) {
+      return negated ? `(${subject} !== DONE)` : `(${subject} === DONE)`;
+    }
+    // is Type.Done / is Type.Generator — right is MemberExpression Type.Member
+    if (right && right.type === 'MemberExpression' && right.object && right.object.name === 'Type') {
+      const member = right.property;
+      if (member === 'Done') {
+        return negated ? `(${subject} !== DONE)` : `(${subject} === DONE)`;
+      }
+      if (member === 'Generator') {
+        return negated ? `(!${subject}?._isGenerator)` : `(${subject}?._isGenerator === true)`;
+      }
+    }
 
     if (kind === 'primitive') {
       const p = node.isPrimitive;
@@ -2036,6 +2064,12 @@ export class CodeGenerator {
       if (p === 'object') {
         const check = `typeof ${subject} === 'object' && ${subject} !== null && !Array.isArray(${subject})`;
         return negated ? `(!(${check}))` : `(${check})`;
+      }
+      if (p === 'done') {
+        return negated ? `(${subject} !== DONE)` : `(${subject} === DONE)`;
+      }
+      if (p === 'generator') {
+        return negated ? `(!${subject}?._isGenerator)` : `(${subject}?._isGenerator === true)`;
       }
       // string, number, boolean, function
       return negated ? `(typeof ${subject} !== '${p}')` : `(typeof ${subject} === '${p}')`;
@@ -2051,8 +2085,8 @@ export class CodeGenerator {
     }
 
     // instanceof fallback — _id check for error.create, instanceof for JS built-ins
-    const right = this.visitExpression(node.right);
-    const check = `${right}?._id ? ${subject}?._id === ${right}._id : ${subject} instanceof ${right}`;
+    const rightExpr = this.visitExpression(node.right);
+    const check = `${rightExpr}?._id ? ${subject}?._id === ${rightExpr}._id : ${subject} instanceof ${rightExpr}`;
     return negated ? `(!(${check}))` : `(${check})`;
   }
 
