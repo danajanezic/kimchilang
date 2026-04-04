@@ -62,6 +62,9 @@ export const TokenType = {
   SPAWN: 'SPAWN',
   SPAWN_CONTENT: 'SPAWN_CONTENT',
   LAZY: 'LAZY',
+  GEN: 'GEN',
+  YIELD: 'YIELD',
+  DONE: 'DONE',
 
   // Operators
   PLUS: 'PLUS',
@@ -168,6 +171,9 @@ const KEYWORDS = {
   'worker': TokenType.WORKER,
   'spawn': TokenType.SPAWN,
   'lazy': TokenType.LAZY,
+  'gen': TokenType.GEN,
+  'yield': TokenType.YIELD,
+  'done': TokenType.DONE,
   'print': TokenType.PRINT,
   'true': TokenType.BOOLEAN,
   'false': TokenType.BOOLEAN,

@@ -3773,6 +3773,19 @@ test('is not with type alias negates shape check', () => {
   assertContains(js, "'x' in p");
 });
 
+// === Generator tests ===
+
+test('Tokenize gen keyword', () => {
+  const tokens = tokenize('gen { yield 1 }');
+  assertEqual(tokens[0].type, 'GEN');
+  assertEqual(tokens[2].type, 'YIELD');
+});
+
+test('Tokenize done keyword', () => {
+  const tokens = tokenize('done');
+  assertEqual(tokens[0].type, 'DONE');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
