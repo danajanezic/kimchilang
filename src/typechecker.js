@@ -189,6 +189,76 @@ export class TypeChecker {
     return null;
   }
 
+  // Recursively define all bindings introduced by a destructuring pattern.
+  definePatternBindings(pattern, parentType) {
+    if (pattern.type === 'ObjectPattern') {
+      for (const prop of pattern.properties) {
+        let propType = this.createType(Type.Unknown);
+        if (parentType && parentType.kind === Type.Object && parentType.properties) {
+          if (prop.key in parentType.properties) {
+            propType = parentType.properties[prop.key];
+          }
+        }
+        if (typeof prop.value === 'string') {
+          this.defineVariable(prop.value, propType);
+        } else if (prop.value && prop.value.type === 'Identifier') {
+          this.defineVariable(prop.value.name, propType);
+        } else if (prop.value) {
+          // Nested pattern — recurse
+          this.definePatternBindings(prop.value, propType);
+        } else {
+          // Shorthand: { key } — bind key name
+          this.defineVariable(prop.key, propType);
+        }
+        if (prop.defaultValue) {
+          this.visitExpression(prop.defaultValue);
+        }
+      }
+    } else if (pattern.type === 'ArrayPattern') {
+      for (const elem of pattern.elements) {
+        if (elem === null || elem === undefined) continue;
+        let elemType = this.createType(Type.Unknown);
+        if (parentType && parentType.kind === Type.Array && parentType.elementType) {
+          elemType = parentType.elementType;
+        }
+        if (elem.type === 'Identifier') {
+          this.defineVariable(elem.name, elemType);
+        } else {
+          this.definePatternBindings(elem, elemType);
+        }
+        if (elem.defaultValue) {
+          this.visitExpression(elem.defaultValue);
+        }
+      }
+    }
+  }
+
+  // Recursively collect all bound names in a pattern and mark them as mut.
+  collectMutBindings(pattern) {
+    if (pattern.type === 'ObjectPattern') {
+      for (const prop of pattern.properties) {
+        if (typeof prop.value === 'string') {
+          this.mutVariables.add(prop.value);
+        } else if (prop.value && prop.value.type === 'Identifier') {
+          this.mutVariables.add(prop.value.name);
+        } else if (prop.value) {
+          this.collectMutBindings(prop.value);
+        } else {
+          this.mutVariables.add(prop.key);
+        }
+      }
+    } else if (pattern.type === 'ArrayPattern') {
+      for (const elem of pattern.elements) {
+        if (elem === null || elem === undefined) continue;
+        if (elem.type === 'Identifier') {
+          this.mutVariables.add(elem.name);
+        } else {
+          this.collectMutBindings(elem);
+        }
+      }
+    }
+  }
+
   addError(message, node) {
     this.errors.push(new TypeError(message, node));
   }
@@ -977,34 +1047,7 @@ export class TypeChecker {
     }
     
     if (node.destructuring) {
-      if (node.pattern.type === NodeType.ObjectPattern) {
-        // Object destructuring
-        for (const prop of node.pattern.properties) {
-          let propType = this.createType(Type.Unknown);
-          if (initType && initType.kind === Type.Object && initType.properties) {
-            if (prop.key in initType.properties) {
-              propType = initType.properties[prop.key];
-            } else {
-              this.addError(
-                `Property '${prop.key}' does not exist on type ${this.typeToString(initType)}`,
-                node
-              );
-            }
-          }
-          this.defineVariable(prop.value, propType);
-        }
-      } else if (node.pattern.type === NodeType.ArrayPattern) {
-        // Array destructuring
-        for (const elem of node.pattern.elements) {
-          if (elem) {
-            let elemType = this.createType(Type.Unknown);
-            if (initType && initType.kind === Type.Array && initType.elementType) {
-              elemType = initType.elementType;
-            }
-            this.defineVariable(elem.name, elemType);
-          }
-        }
-      }
+      this.definePatternBindings(node.pattern, initType);
     } else {
       this.defineVariable(node.name, effectiveType);
     }
@@ -1029,19 +1072,8 @@ export class TypeChecker {
     }
 
     if (node.destructuring) {
-      if (node.pattern.type === NodeType.ObjectPattern) {
-        for (const prop of node.pattern.properties) {
-          this.defineVariable(prop.value, initType);
-          this.mutVariables.add(prop.value);
-        }
-      } else if (node.pattern.type === NodeType.ArrayPattern) {
-        for (const elem of node.pattern.elements) {
-          if (elem) {
-            this.defineVariable(elem.name, initType);
-            this.mutVariables.add(elem.name);
-          }
-        }
-      }
+      this.definePatternBindings(node.pattern, initType);
+      this.collectMutBindings(node.pattern);
     } else {
       this.defineVariable(node.name, effectiveType);
       this.mutVariables.add(node.name);
@@ -1131,19 +1163,8 @@ export class TypeChecker {
     // Define parameters in scope
     for (const param of node.params) {
       // Handle destructuring patterns
-      if (param.destructuring === 'object' && param.pattern) {
-        for (const prop of param.pattern.properties) {
-          this.defineVariable(prop.key, this.createType(Type.Any));
-        }
-        continue;
-      }
-      
-      if (param.destructuring === 'array' && param.pattern) {
-        for (const elem of param.pattern.elements) {
-          if (elem && elem.type === 'Identifier') {
-            this.defineVariable(elem.name, this.createType(Type.Any));
-          }
-        }
+      if ((param.destructuring === 'object' || param.destructuring === 'array') && param.pattern) {
+        this.definePatternBindings(param.pattern, this.createType(Type.Any));
         continue;
       }
       

@@ -4340,6 +4340,27 @@ test('Generate function param nested destructuring', () => {
   assertContains(js, '{ name, address: { city = "unknown" } }');
 });
 
+// === Type checker — Recursive pattern type checking ===
+console.log('\n--- Type Checker: Recursive Destructuring ---\n');
+
+test('Type check nested object destructuring', () => {
+  const js = compile('dec { user: { name, age } } = { user: { name: "Kim", age: 30 } }');
+  assertContains(js, 'const { user: { name, age } } = ');
+});
+
+test('Type check nested destructuring with default', () => {
+  const js = compile('dec { role = "viewer" } = { role: "admin" }');
+  assertContains(js, 'const { role = "viewer" } = ');
+});
+
+test('Type check function with nested destructured param', () => {
+  const js = compile(`fn greet({ name, address: { city } }) {
+  print name
+  print city
+}`);
+  assertContains(js, '{ name, address: { city } }');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
