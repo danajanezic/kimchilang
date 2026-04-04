@@ -580,27 +580,38 @@ export class Parser {
   parseObjectPattern() {
     this.expect(TokenType.LBRACE, 'Expected {');
     const properties = [];
-    
+
     if (!this.check(TokenType.RBRACE)) {
       do {
         this.skipNewlines();
         if (this.check(TokenType.RBRACE)) break;
-        
+
         const key = this.expect(TokenType.IDENTIFIER, 'Expected property name').value;
-        
-        // Check for renaming: { oldName: newName }
+
+        // Check for renaming or nested pattern: { oldName: newName } or { key: { ... } } or { key: [ ... ] }
         let value = key;
         if (this.match(TokenType.COLON)) {
-          value = this.expect(TokenType.IDENTIFIER, 'Expected variable name').value;
+          if (this.check(TokenType.LBRACE)) {
+            value = this.parseObjectPattern();
+          } else if (this.check(TokenType.LBRACKET)) {
+            value = this.parseArrayPattern();
+          } else {
+            value = this.expect(TokenType.IDENTIFIER, 'Expected variable name').value;
+          }
         }
-        
-        properties.push({ key, value });
+
+        let defaultValue = null;
+        if (this.match(TokenType.ASSIGN)) {
+          defaultValue = this.parseExpression();
+        }
+
+        properties.push({ key, value, defaultValue });
       } while (this.match(TokenType.COMMA));
     }
-    
+
     this.skipNewlines();
     this.expect(TokenType.RBRACE, 'Expected }');
-    
+
     return {
       type: NodeType.ObjectPattern,
       properties,
@@ -610,25 +621,41 @@ export class Parser {
   parseArrayPattern() {
     this.expect(TokenType.LBRACKET, 'Expected [');
     const elements = [];
-    
+
     if (!this.check(TokenType.RBRACKET)) {
       do {
         this.skipNewlines();
         if (this.check(TokenType.RBRACKET)) break;
-        
+
         // Allow holes in array destructuring: [a, , b]
         if (this.check(TokenType.COMMA)) {
           elements.push(null);
+        } else if (this.check(TokenType.LBRACE)) {
+          const pattern = this.parseObjectPattern();
+          if (this.match(TokenType.ASSIGN)) {
+            pattern.defaultValue = this.parseExpression();
+          }
+          elements.push(pattern);
+        } else if (this.check(TokenType.LBRACKET)) {
+          const pattern = this.parseArrayPattern();
+          if (this.match(TokenType.ASSIGN)) {
+            pattern.defaultValue = this.parseExpression();
+          }
+          elements.push(pattern);
         } else {
           const name = this.expect(TokenType.IDENTIFIER, 'Expected variable name').value;
-          elements.push({ type: NodeType.Identifier, name });
+          let defaultValue = null;
+          if (this.match(TokenType.ASSIGN)) {
+            defaultValue = this.parseExpression();
+          }
+          elements.push({ type: NodeType.Identifier, name, defaultValue });
         }
       } while (this.match(TokenType.COMMA));
     }
-    
+
     this.skipNewlines();
     this.expect(TokenType.RBRACKET, 'Expected ]');
-    
+
     return {
       type: NodeType.ArrayPattern,
       elements,

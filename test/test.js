@@ -4227,6 +4227,73 @@ test('Parameterized gen for...in without args throws', () => {
   assertContains(js, 'requires arguments');
 });
 
+// === Nested destructuring tests ===
+
+test('Parse nested object destructuring', () => {
+  const ast = parse(tokenize('dec { user: { name, age } } = data'));
+  const decl = ast.body[0];
+  assertEqual(decl.destructuring, true);
+  const userProp = decl.pattern.properties[0];
+  assertEqual(userProp.key, 'user');
+  assertEqual(userProp.value.type, 'ObjectPattern');
+  assertEqual(userProp.value.properties[0].key, 'name');
+  assertEqual(userProp.value.properties[1].key, 'age');
+});
+
+test('Parse nested array destructuring', () => {
+  const ast = parse(tokenize('dec [first, [a, b]] = matrix'));
+  const decl = ast.body[0];
+  assertEqual(decl.destructuring, true);
+  const nested = decl.pattern.elements[1];
+  assertEqual(nested.type, 'ArrayPattern');
+  assertEqual(nested.elements[0].name, 'a');
+  assertEqual(nested.elements[1].name, 'b');
+});
+
+test('Parse object with default value', () => {
+  const ast = parse(tokenize('dec { role = "viewer" } = user'));
+  const decl = ast.body[0];
+  const prop = decl.pattern.properties[0];
+  assertEqual(prop.key, 'role');
+  assertEqual(prop.defaultValue.value, 'viewer');
+});
+
+test('Parse nested object with default', () => {
+  const ast = parse(tokenize('dec { address: { city = "unknown" } } = user'));
+  const decl = ast.body[0];
+  const addrProp = decl.pattern.properties[0];
+  assertEqual(addrProp.key, 'address');
+  assertEqual(addrProp.value.type, 'ObjectPattern');
+  const cityProp = addrProp.value.properties[0];
+  assertEqual(cityProp.key, 'city');
+  assertEqual(cityProp.defaultValue.value, 'unknown');
+});
+
+test('Parse array with default values', () => {
+  const ast = parse(tokenize('dec [a = 0, b = 1] = arr'));
+  const decl = ast.body[0];
+  assertEqual(decl.pattern.elements[0].defaultValue.value, 0);
+  assertEqual(decl.pattern.elements[1].defaultValue.value, 1);
+});
+
+test('Parse mixed nesting: object inside array', () => {
+  const ast = parse(tokenize('dec [{ name }, { name: n2 }] = users'));
+  const decl = ast.body[0];
+  assertEqual(decl.pattern.elements[0].type, 'ObjectPattern');
+  assertEqual(decl.pattern.elements[0].properties[0].key, 'name');
+  assertEqual(decl.pattern.elements[1].type, 'ObjectPattern');
+  assertEqual(decl.pattern.elements[1].properties[0].value, 'n2');
+});
+
+test('Parse array inside object', () => {
+  const ast = parse(tokenize('dec { scores: [first, second] } = data'));
+  const decl = ast.body[0];
+  const scoresProp = decl.pattern.properties[0];
+  assertEqual(scoresProp.key, 'scores');
+  assertEqual(scoresProp.value.type, 'ArrayPattern');
+  assertEqual(scoresProp.value.elements[0].name, 'first');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);
