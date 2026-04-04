@@ -4194,6 +4194,39 @@ fn consume(pull) {
   assertContains(js, 'DONE');
 });
 
+test('Match-only is done triggers DONE sentinel', () => {
+  const source = `
+fn consume(pull) {
+  match pull() {
+    v is done => "exhausted"
+    v => v
+  }
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'const DONE');
+  assertContains(js, '=== DONE');
+});
+
+test('String "done" does not trigger DONE sentinel', () => {
+  const source = 'dec x = "done"';
+  const js = compile(source);
+  assertEqual(js.includes('const DONE'), false);
+  assertContains(js, '"done"');
+});
+
+test('Parameterized gen for...in without args throws', () => {
+  const source = `dec pull = gen (max) {
+  mut i = 0
+  while i < max {
+    yield i
+    i += 1
+  }
+}`;
+  const js = compile(source);
+  assertContains(js, 'requires arguments');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

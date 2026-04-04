@@ -51,7 +51,9 @@ export class CodeGenerator {
       if (node.type) features.add(node.type);
       if (node.type === 'ConcurrentExpression' && node.mode === 'hoard') features.add('hoard');
       if (node.secret) features.add('secret');
-      if (node.type === 'Literal' && node.value === 'done') features.add('done');
+      if (node.type === 'Literal' && node.value === 'done' && !node.isString) features.add('done');
+      if (node.isDoneCheck) features.add('done');
+      if (node.typeName === 'Type.Done' || node.typeName === 'Type.Generator') features.add('done');
       for (const key of Object.keys(node)) {
         const val = node[key];
         if (Array.isArray(val)) {
@@ -1351,9 +1353,9 @@ export class CodeGenerator {
     if (params) {
       // Parameterized gen: first call initializes the generator with args, subsequent calls advance it
       if (isAsync) {
-        return `(() => { const _gen = async function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = async function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = await _iter.next(); return _r.done ? DONE : _r.value; } const _result = await _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+        return `(() => { const _gen = async function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = async function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = await _iter.next(); return _r.done ? DONE : _r.value; } const _result = await _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { if (!_iter) throw new Error("Generator requires arguments — call it first"); return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
       }
-      return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = _iter.next(); return _r.done ? DONE : _r.value; } const _result = _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
+      return `(() => { const _gen = function*(${params}) {\n${bodyCode}}; let _iter = null; const _next = function(..._initArgs) { if (!_iter) { _iter = _gen(..._initArgs); const _r = _iter.next(); return _r.done ? DONE : _r.value; } const _result = _iter.next(..._initArgs); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.iterator] = function() { if (!_iter) throw new Error("Generator requires arguments — call it first"); return { next() { const value = _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
     }
     if (isAsync) {
       return `(() => { const _gen = async function*() {\n${bodyCode}}; const _iter = _gen(); const _next = async function(_sendValue) { const _result = await _iter.next(_sendValue); return _result.done ? DONE : _result.value; }; _next._isGenerator = true; _next[Symbol.asyncIterator] = function() { return { async next() { const value = await _next(); return value === DONE ? { value: undefined, done: true } : { value, done: false }; } }; }; return _next; })()`;
