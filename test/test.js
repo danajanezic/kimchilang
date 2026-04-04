@@ -3897,6 +3897,42 @@ test('Generate is Type.Generator check', () => {
   assertContains(js, '_isGenerator');
 });
 
+// Task 7: Type Checker support for done, generator, and is done
+console.log('\n--- Task 7: Type Checker - done, generator, is done ---\n');
+
+test('Type check gen block', () => {
+  // Should not throw (compile without skipTypeCheck)
+  const js = compile(`
+dec pull = gen { yield 1 }
+dec val = pull()
+  `);
+  assertContains(js, 'function*');
+});
+
+test('Type check done literal', () => {
+  const js = compile('dec x = done');
+  assertContains(js, 'DONE');
+});
+
+test('Type check is Type.Done', () => {
+  const js = compile(`
+fn check(val) {
+  guard val is not Type.Done else { return }
+  return val
+}
+  `);
+  assertContains(js, 'DONE');
+});
+
+test('Type check is Type.Generator', () => {
+  const js = compile(`
+fn check(val) {
+  return val is Type.Generator
+}
+  `);
+  assertContains(js, '_isGenerator');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

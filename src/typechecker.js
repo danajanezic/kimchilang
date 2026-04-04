@@ -83,6 +83,8 @@ export class TypeChecker {
       ['Array', 'array'],
       ['Object', 'object'],
       ['Function', 'function'],
+      ['Done', 'done'],
+      ['Generator', 'generator'],
     ]);
     this.defineVariable('Type', this.createType(Type.Object));
 
@@ -1412,6 +1414,26 @@ export class TypeChecker {
         }
         return this.createType(Type.String);
       }
+      case NodeType.GeneratorExpression: {
+        this.pushScope();
+        for (const param of (node.params || [])) {
+          this.defineVariable(param, this.createType(Type.Any));
+        }
+        if (node.body && node.body.body) {
+          for (const stmt of node.body.body) {
+            this.visitStatement(stmt);
+          }
+        }
+        this.popScope();
+        // A generator expression is callable (calling it returns an iterator)
+        return this.createType(Type.Function);
+      }
+      case NodeType.YieldExpression: {
+        if (node.argument) {
+          this.visitExpression(node.argument);
+        }
+        return this.createType(Type.Any);
+      }
       default:
         return this.createType(Type.Unknown);
     }
@@ -1421,6 +1443,7 @@ export class TypeChecker {
     if (node.isNumber) return this.createType(Type.Number);
     if (node.isString) return this.createType(Type.String);
     if (typeof node.value === 'boolean') return this.createType(Type.Boolean);
+    if (node.value === 'done') return this.createType(Type.Any);
     if (node.value === null) return this.createType(Type.Null);
     if (typeof node.value === 'number') return this.createType(Type.Number);
     if (typeof node.value === 'string') return this.createType(Type.String);
@@ -1527,6 +1550,13 @@ export class TypeChecker {
 
   resolveIsOperator(node) {
     const right = node.right;
+
+    // done keyword — val is done / val is not done
+    if (right.type === NodeType.Literal && right.value === 'done') {
+      node.isKind = 'primitive';
+      node.isPrimitive = 'done';
+      return;
+    }
 
     // Tier 1: Type.Member — built-in primitive check
     if (right.type === NodeType.MemberExpression && right.object?.name === 'Type') {

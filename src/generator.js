@@ -1301,6 +1301,29 @@ export class CodeGenerator {
     return `(() => { const _id = setTimeout(() => {\n${bodyCode}}, ${duration}); return { id: _id, cancel: () => clearTimeout(_id) }; })()`;
   }
 
+  visitGeneratorExpression(node) {
+    if (this.usedFeatures) this.usedFeatures.add('GeneratorExpression');
+    const params = (node.params || []).join(', ');
+    const savedOutput = this.output;
+    this.output = '';
+    const savedIndent = this.indent;
+    this.indent = 1;
+    if (node.body && node.body.body) {
+      for (const stmt of node.body.body) {
+        this.visitStatement(stmt);
+      }
+    }
+    const bodyCode = this.output;
+    this.output = savedOutput;
+    this.indent = savedIndent;
+    return `(function*(${params}) {\n${bodyCode}})`;
+  }
+
+  visitYieldExpression(node) {
+    const arg = node.argument ? this.visitExpression(node.argument) : '';
+    return `yield ${arg}`.trimEnd();
+  }
+
   generateParams(params) {
     return params.map(p => {
       if (p.type === 'RestElement') {
@@ -1601,6 +1624,10 @@ export class CodeGenerator {
         return this.visitConcurrentExpression(node);
       case NodeType.BindExpression:
         return this.visitBindExpression(node);
+      case NodeType.GeneratorExpression:
+        return this.visitGeneratorExpression(node);
+      case NodeType.YieldExpression:
+        return this.visitYieldExpression(node);
       default: {
         for (const plugin of this.plugins) {
           if (plugin.generatorVisitors) {
