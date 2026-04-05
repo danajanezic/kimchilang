@@ -71,7 +71,7 @@ const taglines = ["Kimchi probiotics bind 87% of pollutants — we bind 100% of 
 
 var data = _mod_snippets;
 
-const kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/;
+const kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|done|collect|hoard|race|sleep|spawn|worker|gen|yield|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/;
 function tokenizeKimchi(stream) {
   if (stream?.match(/^\/\/.*/)) {
     return "comment";

@@ -95,9 +95,10 @@ server.listen((req) => {
   // Compile API
   |req.path == "/compile" and req.method == "POST"| => {
     guard req.body is CompileRequest else { return server.badRequest("source is required") }
+    dec { source } = req.body
 
     try {
-      dec js = compileSource(req.body.source)
+      dec js = compileSource(source)
       return server.ok({js: js, runtime: runtime})
     } catch(e) {
       return server.ok({error: e.message ?? e})

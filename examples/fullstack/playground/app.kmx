@@ -45,7 +45,7 @@ type CompileError = {error: string}
 
 // --- KimchiLang syntax mode for CodeMirror ---
 
-dec kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|collect|hoard|race|sleep|spawn|worker|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/
+dec kwPattern = /^(fn|dec|mut|return|if|else|match|guard|when|print|expose|enum|type|memo|and|or|not|true|false|null|done|collect|hoard|race|sleep|spawn|worker|gen|yield|extern|module|arg|as|dep|test|describe|expect|assert|throw|try|catch|is|in|sql)\b/
 
 fn tokenizeKimchi(stream) is Type.String {
   if stream.match(/^\/\/.*/) { return "comment" }

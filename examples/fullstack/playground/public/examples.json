@@ -48,5 +48,15 @@
     "name": "Regex",
     "desc": "Match operator & patterns",
     "code": "// Regex \u2014 three ways to use patterns\n\n// 1. Match operator (~) extracts matches\ndec input = \"Hello, World! 123\"\ndec greeting = input ~ /Hello/\nprint \"Found: ${greeting}\"\n\n// 2. Match with capture groups\ndec name = \"Hello, Alice!\" ~ /Hello, (\\w+)!/ => {\n  return \"Welcome, ${$match[1]}!\"\n}\nprint name\n\n// 3. Regex patterns in match expressions\nfn classify(line) {\n  return match line {\n    /^ERROR/ => \"critical\"\n    /^WARN/ => \"warning\"\n    /^INFO/ => \"info\"\n    _ => \"unknown\"\n  }\n}\n\nprint classify(\"ERROR: disk full\")\nprint classify(\"WARN: low memory\")\nprint classify(\"INFO: started\")\nprint classify(\"something else\")"
+  },
+  {
+    "name": "Generators",
+    "desc": "Lazy sequences",
+    "code": "// Generators \u2014 lazy, pausable sequences\n\n// gen returns a next-function. Call it for values.\ndec counter = gen {\n  yield 1\n  yield 2\n  yield 3\n}\n\nprint counter()\nprint counter()\nprint counter()\nprint \"done? ${counter() is done}\"\n\n// Wrap in fn for reusable generators\nfn range(start, end) {\n  return gen {\n    mut i = start\n    while i < end {\n      yield i\n      i += 1\n    }\n  }\n}\n\n// for...in consumes generators\nprint \"\\nRange 1..6:\"\nfor n in range(1, 6) {\n  print \"  ${n}\"\n}\n\n// Pipe composition \u2014 lazy all the way\nfn double(x) { return x * 2 }\ndec doubled = range(1, 4) ~> double\nprint \"\\nPiped: ${doubled()}, ${doubled()}, ${doubled()}\""
+  },
+  {
+    "name": "Destructuring",
+    "desc": "Nested patterns + defaults",
+    "code": "// Nested destructuring with defaults\n\ndec response = {\n  user: { name: \"Kim\", role: \"admin\" },\n  meta: { page: 1, total: 42 }\n}\n\n// Nested object destructuring\ndec { user: { name, role }, meta: { total } } = response\nprint \"${name} (${role}) \u2014 ${total} items\"\n\n// Defaults at any level\ndec { user: { theme = \"light\" } } = response\nprint \"Theme: ${theme}\"\n\n// Array nesting\ndec matrix = [[1, 2], [3, 4]]\ndec [[a, b], [c, d]] = matrix\nprint \"Corners: ${a}, ${d}\"\n\n// Function params\nfn greet({ name, address: { city = \"unknown\" } }) {\n  return \"${name} from ${city}\"\n}\nprint greet({name: \"Kim\", address: {city: \"Seoul\"}})\n\n// Match with nested patterns\nfn check(data) {\n  return match data {\n    { status: 200, body: { items } } => \"${items.length} items\"\n    { status: 404 } => \"not found\"\n    _ => \"error\"\n  }\n}\nprint check({status: 200, body: {items: [1, 2, 3]}})\nprint check({status: 404})"
   }
 ]
