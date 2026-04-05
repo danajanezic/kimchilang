@@ -4411,6 +4411,67 @@ test('Generate nested array match pattern', () => {
   assertContains(js, 'Array.isArray');
 });
 
+// === End-to-end nested destructuring tests ===
+console.log('\n--- End-to-End: Nested Destructuring ---\n');
+
+test('End-to-end: nested object destructuring', () => {
+  const source = `
+dec data = { user: { name: "Kim", age: 30 }, role: "admin" }
+dec { user: { name, age }, role } = data
+print name
+print age
+print role
+`;
+  const js = compile(source);
+  assertContains(js, 'const { user: { name, age }, role } = data');
+});
+
+test('End-to-end: nested array destructuring', () => {
+  const source = `
+dec matrix = [[1, 2], [3, 4]]
+dec [first, [a, b]] = matrix
+print a
+print b
+`;
+  const js = compile(source);
+  assertContains(js, 'const [first, [a, b]] = matrix');
+});
+
+test('End-to-end: defaults in destructuring', () => {
+  const source = `
+dec { name = "anon", role = "viewer" } = { name: "Kim" }
+print name
+print role
+`;
+  const js = compile(source);
+  assertContains(js, 'const { name = "anon", role = "viewer" }');
+});
+
+test('End-to-end: function with nested destructured param', () => {
+  const source = `
+fn format({ name, address: { city, zip = "00000" } }) {
+  return "\${name} in \${city} \${zip}"
+}
+print format({ name: "Kim", address: { city: "Seoul", zip: "12345" } })
+`;
+  const js = compile(source);
+  assertContains(js, '{ name, address: { city, zip = "00000" } }');
+});
+
+test('End-to-end: match with nested destructuring', () => {
+  const source = `
+fn handle(response) {
+  return match response {
+    { status: 200, body: { data } } => data
+    _ => "error"
+  }
+}
+`;
+  const js = compile(source);
+  assertContains(js, 'body');
+  assertContains(js, 'data');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

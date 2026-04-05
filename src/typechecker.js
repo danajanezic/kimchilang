@@ -1785,6 +1785,34 @@ export class TypeChecker {
     return this.createType(Type.Unknown);
   }
 
+  _bindMatchObjectPattern(pattern) {
+    for (const prop of pattern.properties) {
+      if (!prop.value) {
+        // Shorthand: { data } binds data
+        this.defineVariable(prop.key, this.createType(Type.Any));
+      } else if (prop.value.type === 'BindingPattern') {
+        this.defineVariable(prop.value.name, this.createType(Type.Any));
+      } else if (prop.value.type === 'ObjectDestructurePattern') {
+        this._bindMatchObjectPattern(prop.value);
+      } else if (prop.value.type === 'ArrayDestructurePattern') {
+        this._bindMatchArrayPattern(prop.value);
+      }
+    }
+  }
+
+  _bindMatchArrayPattern(pattern) {
+    for (const elem of pattern.elements) {
+      if (!elem) continue;
+      if (elem.type === 'BindingPattern') {
+        this.defineVariable(elem.name, this.createType(Type.Any));
+      } else if (elem.type === 'ObjectDestructurePattern') {
+        this._bindMatchObjectPattern(elem);
+      } else if (elem.type === 'ArrayDestructurePattern') {
+        this._bindMatchArrayPattern(elem);
+      }
+    }
+  }
+
   visitMatchExpression(node) {
     // Match expression: subject ~ /regex/ or subject ~ /regex/ => { body }
     this.visitExpression(node.subject);
@@ -1846,20 +1874,9 @@ export class TypeChecker {
       } else if (arm.pattern.type === 'BindingIsPattern') {
         this.defineVariable(arm.pattern.name, this.createType(Type.Any));
       } else if (arm.pattern.type === 'ObjectDestructurePattern') {
-        for (const prop of arm.pattern.properties) {
-          if (prop.value && prop.value.type === 'BindingPattern') {
-            this.defineVariable(prop.value.name, this.createType(Type.Any));
-          } else if (!prop.value) {
-            // Shorthand: { data } binds data
-            this.defineVariable(prop.key, this.createType(Type.Any));
-          }
-        }
+        this._bindMatchObjectPattern(arm.pattern);
       } else if (arm.pattern.type === 'ArrayDestructurePattern') {
-        for (const elem of arm.pattern.elements) {
-          if (elem && elem.type === 'BindingPattern') {
-            this.defineVariable(elem.name, this.createType(Type.Any));
-          }
-        }
+        this._bindMatchArrayPattern(arm.pattern);
       }
 
       // Visit guard if present

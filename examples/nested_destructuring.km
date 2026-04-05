@@ -1,0 +1,48 @@
+#!/usr/bin/env kimchi
+// Nested destructuring with defaults
+
+dec response = {
+  status: 200,
+  user: {
+    name: "Kim",
+    age: 30,
+    address: {
+      city: "Seoul",
+      country: "Korea"
+    }
+  },
+  tags: ["admin", "active"]
+}
+
+// Nested object destructuring
+dec { user: { name, address: { city } }, tags: [firstTag] } = response
+print "Name: ${name}"
+print "City: ${city}"
+print "First tag: ${firstTag}"
+
+// Defaults
+dec { user: { role = "viewer" } } = response
+print "Role: ${role}"
+
+// Function parameter destructuring
+fn greet({ name, address: { city, country = "unknown" } }) {
+  print "${name} from ${city}, ${country}"
+}
+
+greet(response.user)
+
+// Array nesting
+dec matrix = [[1, 2], [3, 4]]
+dec [[a, b], [c, d]] = matrix
+print "Matrix corners: ${a}, ${d}"
+
+// Match with nested patterns
+fn check(data) {
+  return match data {
+    { status: 200, user: { name } } => "OK: ${name}"
+    { status: 404 } => "Not found"
+    _ => "Unknown"
+  }
+}
+
+print check(response)
