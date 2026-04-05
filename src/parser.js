@@ -1074,8 +1074,12 @@ export class Parser {
 
       let value = null;
       if (this.match(TokenType.COLON)) {
-        // { key: pattern } — value is a literal or binding
-        if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
+        // { key: pattern } — value is a nested pattern, literal, or binding
+        if (this.check(TokenType.LBRACE)) {
+          value = this.parseMatchObjectPattern();
+        } else if (this.check(TokenType.LBRACKET)) {
+          value = this.parseMatchArrayPattern();
+        } else if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
             this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {
           const token = this.advance();
           let val = token.value;
@@ -1111,7 +1115,11 @@ export class Parser {
       this.skipNewlines();
       if (this.check(TokenType.RBRACKET)) break;
 
-      if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
+      if (this.check(TokenType.LBRACE)) {
+        elements.push(this.parseMatchObjectPattern());
+      } else if (this.check(TokenType.LBRACKET)) {
+        elements.push(this.parseMatchArrayPattern());
+      } else if (this.check(TokenType.NUMBER) || this.check(TokenType.STRING) ||
           this.check(TokenType.BOOLEAN) || this.check(TokenType.NULL)) {
         const token = this.advance();
         let value = token.value;

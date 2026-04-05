@@ -4361,6 +4361,56 @@ test('Type check function with nested destructured param', () => {
   assertContains(js, '{ name, address: { city } }');
 });
 
+// Recursive Match Pattern Tests
+console.log('\n--- Recursive Match Pattern Tests ---\n');
+
+test('Parse nested object in match pattern', () => {
+  const source = `match data {
+  { user: { name } } => name
+}`;
+  const ast = parse(tokenize(source));
+  const matchExpr = ast.body[0].expression;
+  const arm = matchExpr.arms[0];
+  const userProp = arm.pattern.properties[0];
+  assertEqual(userProp.key, 'user');
+  assertEqual(userProp.value.type, 'ObjectDestructurePattern');
+  assertEqual(userProp.value.properties[0].key, 'name');
+});
+
+test('Generate nested object match pattern', () => {
+  const source = `fn handle(data) {
+  return match data {
+    { status: 200, body: { items } } => items
+    _ => "error"
+  }
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'status');
+  assertContains(js, '200');
+  assertContains(js, 'body');
+  assertContains(js, 'items');
+});
+
+test('Parse nested array in match pattern', () => {
+  const source = `match data {
+  [first, [a, b]] => a
+}`;
+  const ast = parse(tokenize(source));
+  const arm = ast.body[0].expression.arms[0];
+  assertEqual(arm.pattern.elements[1].type, 'ArrayDestructurePattern');
+});
+
+test('Generate nested array match pattern', () => {
+  const source = `fn handle(data) {
+  return match data {
+    [first, [a, b]] => a + b
+    _ => 0
+  }
+}`;
+  const js = compile(source, { skipTypeCheck: true });
+  assertContains(js, 'Array.isArray');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`\nTests: ${passed + failed} total, ${passed} passed, ${failed} failed`);

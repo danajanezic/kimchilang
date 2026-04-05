@@ -2027,19 +2027,7 @@ export class CodeGenerator {
 
       case 'ObjectDestructurePattern': {
         const checks = [];
-        for (const prop of pattern.properties) {
-          if (prop.value && prop.value.type === 'LiteralPattern') {
-            const val = typeof prop.value.value === 'string' ? `"${prop.value.value}"` : prop.value.value;
-            checks.push(`_subject?.${prop.key} === ${val}`);
-          } else if (prop.value && prop.value.type === 'BindingPattern') {
-            checks.push(`'${prop.key}' in (_subject || {})`);
-            bindings.push([prop.value.name, `_subject.${prop.key}`]);
-          } else {
-            // Shorthand: { data } - key exists, bind to same name
-            checks.push(`'${prop.key}' in (_subject || {})`);
-            bindings.push([prop.key, `_subject.${prop.key}`]);
-          }
-        }
+        this.generateMatchPatternChecks(pattern, '_subject', checks, bindings);
         condition = checks.join(' && ') || 'true';
         if (guard) {
           const guardExpr = this.visitExpression(guard);
@@ -2050,18 +2038,8 @@ export class CodeGenerator {
 
       case 'ArrayDestructurePattern': {
         const checks = [];
-        checks.push('Array.isArray(_subject)');
-        for (let i = 0; i < pattern.elements.length; i++) {
-          const elem = pattern.elements[i];
-          if (elem.type === 'LiteralPattern') {
-            const val = typeof elem.value === 'string' ? `"${elem.value}"` : elem.value;
-            checks.push(`_subject[${i}] === ${val}`);
-          } else if (elem.type === 'BindingPattern') {
-            bindings.push([elem.name, `_subject[${i}]`]);
-          }
-          // WildcardPattern - no check or binding
-        }
-        condition = checks.join(' && ');
+        this.generateMatchPatternChecks(pattern, '_subject', checks, bindings);
+        condition = checks.join(' && ') || 'true';
         if (guard) {
           const guardExpr = this.visitExpression(guard);
           condition += ` && (${guardExpr})`;
@@ -2090,6 +2068,43 @@ export class CodeGenerator {
     }
 
     return { condition, bindings };
+  }
+
+  generateMatchPatternChecks(pattern, subjectPath, checks, bindings) {
+    if (pattern.type === 'ObjectDestructurePattern') {
+      for (const prop of pattern.properties) {
+        if (prop.value && prop.value.type === 'LiteralPattern') {
+          const val = typeof prop.value.value === 'string' ? `"${prop.value.value}"` : prop.value.value;
+          checks.push(`${subjectPath}?.${prop.key} === ${val}`);
+        } else if (prop.value && prop.value.type === 'BindingPattern') {
+          checks.push(`'${prop.key}' in (${subjectPath} || {})`);
+          bindings.push([prop.value.name, `${subjectPath}.${prop.key}`]);
+        } else if (prop.value && (prop.value.type === 'ObjectDestructurePattern' || prop.value.type === 'ArrayDestructurePattern')) {
+          checks.push(`${subjectPath}?.${prop.key} != null`);
+          this.generateMatchPatternChecks(prop.value, `${subjectPath}.${prop.key}`, checks, bindings);
+        } else {
+          // Shorthand: { data } - key exists, bind to same name
+          checks.push(`'${prop.key}' in (${subjectPath} || {})`);
+          bindings.push([prop.key, `${subjectPath}.${prop.key}`]);
+        }
+      }
+    } else if (pattern.type === 'ArrayDestructurePattern') {
+      checks.push(`Array.isArray(${subjectPath})`);
+      for (let i = 0; i < pattern.elements.length; i++) {
+        const elem = pattern.elements[i];
+        if (!elem) continue;
+        if (elem.type === 'LiteralPattern') {
+          const val = typeof elem.value === 'string' ? `"${elem.value}"` : elem.value;
+          checks.push(`${subjectPath}[${i}] === ${val}`);
+        } else if (elem.type === 'BindingPattern') {
+          bindings.push([elem.name, `${subjectPath}[${i}]`]);
+        } else if (elem.type === 'ObjectDestructurePattern' || elem.type === 'ArrayDestructurePattern') {
+          checks.push(`${subjectPath}[${i}] != null`);
+          this.generateMatchPatternChecks(elem, `${subjectPath}[${i}]`, checks, bindings);
+        }
+        // WildcardPattern - no check or binding
+      }
+    }
   }
 
   emitIsPatternCondition(pattern) {
